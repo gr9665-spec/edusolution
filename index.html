@@ -141,6 +141,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <input class="login-input" type="text" id="reg-name" placeholder="이름 (예: 상희경)">
       <input class="login-input" type="email" id="reg-email" placeholder="이메일">
       <input class="login-input" type="password" id="reg-pw" placeholder="비밀번호 (6자 이상)">
+      <select class="login-input" id="reg-rank" style="color:#333">
+        <option value="">직급 선택</option>
+        <option value="신입">신입</option>
+        <option value="주임">주임</option>
+        <option value="대리">대리</option>
+        <option value="과장">과장</option>
+      </select>
       <button class="login-btn" onclick="doRegister()">계정 만들기</button>
       <button class="login-btn secondary" onclick="hideRegister()">돌아가기</button>
     </div>
@@ -617,27 +624,53 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <!-- 관리자: 팀원 현황 탭 -->
 <div id="panel-admin" class="panel">
   <div style="margin-bottom:16px">
-    <div style="font-size:15px;font-weight:700;margin-bottom:4px">👑 팀 전체 현황</div>
-    <div style="font-size:13px;color:var(--text2)">조직장 전용 — 팀원별 매출·학습자 데이터를 통합 조회해요</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px">👑 팀 관리</div>
+    <div style="font-size:13px;color:var(--text2)">조직장 전용 — 팀원 직급 설정 및 전체 매출 현황</div>
   </div>
 
-  <div class="metrics" id="admin-metrics"></div>
-
-  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <select id="admin-year-filter" style="width:80px" onchange="renderAdminView()">
-      <option value="">전체년도</option>
-    </select>
-    <select id="admin-month-filter" style="width:80px" onchange="renderAdminView()">
-      <option value="">전체월</option>
-      <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
-      <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
-      <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
-      <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
-    </select>
-    <button class="btn btn-sm" onclick="loadAllMembersData()"><i class="ti ti-refresh"></i> 새로고침</button>
+  <!-- 탭 -->
+  <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">
+    <div id="atab-members" class="tab active" onclick="switchAdminTab('members')" style="border-bottom:2px solid var(--navy)">팀원 관리</div>
+    <div id="atab-stats" class="tab" onclick="switchAdminTab('stats')">매출 현황</div>
   </div>
 
-  <div id="admin-members"></div>
+  <!-- 팀원 관리 -->
+  <div id="admin-tab-members">
+    <div class="metrics" id="admin-member-metrics"></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr>
+          <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:left">이름</th>
+          <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:left">이메일</th>
+          <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">직급</th>
+          <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">학습자</th>
+          <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">가입일</th>
+          <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">관리</th>
+        </tr></thead>
+        <tbody id="admin-member-tbody"></tbody>
+      </table>
+    </div>
+    <div id="admin-member-empty" class="empty" style="display:none"><i class="ti ti-users"></i>팀원 데이터 없음 — 새로고침을 눌러주세요</div>
+  </div>
+
+  <!-- 매출 현황 -->
+  <div id="admin-tab-stats" style="display:none">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+      <select id="admin-year-filter" style="width:80px" onchange="renderAdminStats()">
+        <option value="">전체년도</option>
+      </select>
+      <select id="admin-month-filter" style="width:80px" onchange="renderAdminStats()">
+        <option value="">전체월</option>
+        <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
+        <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
+        <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
+        <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+      </select>
+      <button class="btn btn-sm" onclick="loadAllMembersData()"><i class="ti ti-refresh"></i> 새로고침</button>
+    </div>
+    <div class="metrics" id="admin-metrics"></div>
+    <div id="admin-members"></div>
+  </div>
 </div>
 </div><!-- .app -->
 
@@ -898,13 +931,15 @@ const FIREBASE_CONFIG = {
   appId:             "1:671414743520:web:5e445c99617b171abafb85"
 };
 // ★★★ 조직장 이메일 — 본인 이메일로 교체하세요 ★★★
-const ADMIN_EMAIL = "gr9665@gmail.com";
+const ADMIN_EMAIL = "admin@example.com";
 // ════════════════════════════════════════════════════════
 
 // Firebase 초기화
 let fbApp, fbAuth, fbDb;
 let currentUser = null;
 let isAdmin = false;
+let currentUserRank = '주임';
+let DEFAULT_REWARDS_CURRENT = null;
 let allMembersData = {}; // {uid: {name, email, learners, schedules, ...}}
 
 function initFirebase(){
@@ -961,20 +996,20 @@ function doRegister(){
   const name=document.getElementById('reg-name').value.trim();
   const email=document.getElementById('reg-email').value.trim();
   const pw=document.getElementById('reg-pw').value;
+  const rank=document.getElementById('reg-rank').value;
   const errEl=document.getElementById('login-error');
   errEl.textContent='';
   if(!name||!email||!pw){errEl.textContent='모든 항목을 입력해주세요';return;}
+  if(!rank){errEl.textContent='직급을 선택해주세요';return;}
   if(pw.length<6){errEl.textContent='비밀번호는 6자 이상이어야 해요';return;}
   fbAuth.createUserWithEmailAndPassword(email,pw)
     .then(cred=>{
-      // 이름 저장
       return fbDb.collection('users').doc(cred.user.uid).set({
-        name, email, createdAt: new Date().toISOString(), role:'member'
+        name, email, rank, createdAt:new Date().toISOString(), role:'member', approved:false
       });
     })
     .catch(e=>{
-      errEl.textContent=e.code==='auth/email-already-in-use'
-        ?'이미 사용 중인 이메일이에요':e.message;
+      errEl.textContent=e.code==='auth/email-already-in-use'?'이미 사용 중인 이메일이에요':e.message;
     });
 }
 
@@ -993,23 +1028,31 @@ async function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.querySelector('.app').style.display='block';
 
-  // 상단 유저 정보 업데이트
   if(currentUser){
-    const userDoc = await fbDb.collection('users').doc(currentUser.uid).get().catch(()=>null);
-    const userName = userDoc?.data()?.name || currentUser.email.split('@')[0];
+    const userDoc=await fbDb.collection('users').doc(currentUser.uid).get().catch(()=>null);
+    const udata=userDoc?.data()||{};
+    const userName=udata.name||currentUser.email.split('@')[0];
+    const rank=udata.rank||'';
+    const rankColor={신입:'#6c757d',주임:'#1a5fa8',대리:'#2e6e10',과장:'#854F0B'}[rank]||'#666';
+
     document.getElementById('user-badge').innerHTML=
       `<i class="ti ti-user" style="font-size:12px"></i> ${userName}
+       ${rank?`<span style="font-size:11px;background:${rankColor}22;color:${rankColor};border:1px solid ${rankColor}44;border-radius:99px;padding:1px 7px;margin-left:3px">${rank}</span>`:''}
        ${isAdmin?'<span class="admin-badge">👑 조직장</span>':''}`;
 
     // 로그아웃 버튼
-    const logoutBtn=document.createElement('button');
-    logoutBtn.className='btn-report';
-    logoutBtn.innerHTML='<i class="ti ti-logout" style="font-size:12px"></i> 로그아웃';
-    logoutBtn.onclick=doLogout;
-    document.getElementById('user-badge').after(logoutBtn);
+    const existing=document.getElementById('logout-btn');
+    if(!existing){
+      const logoutBtn=document.createElement('button');
+      logoutBtn.id='logout-btn';
+      logoutBtn.className='btn-report';
+      logoutBtn.innerHTML='<i class="ti ti-logout" style="font-size:12px"></i> 로그아웃';
+      logoutBtn.onclick=doLogout;
+      document.getElementById('user-badge').after(logoutBtn);
+    }
   }
 
-  // 관리자 탭 추가
+  // 관리자 탭
   if(isAdmin){
     const tabs=document.querySelector('.tabs');
     if(!tabs.querySelector('[data-tab="admin"]')){
@@ -1030,16 +1073,30 @@ async function loadUserData(){
   if(!currentUser||!fbDb) return;
   const uid=currentUser.uid;
   try {
+    // 유저 프로필 (직급 포함)
+    const userDoc=await fbDb.collection('users').doc(uid).get();
+    if(userDoc.exists){
+      const u=userDoc.data();
+      currentUserRank=u.rank||'주임';
+      // 직급별 수당 기본값 적용 (유저가 별도 커스텀 안 했을 경우)
+      if(RANK_REWARDS[currentUserRank]) {
+        DEFAULT_REWARDS_CURRENT = Object.assign({}, RANK_REWARDS[currentUserRank]);
+      }
+    }
     const doc=await fbDb.collection('userData').doc(uid).get();
     if(doc.exists){
       const d=doc.data();
-      if(d.learners)   learners=d.learners;
-      if(d.schedules)  schedules=d.schedules;
+      if(d.learners)    learners=d.learners;
+      if(d.schedules)   schedules=d.schedules;
       if(d.mktActivities) mktActivities=d.mktActivities;
-      if(d.mktGoals)   mktGoals=d.mktGoals;
-      if(d.rewardTable) rewardTable=d.rewardTable;
-      if(d.todos)      todos=d.todos;
-      if(d.plans)      plans=d.plans;
+      if(d.mktGoals)    mktGoals=d.mktGoals;
+      // 수당 테이블: 커스텀 저장값 있으면 사용, 없으면 직급 기본값
+      rewardTable = d.rewardTable || Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
+      if(d.todos)  todos=d.todos;
+      if(d.plans)  plans=d.plans;
+    } else {
+      // 첫 로그인 — 직급 기본값 적용
+      rewardTable = Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
     }
   } catch(e){ console.warn('데이터 로드 실패, 로컬 사용:', e); }
 }
@@ -1099,92 +1156,189 @@ async function loadAllMembersData(){
       };
     });
 
-    renderAdminView();
+    renderAdminMembers();
+    renderAdminStats();
   } catch(e){
     adminEl.innerHTML=`<div class="notice" style="background:var(--red-bg);border-color:var(--red)"><i class="ti ti-alert-circle"></i> 데이터 로드 실패: ${e.message}</div>`;
   }
 }
 
-function renderAdminView(){
+function switchAdminTab(tab){
+  ['members','stats'].forEach(t=>{
+    document.getElementById(`atab-${t}`).classList.toggle('active',t===tab);
+    document.getElementById(`atab-${t}`).style.borderBottom=t===tab?'2px solid var(--navy)':'2px solid transparent';
+    document.getElementById(`admin-tab-${t}`).style.display=t===tab?'block':'none';
+  });
+  if(tab==='stats') renderAdminStats();
+  if(tab==='members') renderAdminMembers();
+}
+
+function renderAdminMembers(){
+  const members=Object.values(allMembersData);
+  const tbody=document.getElementById('admin-member-tbody');
+  const empty=document.getElementById('admin-member-empty');
+
+  // 지표
+  document.getElementById('admin-member-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">전체 팀원</div><div class="metric-val">${members.length}</div><div class="metric-sub">명</div></div>
+    <div class="metric"><div class="metric-label">신입</div><div class="metric-val">${members.filter(m=>m.rank==='신입').length}</div><div class="metric-sub">명</div></div>
+    <div class="metric"><div class="metric-label">주임</div><div class="metric-val">${members.filter(m=>m.rank==='주임').length}</div><div class="metric-sub">명</div></div>
+    <div class="metric"><div class="metric-label">대리 이상</div><div class="metric-val">${members.filter(m=>m.rank==='대리'||m.rank==='과장').length}</div><div class="metric-sub">명</div></div>
+  `;
+
+  if(!members.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  const rankColor={신입:'#6c757d',주임:'#1a5fa8',대리:'#2e6e10',과장:'#854F0B'};
+  tbody.innerHTML=members.map(m=>{
+    const learnerCount=(m.learners||[]).length;
+    const rc=rankColor[m.rank]||'#666';
+    return `<tr>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:600">${m.name||'-'}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)">${m.email||'-'}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
+        <select style="font-size:12px;padding:3px 7px;border-radius:99px;border:1px solid ${rc}44;background:${rc}11;color:${rc};font-weight:600;cursor:pointer"
+          onchange="updateMemberRank('${m.uid}',this.value)">
+          ${['신입','주임','대리','과장'].map(r=>`<option value="${r}" ${m.rank===r?'selected':''}>${r}</option>`).join('')}
+        </select>
+      </td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
+        <span class="pill pill-blue">${learnerCount}명</span>
+      </td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;font-size:12px;color:var(--text2)">${(m.createdAt||'').split('T')[0]||'-'}</td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
+        <button class="btn btn-sm" style="font-size:11px" onclick="viewMemberDetail('${m.uid}')"><i class="ti ti-eye"></i> 상세</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function updateMemberRank(uid, newRank){
+  if(!fbDb) return;
+  try {
+    await fbDb.collection('users').doc(uid).update({rank: newRank});
+    allMembersData[uid].rank=newRank;
+    renderAdminMembers();
+    // 해당 유저의 수당 테이블도 직급에 맞게 업데이트 (유저 동의 하에)
+    const rankRewards=RANK_REWARDS[newRank];
+    if(rankRewards){
+      await fbDb.collection('userData').doc(uid).set({rewardTable:rankRewards},{merge:true});
+    }
+    alert(`${allMembersData[uid].name||uid}의 직급이 ${newRank}(으)로 변경됐어요.\n수당 테이블도 ${newRank} 기준으로 업데이트됐어요.`);
+  } catch(e){ alert('변경 실패: '+e.message); }
+}
+
+function viewMemberDetail(uid){
+  const m=allMembersData[uid];
+  if(!m){alert('데이터 없음');return;}
+  const learners=m.learners||[];
+  const totalSales=learners.reduce((a,l)=>a+(l.total||0),0);
+  const totalReward=learners.reduce((a,l)=>a+(l.reward||0),0);
+  alert(`[ ${m.name||'-'} (${m.rank||'-'}) ]\n이메일: ${m.email||'-'}\n학습자: ${learners.length}명\n총 매출: ${Math.round(totalSales/10000)}만원\n총 수당: ${Math.round(totalReward/10000)}만원\n마지막 업데이트: ${(m.lastUpdated||'').split('T')[0]||'-'}`);
+}
+
+function renderAdminStats(){
   const yearFilter=document.getElementById('admin-year-filter')?.value||'';
   const monthFilter=document.getElementById('admin-month-filter')?.value||'';
-
-  // 년도 필터 옵션 채우기
   const years=new Set();
   Object.values(allMembersData).forEach(m=>{
     (m.learners||[]).forEach(l=>{ if(l.year) years.add(String(l.year)); });
   });
   const yrSel=document.getElementById('admin-year-filter');
   if(yrSel && yrSel.options.length<=1){
-    [...years].sort().reverse().forEach(y=>{ const o=document.createElement('option'); o.value=y;o.textContent=y+'년';yrSel.appendChild(o); });
+    [...years].sort().reverse().forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=y+'년';yrSel.appendChild(o);});
   }
 
-  let totalLearners=0, totalSales=0, totalReward=0;
-  const memberCards=Object.values(allMembersData).map(m=>{
-    const mLearners=(m.learners||[]).filter(l=>{
+  let totalLearners=0,totalSales=0,totalReward=0;
+  const cards=Object.values(allMembersData).map(m=>{
+    const ml=(m.learners||[]).filter(l=>{
       const yr=yearFilter?String(l.year||'')===yearFilter:true;
       const mo=monthFilter?String(l.month||'')===monthFilter:true;
       return yr&&mo;
     });
-    const mSales=mLearners.reduce((a,l)=>a+(l.total||0),0);
-    const mReward=mLearners.reduce((a,l)=>a+(l.reward||0),0);
-    const mNew=mLearners.filter(l=>l.type==='신규').length;
-    totalLearners+=mLearners.length;
-    totalSales+=mSales;
-    totalReward+=mReward;
-
-    return `<div class="card" style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    const ms=ml.reduce((a,l)=>a+(l.total||0),0);
+    const mr=ml.reduce((a,l)=>a+(l.reward||0),0);
+    totalLearners+=ml.length; totalSales+=ms; totalReward+=mr;
+    return `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div>
-          <div style="font-size:15px;font-weight:700">${m.name||m.email||'(이름없음)'}</div>
-          <div style="font-size:12px;color:var(--text2)">${m.email||''} · 마지막 업데이트: ${m.lastUpdated?m.lastUpdated.split('T')[0]:'-'}</div>
+          <strong style="font-size:14px">${m.name||m.email||'-'}</strong>
+          <span style="font-size:12px;color:var(--text2);margin-left:8px">${m.rank||''}</span>
         </div>
-        <span class="pill pill-blue">${mLearners.length}명</span>
+        <span class="pill pill-blue">${ml.length}명</span>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
-        <div style="background:var(--bg2);border-radius:var(--r);padding:10px;text-align:center">
-          <div style="font-size:11px;color:var(--text2);margin-bottom:3px">학습자</div>
-          <div style="font-size:18px;font-weight:700;color:var(--navy)">${mLearners.length}</div>
-        </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         <div style="background:var(--bg2);border-radius:var(--r);padding:10px;text-align:center">
           <div style="font-size:11px;color:var(--text2);margin-bottom:3px">총 매출</div>
-          <div style="font-size:18px;font-weight:700;color:var(--navy)">${Math.round(mSales/10000)}만</div>
+          <div style="font-size:16px;font-weight:700;color:var(--navy)">${Math.round(ms/10000)}만</div>
         </div>
         <div style="background:var(--green-bg);border-radius:var(--r);padding:10px;text-align:center">
           <div style="font-size:11px;color:var(--green);margin-bottom:3px">수당</div>
-          <div style="font-size:18px;font-weight:700;color:var(--green)">${Math.round(mReward/10000)}만</div>
+          <div style="font-size:16px;font-weight:700;color:var(--green)">${Math.round(mr/10000)}만</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r);padding:10px;text-align:center">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:3px">신규</div>
+          <div style="font-size:16px;font-weight:700;color:var(--navy)">${ml.filter(l=>l.type==='신규').length}명</div>
         </div>
       </div>
-      ${mLearners.length>0?`
-      <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text2)">최근 학습자</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${mLearners.slice(0,8).map(l=>`
-          <span style="font-size:11px;padding:2px 8px;background:var(--bg2);border-radius:99px;border:1px solid var(--border)">
-            ${l.name} <span style="color:var(--text3)">${l.edu||''}</span>
-          </span>`).join('')}
-        ${mLearners.length>8?`<span style="font-size:11px;color:var(--text2);padding:2px 6px">+${mLearners.length-8}명</span>`:''}
-      </div>`:''}
     </div>`;
   });
 
-  // 전체 합산 지표
   document.getElementById('admin-metrics').innerHTML=`
     <div class="metric"><div class="metric-label">팀 전체 학습자</div><div class="metric-val">${totalLearners}</div><div class="metric-sub">명</div></div>
     <div class="metric"><div class="metric-label">팀 전체 매출</div><div class="metric-val">${Math.round(totalSales/10000)}</div><div class="metric-sub">만원</div></div>
     <div class="metric"><div class="metric-label">팀 전체 수당</div><div class="metric-val">${Math.round(totalReward/10000)}</div><div class="metric-sub">만원 세전</div></div>
     <div class="metric"><div class="metric-label">팀원 수</div><div class="metric-val">${Object.keys(allMembersData).length}</div><div class="metric-sub">명</div></div>
   `;
-
-  document.getElementById('admin-members').innerHTML=
-    memberCards.length?memberCards.join('')
-    :'<div class="empty"><i class="ti ti-users"></i>팀원 데이터가 없어요. 새로고침을 눌러주세요</div>';
+  document.getElementById('admin-members').innerHTML=cards.length?cards.join('')
+    :'<div class="empty"><i class="ti ti-users"></i>데이터가 없어요. 새로고침을 눌러주세요</div>';
 }
+
+// 기존 renderAdminView는 stats 탭으로 연결
+function renderAdminView(){ renderAdminStats(); }
 
 // 앱 진입점
 initFirebase();
 
 
-// ── 기본 수당 테이블 (상희경 주임 기준) ──────────────────────────────
+// ── 직급별 수당 테이블 ────────────────────────────────────────────────
+const RANK_REWARDS = {
+  '신입': {
+    'A20':2800,'A22.5':4100,'A25':5100,'A27.5':6100,'A30':7400,'A32.5':8200,'A35':9100,'A40':11100,'A50':14500,'A60':16500,'A70':18800,
+    'B20':3000,'B22.5':4300,'B25':5800,'B27.5':6800,'B30':8100,'B32.5':8900,'B35':9800,'B40':11800,'B50':15200,'B60':17200,'B70':19500,
+    'C17.5':2400,'C20':3700,'C22.5':5000,'C25':6000,'C27.5':7000,'C30':8300,'C32.5':9100,'C35':10000,'C40':12000,'C50':15400,'C60':17400,'C70':19700,
+    'D17.5':2600,'D20':3900,'D22.5':5200,'D25':6200,'D27.5':7200,'D30':8500,'D32.5':9300,'D35':10200,'D40':12200,'D50':15600,'D60':17600,'D70':19900,
+    '아뱅40':4300,'아뱅50':6600,
+  },
+  '주임': {
+    'A20':4200,'A22.5':6200,'A25':7700,'A27.5':9200,'A30':11200,'A32.5':12400,'A35':13700,'A40':16700,'A50':21700,'A60':24800,'A70':28300,
+    'B20':5200,'B22.5':7200,'B25':8700,'B27.5':10200,'B30':12200,'B32.5':13400,'B35':14700,'B40':17700,'B50':22700,'B60':25700,'B70':29200,
+    'C17.5':3600,'C20':5600,'C22.5':7600,'C25':9100,'C27.5':10600,'C30':12600,'C32.5':13800,'C35':15100,'C40':18100,'C50':23100,'C60':26100,'C70':29600,
+    'D17.5':3900,'D20':5900,'D22.5':7900,'D25':9400,'D27.5':10900,'D30':12900,'D32.5':14100,'D35':15400,'D40':18400,'D50':23400,'D60':26400,'D70':29900,
+    '아뱅40':6400,'아뱅50':9900,
+    '서대10':4000,'서대11':6000,'서대12':8000,'서대13':10000,'서대14':12000,'서대15':14000,'서대16':16000,'서대17':18000,'서대18':20000,'서대19':22000,'서대20':24000,'서대25':34000,'서대30':40000,
+    '숭전재50':11000,
+  },
+  '대리': {
+    'A20':5600,'A22.5':8200,'A25':10200,'A27.5':12200,'A30':14800,'A32.5':16400,'A35':18100,'A40':22100,'A50':28800,'A60':33000,'A70':37600,
+    'B20':6000,'B22.5':8600,'B25':10600,'B27.5':12600,'B30':15200,'B32.5':16800,'B35':18500,'B40':22500,'B50':29200,'B60':33400,'B70':38000,
+    'C17.5':4800,'C20':7400,'C22.5':10000,'C25':12000,'C27.5':14000,'C30':16600,'C32.5':18200,'C35':20000,'C40':24000,'C50':30800,'C60':34800,'C70':39400,
+    'D17.5':5200,'D20':7800,'D22.5':10400,'D25':12400,'D27.5':14400,'D30':17000,'D32.5':18600,'D35':20400,'D40':24400,'D50':31200,'D60':35200,'D70':39800,
+    '아뱅40':8600,'아뱅50':13200,
+    '서대10':6000,'서대11':9000,'서대12':12000,'서대13':15000,'서대14':18000,'서대15':21000,'서대16':24000,'서대17':27000,'서대18':30000,'서대19':33000,'서대20':36000,'서대25':51000,'서대30':60000,
+    '숭전재50':16500,
+  },
+  '과장': {
+    'A20':7000,'A22.5':10300,'A25':12800,'A27.5':15300,'A30':18500,'A32.5':20500,'A35':22600,'A40':27600,'A50':36000,'A60':41300,'A70':47000,
+    'B20':7500,'B22.5':10800,'B25':13300,'B27.5':15800,'B30':19000,'B32.5':21000,'B35':23100,'B40':28100,'B50':36500,'B60':41800,'B70':47500,
+    'C17.5':6000,'C20':9300,'C22.5':12500,'C25':15000,'C27.5':17500,'C30':20800,'C32.5':22800,'C35':25000,'C40':30000,'C50':38500,'C60':43500,'C70':49300,
+    'D17.5':6500,'D20':9800,'D22.5':13000,'D25':15500,'D27.5':18000,'D30':21300,'D32.5':23300,'D35':25500,'D40':30500,'D50':39000,'D60':44000,'D70':49800,
+    '아뱅40':10800,'아뱅50':16500,
+    '서대10':7500,'서대11':11250,'서대12':15000,'서대13':18750,'서대14':22500,'서대15':26250,'서대16':30000,'서대17':33750,'서대18':37500,'서대19':41250,'서대20':45000,'서대25':63750,'서대30':75000,
+    '숭전재50':20625,
+  }
+};
+
+
 const DEFAULT_REWARDS = {
   'A20':4200,'A22.5':6200,'A25':7700,'A27.5':9200,'A30':11200,'A32.5':12400,'A35':13700,'A40':16700,'A50':21700,'A60':24800,'A70':28300,
   'B20':5200,'B22.5':7200,'B25':8700,'B27.5':10200,'B30':12200,'B32.5':13400,'B35':14700,'B40':17700,'B50':22700,'B60':25700,'B70':29200,
