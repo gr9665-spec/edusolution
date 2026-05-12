@@ -468,11 +468,31 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 
 <!-- 수당 세팅 -->
 <div id="panel-settings" class="panel">
+  <!-- 내 직급 설정 -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px"><i class="ti ti-user-check"></i> 내 직급 설정</div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="fg" style="width:auto">
+        <label style="font-size:11px;font-weight:600;color:var(--text2)">현재 직급</label>
+        <select id="my-rank-select" style="width:120px;font-size:14px;font-weight:600">
+          <option value="신입">신입</option>
+          <option value="주임">주임</option>
+          <option value="대리">대리</option>
+          <option value="과장">과장</option>
+        </select>
+      </div>
+      <div style="margin-top:14px">
+        <button class="btn btn-primary" onclick="saveMyRank()"><i class="ti ti-device-floppy"></i> 직급 저장</button>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text2)">저장하면 직급에 맞는 수당 테이블이 자동 적용돼요</div>
+    </div>
+    <div id="rank-saved" style="display:none;margin-top:8px;font-size:13px;color:var(--green)">✓ 직급이 저장됐어요. 수당 테이블이 업데이트됐어요!</div>
+  </div>
+
   <div style="margin-bottom:16px">
     <div style="font-size:15px;font-weight:700;margin-bottom:4px">수당 단가 세팅</div>
-    <div style="font-size:13px;color:var(--text2)">구분코드별 학점당 수당을 직접 수정할 수 있어요. 변경 후 저장하면 수당 계산에 즉시 반영됩니다.</div>
+    <div style="font-size:13px;color:var(--text2)">구분코드별 학점당 수당을 직접 수정할 수 있어요. 직급 변경 시 자동으로 해당 직급 수당으로 초기화돼요.</div>
   </div>
-  <div class="notice"><i class="ti ti-bulb"></i> 수당은 직급마다 다릅니다. 지금은 내 수당 기준으로 세팅하세요. 나중에 팀원 버전으로 확장할 수 있어요.</div>
   <div id="reward-settings-container"></div>
   <div style="display:flex;gap:8px;margin-top:16px">
     <button class="btn btn-primary" onclick="saveRewardSettings()"><i class="ti ti-device-floppy"></i>저장</button>
@@ -1908,6 +1928,10 @@ const SPECIAL_REWARD_INFO = [
 ];
 
 function renderRewardSettings(){
+  // 현재 직급 표시
+  const rankSel=document.getElementById('my-rank-select');
+  if(rankSel) rankSel.value=currentUserRank||'주임';
+
   const c=document.getElementById('reward-settings-container');
   c.innerHTML=REWARD_GROUPS.map(g=>`
     <div class="reward-group">
@@ -1937,12 +1961,42 @@ function saveRewardSettings(){
   setTimeout(()=>{document.getElementById('settings-saved').style.display='none';},2000);
 }
 
+async function saveMyRank(){
+  const rank=document.getElementById('my-rank-select').value;
+  if(!rank) return;
+  currentUserRank=rank;
+  // 직급 수당 테이블 적용
+  if(RANK_REWARDS[rank]){
+    rewardTable=Object.assign({},RANK_REWARDS[rank]);
+  }
+  // Firebase에 저장
+  if(currentUser&&fbDb){
+    try{
+      await fbDb.collection('users').doc(currentUser.uid).update({rank});
+      await fbDb.collection('userData').doc(currentUser.uid).set({rewardTable},{merge:true});
+    }catch(e){console.warn('직급 저장 실패:',e);}
+  }
+  save();
+  // 뱃지 업데이트
+  const rankColor={신입:'#6c757d',주임:'#1a5fa8',대리:'#2e6e10',과장:'#854F0B'}[rank]||'#666';
+  const badge=document.getElementById('user-badge');
+  if(badge){
+    const nameMatch=badge.textContent.match(/[\uAC00-\uD7A3a-zA-Z\s]+/);
+    const name=nameMatch?nameMatch[0].trim():'';
+    badge.innerHTML=`<i class="ti ti-user" style="font-size:12px"></i> ${name} <span style="font-size:11px;background:${rankColor}22;color:${rankColor};border:1px solid ${rankColor}44;border-radius:99px;padding:1px 7px;margin-left:3px">${rank}</span>${isAdmin?'<span class="admin-badge">👑 조직장</span>':''}`;
+  }
+  // 수당 세팅 화면 새로고침
+  renderRewardSettings();
+  const el=document.getElementById('rank-saved');
+  if(el){el.style.display='block';setTimeout(()=>el.style.display='none',2500);}
+}
 function resetRewardSettings(){
   if(!confirm('기본값으로 초기화할까요?'))return;
-  rewardTable=Object.assign({},DEFAULT_REWARDS);
+  const rank=currentUserRank||'주임';
+  rewardTable=Object.assign({},RANK_REWARDS[rank]||DEFAULT_REWARDS);
   save();renderRewardSettings();
   document.getElementById('settings-saved').style.display='block';
-  document.getElementById('settings-saved').textContent='✓ 초기화되었습니다';
+  document.getElementById('settings-saved').textContent=`✓ ${rank} 기준으로 초기화됐어요`;
   setTimeout(()=>{document.getElementById('settings-saved').style.display='none';document.getElementById('settings-saved').textContent='✓ 저장되었습니다';},2000);
 }
 
