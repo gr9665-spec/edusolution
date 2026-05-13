@@ -194,11 +194,27 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     </select>
     <span style="font-size:12px;color:var(--text2)">기준</span>
   </div>
-  <div class="metrics">
-    <div class="metric"><div class="metric-label" id="lb-new">이번달 신규</div><div class="metric-val" id="m-new">0</div><div class="metric-sub">명</div></div>
-    <div class="metric"><div class="metric-label" id="lb-sales">이번달 총 매출</div><div class="metric-val" id="m-sales">0</div><div class="metric-sub">만원</div></div>
-    <div class="metric"><div class="metric-label" id="lb-reward">예상 수당 (세전)</div><div class="metric-val" id="m-reward">0</div><div class="metric-sub">만원</div></div>
-    <div class="metric"><div class="metric-label">관리 중 학습자</div><div class="metric-val" id="m-total">0</div><div class="metric-sub">명 전체</div></div>
+  <div class="metrics" style="grid-template-columns:repeat(2,1fr)">
+    <div class="metric">
+      <div class="metric-label" id="lb-new-credit">이번달 신규 학점</div>
+      <div class="metric-val" id="m-new-credit">0</div>
+      <div class="metric-sub">학점 (신규만)</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label" id="lb-all-credit">이번달 전체 학점</div>
+      <div class="metric-val" id="m-all-credit">0</div>
+      <div class="metric-sub">학점 (신규+기존)</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label" id="lb-new-sales">이번달 신규 매출</div>
+      <div class="metric-val" id="m-new-sales" style="font-size:18px">0</div>
+      <div class="metric-sub" id="m-new-sales-sub">원 (신규만)</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label" id="lb-all-sales">이번달 전체 매출</div>
+      <div class="metric-val" id="m-all-sales" style="font-size:18px">0</div>
+      <div class="metric-sub" id="m-all-sales-sub">원 (신규+기존)</div>
+    </div>
   </div>
 
   <!-- 투두 + 오늘 학사일정 -->
@@ -631,18 +647,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 
 <!-- 인쇄 모달 -->
 <div class="overlay" id="modal-plan-print">
-<div class="modal" style="max-width:780px">
+<div class="modal" style="max-width:860px;width:860px">
   <div class="modal-head">
     <h2><i class="ti ti-printer"></i> 플랜표 미리보기</h2>
     <button class="btn btn-icon" onclick="closeModal('modal-plan-print')"><i class="ti ti-x"></i></button>
   </div>
-  <!-- 뷰 전환 버튼 -->
-  <div style="display:flex;gap:6px;margin-bottom:10px">
-    <button id="btn-view-table" class="btn btn-primary btn-sm" onclick="switchPrintView('table')"><i class="ti ti-table"></i> 표 형식 (PC)</button>
-    <button id="btn-view-mobile" class="btn btn-sm" onclick="openMobilePlanPage()"><i class="ti ti-device-mobile"></i> 모바일 전체 캡처용 열기</button>
-  </div>
-  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);max-height:74vh;overflow-y:auto;margin-bottom:12px">
-    <div id="plan-print-content" style="padding:20px"></div>
+  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);max-height:74vh;overflow:auto;margin-bottom:12px">
+    <div id="plan-print-content" style="padding:20px;min-width:700px"></div>
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end">
     <button class="btn" onclick="closeModal('modal-plan-print')">닫기</button>
@@ -1682,14 +1693,23 @@ function renderDashboard(){
   });
 
   const lbl = isAllMonth ? `${selYear}년 전체` : `${selYear}년 ${selMonth}월`;
-  document.getElementById('lb-new').textContent = lbl+' 신규';
-  document.getElementById('lb-sales').textContent = lbl+' 총 매출';
-  document.getElementById('lb-reward').textContent = lbl+' 예상 수당';
+  ['lb-new-credit','lb-all-credit','lb-new-sales','lb-all-sales'].forEach((id,i)=>{
+    const labels=[lbl+' 신규학점', lbl+' 전체학점', lbl+' 신규매출', lbl+' 전체매출'];
+    document.getElementById(id).textContent=labels[i];
+  });
 
-  document.getElementById('m-new').textContent=filtered.filter(l=>l.type==='신규').length;
-  document.getElementById('m-sales').textContent=Math.round(filtered.reduce((a,l)=>a+(l.total||0),0)/10000);
-  document.getElementById('m-reward').textContent=Math.round(filtered.reduce((a,l)=>a+calcRewardForLearner(l),0)/10000);
-  document.getElementById('m-total').textContent=learners.length;
+  const newOnly = filtered.filter(l=>l.type==='신규');
+  const newCredit = newOnly.reduce((a,l)=>a+(parseInt(l.credit)||0),0);
+  const allCredit = filtered.reduce((a,l)=>a+(parseInt(l.credit)||0),0);
+  const newSales  = newOnly.reduce((a,l)=>a+(l.total||0),0);
+  const allSales  = filtered.reduce((a,l)=>a+(l.total||0),0);
+
+  document.getElementById('m-new-credit').textContent = newCredit;
+  document.getElementById('m-all-credit').textContent = allCredit;
+  document.getElementById('m-new-sales').textContent  = newSales.toLocaleString();
+  document.getElementById('m-all-sales').textContent  = allSales.toLocaleString();
+  document.getElementById('m-new-sales-sub').textContent = `원 (신규 ${newOnly.length}명)`;
+  document.getElementById('m-all-sales-sub').textContent = `원 (전체 ${filtered.length}명)`;
 
   // 오늘 날짜 표시
   const todayStr=now.toISOString().split('T')[0];
@@ -3100,16 +3120,9 @@ function saveSubjModal(){
 function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; LS.set('hk_plans',plans); saveToFirebase(); }
 
 // ── 인쇄 미리보기 ────────────────────────────────────────────────
-function openPrintPreview(pid, skipReset){
+function openPrintPreview(pid){
   const p=plans[pid||curPid]; if(!p) return;
   _curPrintPid=pid||curPid;
-  // 표 형식 버튼 초기화
-  if(!skipReset){
-    const t=document.getElementById('btn-view-table');
-    const m=document.getElementById('btn-view-mobile');
-    if(t) t.className='btn btn-primary btn-sm';
-    if(m) m.className='btn btn-sm';
-  }
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const BL=PLAN_BLUE, LBL=PLAN_LBLUE, YL=PLAN_YELLOW, DYL=PLAN_DYELLOW, RD=PLAN_RED;
