@@ -2035,9 +2035,9 @@ function renderSales(){
   const newCount=filtered.filter(l=>l.type==='신규').length;
   document.getElementById('sales-metrics').innerHTML=`
     <div class="metric"><div class="metric-label">총 학생 수</div><div class="metric-val">${filtered.length}</div><div class="metric-sub">명</div></div>
-    <div class="metric"><div class="metric-label">총 매출</div><div class="metric-val">${Math.round(totalSales/10000)}</div><div class="metric-sub">만원</div></div>
-    <div class="metric"><div class="metric-label">시간제 수당</div><div class="metric-val">${Math.round(totalReward/10000)}</div><div class="metric-sub">만원 세전</div></div>
-    <div class="metric"><div class="metric-label">신규 매출</div><div class="metric-val">${Math.round(newSales/10000)}</div><div class="metric-sub">만원/${newCount}명</div></div>`;
+    <div class="metric"><div class="metric-label">총 매출</div><div class="metric-val" style="font-size:18px">${totalSales.toLocaleString()}</div><div class="metric-sub">원</div></div>
+    <div class="metric"><div class="metric-label">시간제 수당</div><div class="metric-val" style="font-size:18px">${Math.floor(totalReward).toLocaleString()}</div><div class="metric-sub">원 세전</div></div>
+    <div class="metric"><div class="metric-label">신규 매출</div><div class="metric-val" style="font-size:18px">${newSales.toLocaleString()}</div><div class="metric-sub">원 / ${newCount}명</div></div>`;
   const tbody=document.getElementById('sales-tbody');
   const empty=document.getElementById('sales-empty');
   if(!filtered.length){tbody.innerHTML='';empty.style.display='block';return;}
