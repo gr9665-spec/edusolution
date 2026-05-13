@@ -2993,7 +2993,16 @@ function openPrintPreview(pid){
   const BL=PLAN_BLUE, LBL=PLAN_LBLUE, YL=PLAN_YELLOW, DYL=PLAN_DYELLOW, RD=PLAN_RED;
   const th=(s,c,bg)=>`<th style="padding:6px 4px;border:1px solid #aaa;text-align:center;font-size:11px;background:${bg||LBL};color:${c||'#222'}">${s}</th>`;
 
-  // 보유학점 행
+  // 보유학점 총합 계산 (owned specials 포함)
+  const oSpecReq=(p.owned.specials||[]).filter(sp=>sp.section==='req').reduce((a,sp)=>a+sumC(sp.rows),0);
+  const oSpecElec=(p.owned.specials||[]).filter(sp=>sp.section==='elec').reduce((a,sp)=>a+sumC(sp.rows),0);
+  const oSpecGen=(p.owned.specials||[]).filter(sp=>sp.section==='gen').reduce((a,sp)=>a+sumC(sp.rows),0);
+  const oSpecLib=(p.owned.specials||[]).filter(sp=>sp.section==='lib').reduce((a,sp)=>a+sumC(sp.rows),0);
+  const tOR=t.ownReq+oSpecReq, tOE=t.ownElec+oSpecElec, tOG=t.ownGen+oSpecGen, tOL=t.ownLib+oSpecLib;
+  const tOAll=tOR+tOE+tOG+tOL;
+  const hasOwned = tOAll > 0;  // 보유학점 있는지 여부
+
+  // 보유학점 행 (owned specials 포함)
   const ownMax=Math.max(1,(p.owned.req||[]).length,(p.owned.elec||[]).length,(p.owned.gen||[]).length,(p.owned.lib||[]).length);
   let ownRows='';
   for(let i=0;i<ownMax;i++){
@@ -3001,49 +3010,74 @@ function openPrintPreview(pid){
     ownRows+=`<tr>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'전적대학교 학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc">${rq&&rq.subject?rq.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc">${el&&el.subject?el.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc">${gn&&gn.subject?gn.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc">${lb&&lb.subject?lb.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
     </tr>`;
   }
+  // owned specials (자격증/독학사 보유분)
+  (p.owned.specials||[]).forEach(sp=>{
+    const isCert=sp.type==='cert'; const label=isCert?'자격증':'독학사';
+    const sec=sp.section||'req';
+    const maxR=Math.max(1,(sp.rows||[]).length);
+    ownRows+=`<tr style="background:#f0f0e8"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">${label}</td></tr>`;
+    for(let i=0;i<maxR;i++){
+      const r=sp.rows&&sp.rows[i];
+      const credit=r&&r.credit?r.credit:'', subject=r&&r.subject?r.subject:'';
+      const cells={req:['',''],elec:['',''],gen:['',''],lib:['','']};
+      cells[sec]=[credit,subject];
+      ownRows+=`<tr>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f9f9f4">${cells.req[0]}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${cells.req[1]}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.elec[0]}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.elec[1]}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.gen[0]}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.gen[1]}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.lib[0]}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.lib[1]}</td>
+      </tr>`;
+    }
+  });
 
   // 이수계획 행
   let planRows='';
   p.semesters.forEach((sem)=>{
     const maxR=Math.max(1,(sem.req||[]).length,(sem.elec||[]).length,(sem.gen||[]).length,(sem.lib||[]).length);
     const semTot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
-    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700">
-      학기구분 &nbsp;&nbsp; 교육원: ${sem.edu||''} | 기수: ${sem.kisu||''} | 일자: ${sem.date||''}
+    // 학기구분 행 — 가운데 정렬
+    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
+      교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
     </td></tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i],el=sem.elec&&sem.elec[i],gn=sem.gen&&sem.gen[i],lb=sem.lib&&sem.lib[i];
       planRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f8f8f3">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;background:#f8f8f3">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${rq&&rq.subject?rq.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${lb&&lb.subject?lb.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
     planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700">취득학점</td>
       <td colspan="7" style="padding:5px 8px;font-weight:700;border:1px solid #ccc">${semTot}</td></tr>`;
   });
 
-  // 자격증/독학사 행
+  // 자격증/독학사 행 — 해당없음 제거, 헤더 가운데 정렬
   (p.specials||[]).forEach(sp=>{
     const isCert=sp.type==='cert';
     const label=isCert?'자격증':'독학사';
     const sec=sp.section||'req';
     const maxR=Math.max(1,(sp.rows||[]).length);
-    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700">${label}</td></tr>`;
+    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">${label}</td></tr>`;
     for(let i=0;i<maxR;i++){
       const r=sp.rows&&sp.rows[i];
       const credit=r&&r.credit?r.credit:'';
@@ -3053,23 +3087,26 @@ function openPrintPreview(pid){
       planRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#f8f8f3;color:${RD};font-weight:700">${cells.req[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;background:#f8f8f3">${cells.req[1]}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${cells.req[1]}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.elec[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${i===0&&isCert&&sec!=='elec'?(sp.elecNote||'해당없음'):cells.elec[1]}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.elec[1]||''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.gen[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${cells.gen[1]||''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.gen[1]||''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.lib[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${i===0&&isCert&&sec!=='lib'?(sp.libNote||'해당없음'):cells.lib[1]}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.lib[1]||''}</td>
       </tr>`;
     }
   });
 
+  // 이수학점에서 전공(전필+전선) 합산
+  const totMajor = t.totReq + t.totElec;
+
   const content=`<div style="font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px;color:#222">
-    <!-- 고객 정보 헤더 -->
+    <!-- 헤더 — 연락처(phone) 제외 -->
     <div style="background:${BL};color:#fff;border-radius:6px 6px 0 0;padding:12px 16px;margin-bottom:0;display:flex;align-items:center;justify-content:space-between">
       <div>
         <div style="font-size:17px;font-weight:700">${p.clientName||'플랜표'}</div>
-        <div style="font-size:11px;opacity:.75;margin-top:3px">${p.phone||''} &nbsp;·&nbsp; 상담일 ${p.counselDate||''}</div>
+        <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''}</div>
       </div>
       <div style="text-align:right;font-size:12px;opacity:.85">
         <div style="font-weight:700">${p.major==='기타'&&p.majorCustom?p.majorCustom:p.major} ${p.degree}</div>
@@ -3077,7 +3114,8 @@ function openPrintPreview(pid){
       </div>
     </div>
 
-    <!-- 보유학점 -->
+    <!-- 보유학점 — 0이면 전체 섹션 숨김 -->
+    ${hasOwned ? `
     <div style="text-align:center;font-weight:700;font-size:13px;background:${BL};color:#fff;padding:7px;letter-spacing:.15em;margin-top:14px;border-radius:3px 3px 0 0">▶ 보 유 학 점 ◀</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <thead><tr>
@@ -3087,17 +3125,17 @@ function openPrintPreview(pid){
       <tfoot>
         <tr style="background:${YL};font-weight:700">
           <td style="padding:6px;border:1px solid #aaa;text-align:center">소계</td>
-          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center;color:${RD}">전필 ${t.ownReq}</td>
-          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">전선 ${t.ownElec}</td>
-          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">일반 ${t.ownGen}</td>
-          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">교양 ${t.ownLib}</td>
+          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center;color:${RD}">전필 ${tOR}</td>
+          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">전선 ${tOE}</td>
+          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">일반 ${tOG}</td>
+          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">교양 ${tOL}</td>
         </tr>
         <tr style="background:${DYL};font-weight:700;font-size:13px">
           <td style="padding:7px;border:1px solid #aaa;text-align:center">총보유학점</td>
-          <td colspan="8" style="padding:7px;border:1px solid #aaa;text-align:center">${t.ownAll}</td>
+          <td colspan="8" style="padding:7px;border:1px solid #aaa;text-align:center">${tOAll}</td>
         </tr>
       </tfoot>
-    </table>
+    </table>` : ''}
 
     <!-- 이수계획 -->
     <div style="text-align:center;font-weight:700;font-size:13px;background:${BL};color:#fff;padding:7px;letter-spacing:.15em;margin-top:14px;border-radius:3px 3px 0 0">▶ 이 수 계 획 ◀</div>
@@ -3116,8 +3154,7 @@ function openPrintPreview(pid){
         </tr>
         <tr style="background:${PLAN_LRED};font-weight:700">
           <td style="padding:6px;border:1px solid #aaa;text-align:center">이수학점</td>
-          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center;color:${RD}">전필 ${t.totReq}</td>
-          <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">전선 ${t.totElec}</td>
+          <td colspan="4" style="padding:6px;border:1px solid #aaa;text-align:center;color:${RD}">전공 ${totMajor}학점</td>
           <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">일반 ${t.totGen}</td>
           <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">교양 ${t.totLib}</td>
         </tr>
@@ -3146,34 +3183,7 @@ function printPlan(){
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>플랜표</title>
     <style>*{box-sizing:border-box}body{margin:16px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px}@media print{body{margin:4mm}}</style>
-    
-  <!-- Firebase SDK -->
-    /* 로그인 화면 */
-    #login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2563b0 100%);
-      display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column}
-    #login-box{background:#fff;border-radius:16px;padding:36px 32px;width:min(380px,92vw);
-      box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
-    #login-box h1{font-size:20px;font-weight:700;color:#1e3a5f;margin-bottom:4px}
-    #login-box p{font-size:13px;color:#888;margin-bottom:24px}
-    .login-input{width:100%;padding:11px 14px;border:1px solid #ddd;border-radius:8px;
-      font-size:14px;margin-bottom:10px;box-sizing:border-box;font-family:inherit}
-    .login-input:focus{outline:none;border-color:#1e3a5f}
-    .login-btn{width:100%;padding:12px;background:#1e3a5f;color:#fff;border:none;
-      border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:4px;font-family:inherit}
-    .login-btn:hover{background:#16305a}
-    .login-btn.secondary{background:#f0f0e8;color:#1e3a5f;margin-top:8px;font-size:13px;font-weight:500}
-    .login-btn.secondary:hover{background:#e0e0d8}
-    #login-error{color:#c0392b;font-size:12px;margin-top:8px;min-height:18px}
-    .login-divider{border:none;border-top:1px solid #eee;margin:16px 0}
-    /* 유저 뱃지 */
-    #user-info-bar{display:flex;align-items:center;gap:8px}
-    .admin-badge{background:#fff3cd;color:#856404;font-size:11px;padding:2px 8px;
-      border-radius:99px;font-weight:600;border:1px solid #ffc107}
-    /* 팀원 현황 (관리자 전용) */
-    #panel-admin{display:none}
-    #panel-admin.active{display:block}
-  </style>
-</head><body>${content}</body></html>`);
+    </head><body>${content}</body></html>`);
   w.document.close(); setTimeout(()=>w.print(),300);
 }
 
