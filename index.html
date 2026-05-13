@@ -1785,122 +1785,131 @@ function importScheduleFile(input){
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
 
-        // 헤더행 찾기 (기관이름 or 학생명 있는 행)
-        let hdrIdx = 0;
-        for(let i=0; i<Math.min(rows.length,5); i++){
-          const r = rows[i].map(v=>String(v||''));
-          if(r.some(v=>v.includes('학생명')||v.includes('기관'))){
-            hdrIdx = i; break;
+        // 헤더행 찾기
+        let hdrIdx=0;
+        for(let i=0;i<Math.min(rows.length,5);i++){
+          if(rows[i].map(v=>String(v||'')).some(v=>v.includes('학생명')||v.includes('기관'))){
+            hdrIdx=i; break;
           }
         }
-        const dataRows = rows.slice(hdrIdx+1);
+        const dataRows=rows.slice(hdrIdx+1);
+        const C={edu:0,kisu:5,start:6,name:9,quiz:17,disc:18,task:19,mid:20,final:21};
 
-        // col 인덱스 (0-based, 헤더 기준)
-        // col1=교육원, col6=기수, col7=개강일, col10=학생명
-        // col18=쪽지시험, col19=토론, col20=과제, col21=중간고사, col22=기말고사
-        const C = { edu:0, kisu:5, start:6, name:9,
-                    quiz:17, discussion:18, task:19, mid:20, final:21 };
+        const items=[];
+        let ts=Date.now();
 
-        const items = [];
-        let ts = Date.now();
-
-        // "4/22-4/28 22:59" → 시작일/종료일 파싱
-        const parseStart = (s) => {
-          if(!s) return '';
-          s = String(s).trim();
-          if(s.includes('종강일')) return '';
-          // 앞부분만 (- 이전)
-          const part = s.split('-')[0].trim().replace(/\s.*$/,'');
-          const slash = part.split('/');
-          if(slash.length >= 2){
-            const mm=parseInt(slash[0]), dd=parseInt(slash[1]);
-            if(!isNaN(mm)&&!isNaN(dd))
-              return `2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-          }
-          return '';
-        };
-        const parseEnd = (s) => {
-          if(!s) return '';
-          s = String(s).trim();
-          if(s.includes('종강일')) return '';
-          const parts = s.split('-');
-          if(parts.length < 2) return '';
-          // 마지막 부분 (시간 제거)
-          const end = parts[parts.length-1].trim().replace(/\s.*$/,'').replace(/\d{1,2}:\d{2}.*/,'').trim();
-          // 슬래시 있으면 MM/DD
-          if(end.includes('/')){
-            const slash = end.split('/');
-            const mm=parseInt(slash[0]), dd=parseInt(slash[1]);
-            if(!isNaN(mm)&&!isNaN(dd))
-              return `2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-          }
-          // 슬래시 없으면 DD만 → 시작 MM 사용
-          const startPart = parts[0].trim().replace(/\s.*$/,'');
-          const startSlash = startPart.split('/');
-          if(startSlash.length >= 1){
-            const mm=parseInt(startSlash[0]), dd=parseInt(end);
-            if(!isNaN(mm)&&!isNaN(dd))
-              return `2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-          }
-          return '';
-        };
-
-        dataRows.forEach(row => {
-          const name = String(row[C.name]||'').trim();
-          if(!name) return;
-
-          let edu = String(row[C.edu]||'').trim();
-          if(edu.includes('공동체')) edu = '하나원격';
-
-          const kisu = String(row[C.kisu]||'').trim();
-          const noteBase = [edu, kisu].filter(Boolean).join(' ');
-
-          // 개강일
-          let startDate = '';
-          const sr = row[C.start];
-          if(sr instanceof Date) startDate = sr.toISOString().split('T')[0];
-          else if(typeof sr==='number'&&sr>40000){
-            startDate = new Date((sr-25569)*86400000).toISOString().split('T')[0];
-          } else startDate = String(sr||'').trim().slice(0,10);
-
-          const quiz = String(row[C.quiz]||'').trim();
-          const disc = String(row[C.discussion]||'').trim();
-          const task = String(row[C.task]||'').trim();
-          const mid  = String(row[C.mid]||'').trim();
-          const fin  = String(row[C.final]||'').trim();
-
-          const add = (type, date, range='') => {
-            if(date&&date.length===10)
-              items.push({id:String(++ts), learnerName:name, type, date,
-                sent:'false', note: range?`${noteBase} | ${range}`:noteBase});
+        // 날짜 범위 파싱 — "4/22-4/28 22:59" → {start, end}
+        const parseRange=(s,year=2026)=>{
+          if(!s) return [];
+          s=String(s).trim();
+          if(s.includes('종강일')) return [];
+          // 시간 제거
+          const clean=s.replace(/\s*\d{1,2}:\d{2}.*?(?=\s|$)/g,'').replace(/\s*\d{1,2}시.*?(?=\s|$)/g,'').trim();
+          const toDate=(part)=>{
+            part=part.trim();
+            const slash=part.split('/');
+            if(slash.length>=2){
+              const mm=parseInt(slash[0]),dd=parseInt(slash[1]);
+              if(!isNaN(mm)&&!isNaN(dd))
+                return `${year}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+            }
+            return '';
+          };
+          const parseSingle=(seg)=>{
+            seg=seg.trim().replace(/\s+/g,' ');
+            const parts=seg.split('-').map(p=>p.trim()).filter(Boolean);
+            if(parts.length<2) return null;
+            // 마지막 part가 DD만인 경우 앞 MM 가져오기
+            const startDate=toDate(parts[0]);
+            let endStr=parts[parts.length-1];
+            let endDate='';
+            if(endStr.includes('/')){
+              endDate=toDate(endStr);
+            } else {
+              // DD만 있음 — 시작 월 사용
+              const mm=parts[0].split('/')[0];
+              endDate=toDate(mm+'/'+endStr);
+            }
+            return startDate&&endDate?{start:startDate,end:endDate}:null;
           };
 
-          add('개강일',       startDate);
-          add('쪽지시험',     parseStart(quiz),  quiz);
-          add('쪽지시험마감', parseEnd(quiz),    quiz);
-          add('토론',         parseStart(disc),  disc);
-          add('토론마감',     parseEnd(disc),    disc);
-          add('과제',         parseStart(task),  task);
-          add('과제마감',     parseEnd(task),    task);
-          add('중간고사',     parseStart(mid),   mid);
-          add('중간고사마감', parseEnd(mid),     mid);
-          add('기말고사',     parseStart(fin),   fin);
-          add('기말고사마감', parseEnd(fin),     fin);
+          // 1차/2차 패턴 처리
+          const results=[];
+          if(/\d차/.test(clean)){
+            // "1차 4/6-4/22 2차 5/4-5/20" 분리
+            const rounds=clean.split(/\d차/).filter(s=>s.trim());
+            rounds.forEach((seg,i)=>{
+              const r=parseSingle(seg);
+              if(r) results.push({...r, round:i+1});
+            });
+          } else {
+            const r=parseSingle(clean);
+            if(r) results.push({...r, round:0});
+          }
+          return results;
+        };
+
+        const add=(name,type,date,note,round)=>{
+          if(date&&date.length===10){
+            const label=round>0?`${type} ${round}차`:type;
+            items.push({id:String(++ts),learnerName:name,type:label,date,sent:'false',note});
+          }
+        };
+
+        dataRows.forEach(row=>{
+          const name=String(row[C.name]||'').trim();
+          if(!name) return;
+
+          let edu=String(row[C.edu]||'').trim();
+          if(edu.includes('공동체')) edu='하나원격';
+          const kisu=String(row[C.kisu]||'').trim();
+          const noteBase=[edu,kisu].filter(Boolean).join(' ');
+
+          // 개강일
+          let startDate='';
+          const sr=row[C.start];
+          if(sr instanceof Date) startDate=sr.toISOString().split('T')[0];
+          else if(typeof sr==='number'&&sr>40000)
+            startDate=new Date((sr-25569)*86400000).toISOString().split('T')[0];
+          else startDate=String(sr||'').trim().slice(0,10);
+          if(startDate&&startDate.length===10)
+            items.push({id:String(++ts),learnerName:name,type:'개강일',date:startDate,sent:'false',note:noteBase});
+
+          // 각 항목 — 1차/2차 분리 파싱
+          const fields=[
+            {col:C.quiz,  type:'쪽지시험'},
+            {col:C.disc,  type:'토론'},
+            {col:C.task,  type:'과제'},
+            {col:C.mid,   type:'중간고사'},
+            {col:C.final, type:'기말고사'},
+          ];
+          fields.forEach(({col,type})=>{
+            const val=String(row[col]||'').trim();
+            if(!val) return;
+            const ranges=parseRange(val);
+            ranges.forEach(r=>{
+              add(name,type,r.start,`${noteBase} | ${val}`,r.round);
+            });
+          });
         });
 
-        if(!items.length){ alert('파싱된 일정이 없어요'); return; }
+        if(!items.length){alert('파싱된 일정이 없어요');return;}
 
-        // 중복 제거
-        const existing = new Set(schedules.map(s=>`${s.learnerName}|${s.type}|${s.date}`));
-        const newItems = items.filter(i=>!existing.has(`${i.learnerName}|${i.type}|${i.date}`));
-        const dupCnt = items.length - newItems.length;
-
-        if(!confirm(`총 ${items.length}건 파싱\n신규: ${newItems.length}건 | 중복제외: ${dupCnt}건\n\n가져올까요?`)) return;
-
-        schedules.push(...newItems);
-        save(); renderSchedule(); renderDashboard();
-        alert(`✓ ${newItems.length}건 학사일정 등록 완료!`);
-      } catch(err){ alert('파일 읽기 실패: '+err.message+'\n'+err.stack); }
+        const newCount=items.length;
+        if(!confirm(`총 ${newCount}건 파싱\n\n기존 학사일정을 모두 지우고 새로 등록할까요?\n(취소하면 기존 데이터에 추가)`)){
+          // 취소 → 중복 제외 후 추가
+          const existing=new Set(schedules.map(s=>`${s.learnerName}|${s.type}|${s.date}`));
+          const newItems=items.filter(i=>!existing.has(`${i.learnerName}|${i.type}|${i.date}`));
+          schedules.push(...newItems);
+          save();renderSchedule();renderDashboard();
+          alert(`✓ ${newItems.length}건 추가 등록됐어요!`);
+        } else {
+          // 확인 → 전체 교체
+          schedules=items;
+          save();renderSchedule();renderDashboard();
+          alert(`✓ 기존 일정을 지우고 ${items.length}건 새로 등록했어요!`);
+        }
+      } catch(err){alert('파일 읽기 실패: '+err.message);}
     };
     reader.readAsArrayBuffer(file);
   }).catch(()=>alert('라이브러리 로드 실패'));
@@ -1913,8 +1922,8 @@ function markSent(id){
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
 
-  // 날짜별 그룹핑
-  const upcoming=schedules.filter(s=>s.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
+  // 날짜별 그룹핑 — 마감 일정 제외
+  const upcoming=schedules.filter(s=>s.date>=todayStr && !s.type.includes('마감')).sort((a,b)=>a.date.localeCompare(b.date));
 
   // 날짜별로 묶기
   const byDate={};
@@ -2585,12 +2594,13 @@ function renderPlanEditor(p){
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
         ${[
           '학사: 전공60 이상, 교양30 이상 이수 필수',
-          '보유학점(일반 최대 50학점까지만 인정 가능-나머지 절사)',
-          '전문학사: 전공45 이상 이수 필수',
+          '전문학사: 전공45 이상, 교양15 이상 이수 필수',
+          '학사 일반학점 최대 50학점까지만 인정 가능',
+          '전문학사 일반학점 최대 20학점까지만 인정 가능',
           '12/15-1/15 학위신청, 27년 2월 학위수여',
-          '자격증 취득 후 학위신청 가능',
-          '온라인 새학기 추가 가능 (3학점 고정)',
-        ].map(t=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPreset('${t.replace(/'/g,"\\'")}')"><i class="ti ti-plus" style="font-size:10px"></i> ${t.length>18?t.slice(0,18)+'…':t}</button>`).join('')}
+          '27년 6/15-7/15 학위신청, 27년 8월 학위수여',
+          '독학사 3단계 6/30-7/7 접수 8/9 시험',
+        ].map(t=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPreset('${t.replace(/'/g,"\\'")}')"><i class="ti ti-plus" style="font-size:10px"></i> ${t.length>20?t.slice(0,20)+'…':t}</button>`).join('')}
       </div>
       <div class="fg2">
         <div class="fg">
@@ -3276,7 +3286,7 @@ function openPrintPreview(pid){
     </table>
 
     ${p.memo||p.note2?`
-    <div style="margin-top:12px;border:1px solid #ccc;border-radius:4px;padding:10px 12px;font-size:11px;color:#444;line-height:1.9;background:#fffef5">
+    <div style="margin-top:12px;border:1px solid #ccc;border-radius:4px;padding:10px 12px;font-size:11px;color:#444;line-height:1.9;background:#fffef5;text-align:center">
       <strong style="display:block;margin-bottom:4px;color:#333">비고</strong>
       ${p.memo?`<div>${p.memo}</div>`:''}${p.note2?`<div>${p.note2}</div>`:''}
     </div>`:''}
