@@ -1926,11 +1926,18 @@ function markSent(id){
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
 
+  const TYPE_ORDER={'개강일':0,'쪽지시험':1,'쪽지시험 1차':1,'쪽지시험 2차':1,'과제':2,'과제 1차':2,'과제 2차':2,'토론':3,'토론 1차':3,'토론 2차':3,'중간고사':4,'중간고사 1차':4,'기말고사':5,'기말고사 1차':5,'기말고사 2차':5,'기타':6};
+  const typeOrder=(t)=>{
+    if(TYPE_ORDER[t]!==undefined) return TYPE_ORDER[t];
+    for(const [k,v] of Object.entries(TYPE_ORDER)){if(t.startsWith(k.replace(/ \d차$/,'')))return v;}
+    return 9;
+  };
+
   // 날짜별 그룹핑 — 마감 제외, 모든 일정 당일 이후 표시
   const upcoming=schedules.filter(s=>{
     if(s.type.includes('마감')) return false;
     return s.date>=todayStr;
-  }).sort((a,b)=>a.date.localeCompare(b.date)||a.learnerName.localeCompare(b.learnerName));
+  }).sort((a,b)=>a.date.localeCompare(b.date)||typeOrder(a.type)-typeOrder(b.type)||a.learnerName.localeCompare(b.learnerName));
 
   // 날짜별로 묶기
   const byDate={};
