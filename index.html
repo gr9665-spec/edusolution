@@ -1162,6 +1162,17 @@ function save(){
   // Firebase 저장
   saveToFirebase();
 }
+function addTodo(){
+  const input=document.getElementById('todo-input');
+  const text=(input?.value||'').trim();
+  if(!text) return;
+  const todayStr=new Date().toISOString().split('T')[0];
+  todos.push({id:Date.now()+'', text, done:false, date:todayStr});
+  input.value='';
+  saveTodos();
+  renderTodos();
+}
+
 function saveTodos(){
   LS.set('hk_todos',todos);
   saveToFirebase();
