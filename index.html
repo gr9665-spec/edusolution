@@ -1719,8 +1719,12 @@ function renderDashboard(){
   // 투두 렌더
   renderTodos();
 
-  // 오늘 학사일정
-  const todaySchedules=schedules.filter(s=>s.date===todayStr).sort((a,b)=>a.learnerName.localeCompare(b.learnerName));
+  // 오늘 학사일정 — 개강일은 오늘+내일도 포함
+  const tomorrowStr=new Date(now.getTime()+86400000).toISOString().split('T')[0];
+  const todaySchedules=schedules.filter(s=>{
+    if(s.type==='개강일') return s.date===todayStr||s.date===tomorrowStr;
+    return s.date===todayStr;
+  }).sort((a,b)=>a.learnerName.localeCompare(b.learnerName));
   const typeColor={
     '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
     '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
@@ -1896,8 +1900,16 @@ function markSent(id){
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
 
-  // 날짜별 그룹핑 — 마감 일정 제외
-  const upcoming=schedules.filter(s=>s.date>=todayStr && !s.type.includes('마감')).sort((a,b)=>a.date.localeCompare(b.date));
+  // 날짜별 그룹핑 — 마감 제외, 개강일은 오늘 기준 ±3일 포함, 나머지는 오늘 이후
+  const upcoming=schedules.filter(s=>{
+    if(s.type.includes('마감')) return false;
+    if(s.type==='개강일'){
+      // 개강일은 3일 전부터 ~ 미래 모두 표시
+      const diff=(new Date(s.date)-now)/(1000*60*60*24);
+      return diff>=-3;
+    }
+    return s.date>=todayStr;
+  }).sort((a,b)=>a.date.localeCompare(b.date));
 
   // 날짜별로 묶기
   const byDate={};
@@ -2561,6 +2573,7 @@ function renderPlanEditor(p){
 
     ${buildOwnedTableUI(p,t)}
     ${buildPlanTableUI(p,t)}
+    ${buildDegreeChecker(p,t,dr)}
 
     <div class="card">
       <div class="card-head"><h3><i class="ti ti-notes"></i>비고</h3></div>
@@ -2848,11 +2861,113 @@ function buildPlanTableUI(p,t){
       총학점 &nbsp; <span style="font-size:18px;color:${t.grand>=(DEG_REQ[plans[curPid]?.degree]||DEG_REQ['학사']).total?'var(--green)':PLAN_RED}">${t.grand}</span>
       <span style="font-size:13px;color:#999"> / ${(DEG_REQ[plans[curPid]?.degree]||DEG_REQ['학사']).total}</span>
     </div>
+    ${buildSemLimitWarning(p)}
   </div>`;
 }
 
-// ── 학기/특수행 관리 ──────────────────────────────────────────────
-// 비고 프리셋 덧붙이기
+// ── 학기별 최대이수 초과 경고 ─────────────────────────────────────────
+function buildSemLimitWarning(p){
+  // 온라인 학기(자격증/독학사/전적대 제외)만 대상
+  // 학기명에서 년도 추출: "26-1학기" → year=26, term=1
+  const parseSemKey=(name)=>{
+    const m=String(name||'').match(/(\d{2,4})[\-\s]*(\d)/);
+    if(m) return {year:parseInt(m[1])%100, term:parseInt(m[2])};
+    return null;
+  };
+
+  // 학기별 과목수·학점 집계 (온라인 수업만)
+  const semStats={};
+  p.semesters.forEach(sem=>{
+    const key=parseSemKey(sem.name);
+    if(!key) return;
+    const k=`${key.year}-${key.term}`;
+    if(!semStats[k]) semStats[k]={year:key.year,term:key.term,name:sem.name,credits:0,courses:0};
+    const rows=[...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])];
+    rows.forEach(r=>{
+      if(r.credit||r.subject){
+        semStats[k].credits+=parseInt(r.credit)||0;
+        semStats[k].courses+=1;
+      }
+    });
+  });
+
+  // 연도별 합산
+  const yearStats={};
+  Object.values(semStats).forEach(s=>{
+    const y=s.year;
+    if(!yearStats[y]) yearStats[y]={credits:0,courses:0};
+    yearStats[y].credits+=s.credits;
+    yearStats[y].courses+=s.courses;
+  });
+
+  const MAX_SEM_CREDIT=24, MAX_SEM_COURSE=8;
+  const MAX_YEAR_CREDIT=42, MAX_YEAR_COURSE=14;
+
+  const warnings=[];
+  Object.values(semStats).forEach(s=>{
+    if(s.credits>MAX_SEM_CREDIT)
+      warnings.push({level:'error',msg:`⚠️ ${s.name}: ${s.credits}학점 — 한 학기 최대 ${MAX_SEM_CREDIT}학점 초과!`});
+    else if(s.credits===MAX_SEM_CREDIT)
+      warnings.push({level:'ok',msg:`✓ ${s.name}: ${s.credits}학점 (한 학기 최대치)`});
+    if(s.courses>MAX_SEM_COURSE)
+      warnings.push({level:'error',msg:`⚠️ ${s.name}: ${s.courses}과목 — 한 학기 최대 ${MAX_SEM_COURSE}과목 초과!`});
+  });
+  Object.entries(yearStats).forEach(([y,s])=>{
+    if(s.credits>MAX_YEAR_CREDIT)
+      warnings.push({level:'error',msg:`⚠️ 20${y}년: ${s.credits}학점 — 연간 최대 ${MAX_YEAR_CREDIT}학점 초과!`});
+    if(s.courses>MAX_YEAR_COURSE)
+      warnings.push({level:'error',msg:`⚠️ 20${y}년: ${s.courses}과목 — 연간 최대 ${MAX_YEAR_COURSE}과목 초과!`});
+  });
+
+  if(!warnings.length) return '';
+  return `<div style="margin-top:6px;border-radius:6px;overflow:hidden;border:1px solid #f5c6cb">
+    <div style="background:#c0392b;color:#fff;padding:6px 12px;font-size:11px;font-weight:700">⚠️ 최대이수학점 초과 경고 (온라인 수업 기준 · 자격증·독학사 제외)</div>
+    ${warnings.map(w=>`<div style="padding:6px 12px;font-size:12px;background:${w.level==='error'?'#fff5f5':'#f0fff4'};color:${w.level==='error'?'#c0392b':'#2e6e10'};border-top:1px solid #f5c6cb">${w.msg}</div>`).join('')}
+  </div>`;
+}
+
+// ── 학위취득 가능여부 체커 (내부 전용) ────────────────────────────────
+function buildDegreeChecker(p,t,dr){
+  const totalMajor=t.totReq+t.totElec;
+  const needMajor=dr.req+(dr.elec||0);
+  const needLib=dr.lib;
+  const needTotal=dr.total;
+
+  const lackMajor=Math.max(0, needMajor-totalMajor);
+  const lackLib  =Math.max(0, needLib-t.totLib);
+  const lackTotal=Math.max(0, needTotal-t.grand);
+
+  const possible=lackMajor===0&&lackLib===0&&lackTotal===0;
+
+  // 각 항목 상태
+  const items=[
+    {label:'전공학점', need:needMajor, have:totalMajor, lack:lackMajor},
+    {label:'교양학점', need:needLib,   have:t.totLib,   lack:lackLib},
+    {label:'총학점',   need:needTotal, have:t.grand,    lack:lackTotal},
+  ];
+
+  return `<div class="card" style="padding:0;overflow:hidden;border:2px solid ${possible?'#81c784':'#ef9a9a'}">
+    <div style="background:#f5f5f5;padding:7px 14px;font-size:11px;font-weight:600;color:#666;border-bottom:1px solid #eee;display:flex;align-items:center;gap:6px">
+      <i class="ti ti-lock" style="font-size:11px"></i> 내부 확인용 — 학습자에게 전달하지 않습니다
+    </div>
+    <div style="padding:12px 14px">
+      <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:10px">${p.degree} 학위취득 기준 (${dr.note})</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+        ${items.map(item=>`
+          <div style="background:${item.lack===0?'#e8f5e9':'#fff5f5'};border-radius:8px;padding:10px;text-align:center;border:1px solid ${item.lack===0?'#a5d6a7':'#ef9a9a'}">
+            <div style="font-size:10px;color:#666;margin-bottom:4px">부족한 ${item.label}</div>
+            <div style="font-size:22px;font-weight:800;color:${item.lack===0?'#2e6e10':'#c0392b'}">${item.lack}</div>
+            <div style="font-size:10px;color:#999;margin-top:2px">${item.have} / ${item.need}</div>
+          </div>`).join('')}
+      </div>
+      <div style="padding:12px;text-align:center;font-size:13px;font-weight:700;background:${possible?'#e8f5e9':'#fff5f5'};border-radius:8px;border:1px solid ${possible?'#a5d6a7':'#ef9a9a'}">
+        학위취득 가능여부
+        <div style="font-size:22px;font-weight:800;color:${possible?'#2e6e10':'#c0392b'};margin-top:4px">${possible?'가능! 🎓':'불가능!'}</div>
+        ${!possible?`<div style="font-size:11px;color:#c0392b;margin-top:4px">전공 ${lackMajor}학점 · 교양 ${lackLib}학점 · 총 ${lackTotal}학점 부족</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
 function appendMemoPreset(text){
   if(!curPid) return;
   const p=plans[curPid];
