@@ -171,12 +171,12 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab active" onclick="switchTab('dashboard',this)"><i class="ti ti-layout-dashboard"></i>대시보드</div>
   <div class="tab" onclick="switchTab('learners',this)"><i class="ti ti-users"></i>학습자 관리</div>
   <div class="tab" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
-  <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
-  <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
-  <div class="tab" onclick="switchTab('marketing',this)"><i class="ti ti-speakerphone"></i>마케팅</div>
-  <div class="tab" onclick="switchTab('settings',this)"><i class="ti ti-settings"></i>수당 세팅</div>
-  <div class="tab" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
   <div class="tab" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
+  <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
+  <div class="tab" onclick="switchTab('marketing',this)"><i class="ti ti-speakerphone"></i>마케팅</div>
+  <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
+  <div class="tab" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
+  <div class="tab" onclick="switchTab('settings',this)"><i class="ti ti-settings"></i>수당 세팅</div>
 </div>
 
 <!-- 대시보드 -->
@@ -647,15 +647,15 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 
 <!-- 인쇄 모달 -->
 <div class="overlay" id="modal-plan-print">
-<div class="modal" style="max-width:860px;width:860px">
-  <div class="modal-head">
+<div class="modal" style="max-width:860px;width:860px;max-height:95vh;display:flex;flex-direction:column">
+  <div class="modal-head" style="flex-shrink:0">
     <h2><i class="ti ti-printer"></i> 플랜표 미리보기</h2>
     <button class="btn btn-icon" onclick="closeModal('modal-plan-print')"><i class="ti ti-x"></i></button>
   </div>
-  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);max-height:74vh;overflow:auto;margin-bottom:12px">
+  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);flex:1;overflow:auto;margin-bottom:12px">
     <div id="plan-print-content" style="padding:20px;min-width:700px"></div>
   </div>
-  <div style="display:flex;gap:8px;justify-content:flex-end">
+  <div style="display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
     <button class="btn" onclick="closeModal('modal-plan-print')">닫기</button>
     <button class="btn btn-primary" onclick="printPlan()"><i class="ti ti-printer"></i> 인쇄 / PDF</button>
   </div>
@@ -1790,151 +1790,100 @@ function saveSchedule(){
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
 function importScheduleFile(input){
-  const file = input.files[0];
-  if(!file) return;
-  input.value = '';
-
-  const loadXLSX = () => new Promise((res,rej)=>{
+  const file=input.files[0]; if(!file) return;
+  input.value='';
+  const loadXLSX=()=>new Promise((res,rej)=>{
     if(window.XLSX){res();return;}
     const s=document.createElement('script');
     s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-    s.onload=res; s.onerror=rej;
-    document.head.appendChild(s);
+    s.onload=res; s.onerror=rej; document.head.appendChild(s);
   });
-
   loadXLSX().then(()=>{
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-
-        // 헤더행 찾기
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
         let hdrIdx=0;
         for(let i=0;i<Math.min(rows.length,5);i++){
-          if(rows[i].map(v=>String(v||'')).some(v=>v.includes('학생명')||v.includes('기관'))){
-            hdrIdx=i; break;
-          }
+          const r=rows[i].map(v=>String(v||''));
+          if(r.some(v=>v.includes('학생명')||v.includes('기관'))){hdrIdx=i;break;}
         }
+        const hdr=rows[hdrIdx].map(v=>String(v||'').trim());
+        const ci=(names)=>{for(const n of names){const i=hdr.findIndex(h=>h.includes(n));if(i>=0)return i;}return -1;};
+        const C={
+          edu:ci(['기관','교육원'])>=0?ci(['기관','교육원']):0,
+          kisu:ci(['기수'])>=0?ci(['기수']):5,
+          start:ci(['개강일'])>=0?ci(['개강일']):6,
+          name:ci(['학생명'])>=0?ci(['학생명']):9,
+          quiz:ci(['쪽지시험'])>=0?ci(['쪽지시험']):17,
+          disc:ci(['토론'])>=0?ci(['토론']):18,
+          task:ci(['과제'])>=0?ci(['과제']):19,
+          mid:ci(['중간고사'])>=0?ci(['중간고사']):20,
+          final:ci(['기말고사'])>=0?ci(['기말고사']):21,
+        };
         const dataRows=rows.slice(hdrIdx+1);
-        const C={edu:0,kisu:5,start:6,name:9,quiz:17,disc:18,task:19,mid:20,final:21};
-
-        const items=[];
-        let ts=Date.now();
-
-        // 날짜 범위 파싱 — "4/22-4/28 22:59" → {start, end}
-        const parseRange=(s,year=2026)=>{
-          if(!s) return [];
-          s=String(s).trim();
-          if(s.includes('종강일')) return [];
-          // 시간 제거
-          const clean=s.replace(/\s*\d{1,2}:\d{2}.*?(?=\s|$)/g,'').replace(/\s*\d{1,2}시.*?(?=\s|$)/g,'').trim();
-          const toDate=(part)=>{
-            part=part.trim();
-            const slash=part.split('/');
-            if(slash.length>=2){
-              const mm=parseInt(slash[0]),dd=parseInt(slash[1]);
-              if(!isNaN(mm)&&!isNaN(dd))
-                return `${year}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
-            }
-            return '';
-          };
-          const parseSingle=(seg)=>{
-            seg=seg.trim().replace(/\s+/g,' ');
-            const parts=seg.split('-').map(p=>p.trim()).filter(Boolean);
-            if(parts.length<2) return null;
-            // 마지막 part가 DD만인 경우 앞 MM 가져오기
-            const startDate=toDate(parts[0]);
-            let endStr=parts[parts.length-1];
-            let endDate='';
-            if(endStr.includes('/')){
-              endDate=toDate(endStr);
-            } else {
-              // DD만 있음 — 시작 월 사용
-              const mm=parts[0].split('/')[0];
-              endDate=toDate(mm+'/'+endStr);
-            }
-            return startDate&&endDate?{start:startDate,end:endDate}:null;
-          };
-
-          // 1차/2차 패턴 처리
+        const items=[]; let ts=Date.now();
+        const INVALID=new Set(['ㅡ','—','-','x','X','없음','해당없음','','ㅡ']);
+        const isInv=s=>{const t=String(s||'').trim();return !t||INVALID.has(t)||t.length<3;};
+        const guessYear=(s,fb=2026)=>{const m=s.match(/(\d{2,4})년/);if(m){const y=parseInt(m[1]);return y<100?2000+y:y;}return fb;};
+        const toDate=(mm,dd,year)=>{if(isNaN(mm)||isNaN(dd)||mm<1||mm>12||dd<1||dd>31)return '';return `${year}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;};
+        const parseSlash=p=>{p=p.trim().replace(/[^0-9\/]/g,'');const sl=p.split('/');if(sl.length>=2)return{mm:parseInt(sl[0]),dd:parseInt(sl[1])};return null;};
+        const parseSingleRange=(seg,year)=>{
+          seg=seg.replace(/\s+/g,' ').trim();
+          seg=seg.replace(/\s*\d{1,2}[:시]\d{0,2}\S*/g,'').trim();
+          let parts;
+          if(seg.includes('~')){parts=seg.split('~');}
+          else{const m=seg.match(/^(\d+\/\d+)\s*-\s*(\d+\/?\d*)$/);if(m)parts=[m[1],m[2]];else return null;}
+          if(parts.length<2)return null;
+          const s0=parseSlash(parts[0]); const s1=parseSlash(parts[parts.length-1]);
+          if(!s0)return null;
+          const endMM=s1&&s1.mm?s1.mm:s0.mm; const endDD=s1&&s1.dd?s1.dd:s0.dd;
+          return{start:toDate(s0.mm,s0.dd,year),end:toDate(endMM,endDD,year)};
+        };
+        const parseRanges=(raw,fb=2026)=>{
+          if(isInv(raw))return[];
+          let s=String(raw).trim(); const year=guessYear(s,fb);
+          s=s.replace(/\d{2,4}년\s*/g,'');
           const results=[];
-          if(/\d차/.test(clean)){
-            // "1차 4/6-4/22 2차 5/4-5/20" 분리
-            const rounds=clean.split(/\d차/).filter(s=>s.trim());
-            rounds.forEach((seg,i)=>{
-              const r=parseSingle(seg);
-              if(r) results.push({...r, round:i+1});
-            });
+          if(/[12]차/.test(s)){
+            const rounds=s.split(/(?=[12]차)/).filter(x=>x.trim());
+            rounds.forEach((seg,i)=>{const clean=seg.replace(/^[12]차\s*/,'').trim();const r=parseSingleRange(clean,year);if(r&&r.start)results.push({...r,round:i+1});});
           } else {
-            const r=parseSingle(clean);
-            if(r) results.push({...r, round:0});
+            const rangeMatches=[...s.matchAll(/(\d+\/\d+)\s*[~\-]\s*(\d+\/?\d*)/g)];
+            if(rangeMatches.length>0){const last=rangeMatches[rangeMatches.length-1];const r=parseSingleRange(last[0],year);if(r&&r.start)results.push({...r,round:0});}
           }
           return results;
         };
-
-        const add=(name,type,date,note,round)=>{
-          if(date&&date.length===10){
-            const label=round>0?`${type} ${round}차`:type;
-            items.push({id:String(++ts),learnerName:name,type:label,date,sent:'false',note});
-          }
-        };
-
         dataRows.forEach(row=>{
-          const name=String(row[C.name]||'').trim();
-          if(!name) return;
-
-          let edu=String(row[C.edu]||'').trim();
-          if(edu.includes('공동체')) edu='하나원격';
+          const name=String(row[C.name]||'').trim(); if(!name)return;
+          let edu=String(row[C.edu]||'').trim(); if(edu.includes('공동체'))edu='하나원격';
           const kisu=String(row[C.kisu]||'').trim();
           const noteBase=[edu,kisu].filter(Boolean).join(' ');
-
-          // 개강일
           let startDate='';
           const sr=row[C.start];
-          if(sr instanceof Date) startDate=sr.toISOString().split('T')[0];
-          else if(typeof sr==='number'&&sr>40000)
-            startDate=new Date((sr-25569)*86400000).toISOString().split('T')[0];
-          else startDate=String(sr||'').trim().slice(0,10);
-          if(startDate&&startDate.length===10)
-            items.push({id:String(++ts),learnerName:name,type:'개강일',date:startDate,sent:'false',note:noteBase});
-
-          // 각 항목 — 1차/2차 분리 파싱
-          const fields=[
-            {col:C.quiz,  type:'쪽지시험'},
-            {col:C.disc,  type:'토론'},
-            {col:C.task,  type:'과제'},
-            {col:C.mid,   type:'중간고사'},
-            {col:C.final, type:'기말고사'},
-          ];
-          fields.forEach(({col,type})=>{
-            const val=String(row[col]||'').trim();
-            if(!val) return;
-            const ranges=parseRange(val);
-            ranges.forEach(r=>{
-              add(name,type,r.start,`${noteBase} | ${val}`,r.round);
+          if(sr instanceof Date)startDate=sr.toISOString().split('T')[0];
+          else if(typeof sr==='number'&&sr>40000)startDate=new Date((sr-25569)*86400000).toISOString().split('T')[0];
+          else{const sv=String(sr||'').trim();const dtm=sv.match(/(\d{4})-(\d{2})-(\d{2})/);if(dtm)startDate=`${dtm[1]}-${dtm[2]}-${dtm[3]}`;else{const r=parseRanges(sv);if(r.length)startDate=r[0].start;}}
+          if(startDate&&startDate.length===10)items.push({id:String(++ts),learnerName:name,type:'개강일',date:startDate,sent:'false',note:noteBase});
+          const baseYear=startDate?parseInt(startDate.slice(0,4)):2026;
+          [{col:C.quiz,type:'쪽지시험'},{col:C.disc,type:'토론'},{col:C.task,type:'과제'},{col:C.mid,type:'중간고사'},{col:C.final,type:'기말고사'}].forEach(({col,type})=>{
+            const val=String(row[col]||'').trim(); if(isInv(val))return;
+            parseRanges(val,baseYear).forEach(r=>{
+              if(r.start&&r.start.length===10){const label=r.round>0?`${type} ${r.round}차`:type;items.push({id:String(++ts),learnerName:name,type:label,date:r.start,sent:'false',note:`${noteBase} | ${val}`});}
             });
           });
         });
-
         if(!items.length){alert('파싱된 일정이 없어요');return;}
-
-        const newCount=items.length;
-        if(!confirm(`총 ${newCount}건 파싱\n\n기존 학사일정을 모두 지우고 새로 등록할까요?\n(취소하면 기존 데이터에 추가)`)){
-          // 취소 → 중복 제외 후 추가
-          const existing=new Set(schedules.map(s=>`${s.learnerName}|${s.type}|${s.date}`));
-          const newItems=items.filter(i=>!existing.has(`${i.learnerName}|${i.type}|${i.date}`));
-          schedules.push(...newItems);
-          save();renderSchedule();renderDashboard();
-          alert(`✓ ${newItems.length}건 추가 등록됐어요!`);
-        } else {
-          // 확인 → 전체 교체
-          schedules=items;
-          save();renderSchedule();renderDashboard();
-          alert(`✓ 기존 일정을 지우고 ${items.length}건 새로 등록했어요!`);
-        }
-      } catch(err){alert('파일 읽기 실패: '+err.message);}
+        const tc={};items.forEach(i=>{tc[i.type]=(tc[i.type]||0)+1;});
+        const summary=Object.entries(tc).map(([k,v])=>`${k}: ${v}건`).join('\n');
+        if(!confirm(`총 ${items.length}건 파싱\n\n${summary}\n\n기존 일정 지우고 새로 등록? (취소=추가)`)){
+          const ex=new Set(schedules.map(s=>`${s.learnerName}|${s.type}|${s.date}`));
+          const ni=items.filter(i=>!ex.has(`${i.learnerName}|${i.type}|${i.date}`));
+          schedules.push(...ni);save();renderSchedule();renderDashboard();alert(`✓ ${ni.length}건 추가됐어요!`);
+        }else{schedules=items;save();renderSchedule();renderDashboard();alert(`✓ ${items.length}건 등록됐어요!`);}
+      }catch(err){alert('파일 읽기 실패: '+err.message);}
     };
     reader.readAsArrayBuffer(file);
   }).catch(()=>alert('라이브러리 로드 실패'));
