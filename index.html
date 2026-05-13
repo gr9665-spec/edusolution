@@ -2602,16 +2602,10 @@ function renderPlanEditor(p){
           '독학사 3단계 6/30-7/7 접수 8/9 시험',
         ].map(t=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPreset('${t.replace(/'/g,"\\'")}')"><i class="ti ti-plus" style="font-size:10px"></i> ${t.length>20?t.slice(0,20)+'…':t}</button>`).join('')}
       </div>
-      <div class="fg2">
-        <div class="fg">
-          <label>비고 1</label>
-          <textarea id="plan-memo-1" style="height:60px;resize:none;font-size:12px;text-align:center" placeholder="비고 내용 입력 또는 위 버튼으로 추가" onchange="upP('memo',this.value)">${p.memo||''}</textarea>
-        </div>
-        <div class="fg">
-          <label>비고 2</label>
-          <textarea id="plan-memo-2" style="height:60px;resize:none;font-size:12px;text-align:center" placeholder="비고 내용 입력 또는 위 버튼으로 추가" onchange="upP('note2',this.value)">${p.note2||''}</textarea>
-        </div>
-      </div>
+      <textarea id="plan-memo-1"
+        style="width:100%;height:90px;resize:none;font-size:12px;text-align:center;line-height:1.8"
+        placeholder="비고 내용 입력 또는 위 버튼으로 줄 추가"
+        onchange="upP('memo',this.value)">${p.memo||''}</textarea>
     </div>
   `;
 }
@@ -2888,19 +2882,16 @@ function buildPlanTableUI(p,t){
 function appendMemoPreset(text){
   if(!curPid) return;
   const p=plans[curPid];
-  // 비고1이 비어있으면 비고1에, 아니면 비고2에 추가
-  const memo1=document.getElementById('plan-memo-1');
-  const memo2=document.getElementById('plan-memo-2');
-  if(memo1 && !memo1.value.trim()){
-    memo1.value = text;
-    p.memo = text;
-  } else if(memo2) {
-    const cur=memo2.value.trim();
-    memo2.value = cur ? cur+'\n'+text : text;
-    p.note2 = memo2.value;
-  }
+  const el=document.getElementById('plan-memo-1');
+  if(!el) return;
+  const cur=el.value.trim();
+  el.value = cur ? cur+'\n'+text : text;
+  p.memo=el.value;
+  el.style.height='auto';
+  el.style.height=Math.max(90,el.scrollHeight)+'px';
   LS.set('hk_plans',plans); saveToFirebase();
 }
+
 
 function addSemester(){
   const p=plans[curPid]; if(!p) return;
@@ -3285,10 +3276,10 @@ function openPrintPreview(pid){
       </tfoot>
     </table>
 
-    ${p.memo||p.note2?`
-    <div style="margin-top:12px;border:1px solid #ccc;border-radius:4px;padding:10px 12px;font-size:11px;color:#444;line-height:1.9;background:#fffef5;text-align:center">
-      <strong style="display:block;margin-bottom:4px;color:#333">비고</strong>
-      ${p.memo?`<div>${p.memo}</div>`:''}${p.note2?`<div>${p.note2}</div>`:''}
+    ${p.memo?`
+    <div style="margin-top:12px;border:1px solid #ccc;border-radius:4px;padding:10px 12px;font-size:11px;color:#444;line-height:2;background:#fffef5;text-align:center">
+      <strong style="display:block;margin-bottom:6px;color:#333">비고</strong>
+      ${p.memo.split('\n').map(line=>`<div>${line}</div>`).join('')}
     </div>`:''}
   </div>`;
 
