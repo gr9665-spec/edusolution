@@ -1719,12 +1719,8 @@ function renderDashboard(){
   // 투두 렌더
   renderTodos();
 
-  // 오늘 학사일정 — 개강일은 오늘+내일도 포함
-  const tomorrowStr=new Date(now.getTime()+86400000).toISOString().split('T')[0];
-  const todaySchedules=schedules.filter(s=>{
-    if(s.type==='개강일') return s.date===todayStr||s.date===tomorrowStr;
-    return s.date===todayStr;
-  }).sort((a,b)=>a.learnerName.localeCompare(b.learnerName));
+  // 오늘 학사일정 — 당일 일정만
+  const todaySchedules=schedules.filter(s=>s.date===todayStr).sort((a,b)=>a.learnerName.localeCompare(b.learnerName));
   const typeColor={
     '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
     '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
@@ -1900,14 +1896,9 @@ function markSent(id){
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
 
-  // 날짜별 그룹핑 — 마감 제외, 개강일은 오늘 기준 ±3일 포함, 나머지는 오늘 이후
+  // 날짜별 그룹핑 — 마감 제외, 개강일은 당일부터 표시
   const upcoming=schedules.filter(s=>{
     if(s.type.includes('마감')) return false;
-    if(s.type==='개강일'){
-      // 개강일은 3일 전부터 ~ 미래 모두 표시
-      const diff=(new Date(s.date)-now)/(1000*60*60*24);
-      return diff>=-3;
-    }
     return s.date>=todayStr;
   }).sort((a,b)=>a.date.localeCompare(b.date));
 
@@ -2573,7 +2564,6 @@ function renderPlanEditor(p){
 
     ${buildOwnedTableUI(p,t)}
     ${buildPlanTableUI(p,t)}
-    ${buildDegreeChecker(p,t,dr)}
 
     <div class="card">
       <div class="card-head"><h3><i class="ti ti-notes"></i>비고</h3></div>
@@ -2594,6 +2584,7 @@ function renderPlanEditor(p){
         placeholder="비고 내용 입력 또는 위 버튼으로 줄 추가"
         onchange="upP('memo',this.value)">${p.memo||''}</textarea>
     </div>
+    ${buildDegreeChecker(p,t,dr)}
   `;
 }
 
