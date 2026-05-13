@@ -1154,9 +1154,9 @@ function savePlansStorage(){
   saveToFirebase();
 }
 
+let _saveTimer = null;
 function saveToFirebase(){
   if(!currentUser||!fbDb) return;
-  // 디바운스 — 연속 저장 방지
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(()=>{
     fbDb.collection('userData').doc(currentUser.uid).set({
@@ -2390,8 +2390,11 @@ function blankPlan(){
     memo:'', note2:'',
   };
 }function initPlanTab(){
-  renderPlanList();
-  if(curPid && plans[curPid]) renderPlanEditor(plans[curPid]);
+  // 패널 활성화 후 렌더 (DOM 준비 보장)
+  setTimeout(()=>{
+    renderPlanList();
+    if(curPid && plans[curPid]) renderPlanEditor(plans[curPid]);
+  },0);
 }
 
 function renderPlanList(){
@@ -2411,7 +2414,7 @@ function renderPlanList(){
 function newPlan(){
   const p=blankPlan();
   plans[p.id]=p;
-  LS.set('hk_plans',plans);  // 즉시 로컬 저장
+  LS.set('hk_plans',plans);
   saveToFirebase();
   curPid=p.id;
   renderPlanList();
