@@ -2408,17 +2408,31 @@ function renderPlanList(){
   }).join('');
 }
 
-function newPlan(){ const p=blankPlan(); plans[p.id]=p; savePlansStorage(); curPid=p.id; renderPlanList(); renderPlanEditor(p); }
-function selectPlan(id){ curPid=id; renderPlanList(); renderPlanEditor(plans[id]); }
+function newPlan(){
+  const p=blankPlan();
+  plans[p.id]=p;
+  LS.set('hk_plans',plans);  // 즉시 로컬 저장
+  saveToFirebase();
+  curPid=p.id;
+  renderPlanList();
+  renderPlanEditor(p);
+}
+function selectPlan(id){
+  curPid=id;
+  renderPlanList();
+  renderPlanEditor(plans[id]);
+}
 function deleteCurPlan(){
   if(!curPid) return;
   showDeleteModal(`플랜 <strong>${plans[curPid].clientName||'(미입력)'}</strong>을 삭제할까요?`,()=>{
-    delete plans[curPid]; curPid=null; savePlansStorage(); renderPlanList();
+    delete plans[curPid]; curPid=null; LS.set('hk_plans',plans); saveToFirebase(); renderPlanList();
     document.getElementById('plan-body').innerHTML='<div class="empty" style="margin-top:80px"><i class="ti ti-clipboard-list" style="font-size:40px;display:block;margin-bottom:12px;opacity:.25"></i>플랜을 선택하거나 새로 작성해주세요</div>';
   });
 }
 function savePlan(){
-  savePlansStorage(); renderPlanList();
+  LS.set('hk_plans',plans);
+  saveToFirebase();
+  renderPlanList();
   const btns=document.querySelectorAll('#panel-plan .btn-primary');
   btns.forEach(btn=>{ if(btn.textContent.includes('저장')){ const o=btn.innerHTML; btn.innerHTML='<i class="ti ti-check"></i>저장됨!'; btn.style.background='var(--green)'; setTimeout(()=>{btn.innerHTML=o;btn.style.background='';},1400); }});
 }
@@ -2536,7 +2550,7 @@ function buildOwnedTableUI(p,t){
         <div style="display:flex;align-items:center;gap:5px">
           <span style="font-size:10px;color:#666">구분:</span>
           <select style="font-size:11px;padding:1px 4px;height:20px;border-radius:3px;border:1px solid #ccc"
-            onchange="plans[curPid].owned.specials[${spi}].section=this.value;savePlansStorage();renderPlanEditor(plans[curPid])">
+            onchange="plans[curPid].owned.specials[${spi}].section=this.value;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])">
             ${secOpts}
           </select>
           <button class="btn btn-sm" style="padding:1px 6px;font-size:10px;color:var(--red)" onclick="deleteOwnedSpecial(${spi})"><i class="ti ti-trash"></i></button>
@@ -2564,9 +2578,9 @@ function buildOwnedTableUI(p,t){
       <div style="display:flex;gap:5px;padding:4px 8px;background:${PLAN_GRAY};align-items:center;flex-wrap:wrap">
         <button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('ownedSpec','rows',${spi})">${label} 과목 입력</button>
         ${isCert?`<span style="font-size:10px;color:var(--text2)">전선:</span>
-        <input type="text" value="${sp.elecNote||'해당없음'}" style="width:65px;padding:2px 5px;font-size:10px" onchange="plans[curPid].owned.specials[${spi}].elecNote=this.value;savePlansStorage()">
+        <input type="text" value="${sp.elecNote||'해당없음'}" style="width:65px;padding:2px 5px;font-size:10px" onchange="plans[curPid].owned.specials[${spi}].elecNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
         <span style="font-size:10px;color:var(--text2)">교양:</span>
-        <input type="text" value="${sp.libNote||'해당없음'}" style="width:65px;padding:2px 5px;font-size:10px" onchange="plans[curPid].owned.specials[${spi}].libNote=this.value;savePlansStorage()">
+        <input type="text" value="${sp.libNote||'해당없음'}" style="width:65px;padding:2px 5px;font-size:10px" onchange="plans[curPid].owned.specials[${spi}].libNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
         `:''}
       </div>
     </td></tr>`;
@@ -2622,13 +2636,21 @@ function buildPlanTableUI(p,t){
     const maxR=Math.max(1,(sem.req||[]).length,(sem.elec||[]).length,(sem.gen||[]).length,(sem.lib||[]).length);
     const semTot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
     body+=`<tr style="background:#f0f0e8">
-      <td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <span>학기구분 &nbsp;&nbsp; 교육원: ${sem.edu||''} | 기수: ${sem.kisu||''} | 일자: ${sem.date||''}</span>
-          <div style="display:flex;gap:4px">
-            <button class="btn btn-sm" style="padding:2px 7px;font-size:10px" onclick="editSemInfo(${si})"><i class="ti ti-settings"></i></button>
-            <button class="btn btn-sm" style="padding:2px 7px;font-size:10px;color:var(--red)" onclick="deleteSem(${si})"><i class="ti ti-trash"></i></button>
-          </div>
+      <td colspan="9" style="padding:8px 10px;border:1px solid #ccc">
+        <div class="sem-info-form" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <input id="sem-name-${si}" type="text" value="${sem.name||''}" placeholder="학기명"
+            style="width:100px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onchange="plans[curPid].semesters[${si}].name=this.value;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])">
+          <input id="sem-edu-${si}" type="text" value="${sem.edu||''}" placeholder="교육원"
+            style="width:85px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onchange="plans[curPid].semesters[${si}].edu=this.value;LS.set('hk_plans',plans);saveToFirebase()">
+          <input id="sem-kisu-${si}" type="text" value="${sem.kisu||''}" placeholder="기수 (예: 2-1)"
+            style="width:100px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onchange="plans[curPid].semesters[${si}].kisu=this.value;LS.set('hk_plans',plans);saveToFirebase()">
+          <input id="sem-date-${si}" type="text" value="${sem.date||''}" placeholder="일자 (예: 5/13~8/25)"
+            style="width:115px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onchange="plans[curPid].semesters[${si}].date=this.value;LS.set('hk_plans',plans);saveToFirebase()">
+          <button class="btn btn-sm" style="padding:3px 8px;font-size:10px;color:var(--red);margin-left:auto" onclick="deleteSem(${si})"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`;
@@ -2680,7 +2702,7 @@ function buildPlanTableUI(p,t){
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:10px;color:#666">구분:</span>
             <select style="font-size:11px;padding:2px 5px;height:22px;border-radius:4px;border:1px solid #ccc"
-              onchange="plans[curPid].specials[${spi}].section=this.value;savePlansStorage();renderPlanEditor(plans[curPid])">
+              onchange="plans[curPid].specials[${spi}].section=this.value;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])">
               ${secOptions}
             </select>
             <button class="btn btn-sm" style="padding:2px 7px;font-size:10px;color:var(--red)" onclick="deleteSpecial(${spi})"><i class="ti ti-trash"></i> 삭제</button>
@@ -2716,9 +2738,9 @@ function buildPlanTableUI(p,t){
         <span style="font-size:11px;color:var(--text2);margin-left:4px">→ <strong>${secLabel}</strong> 열에 집계됩니다</span>
         ${isCert?`
         <span style="margin-left:8px;font-size:10px;color:var(--text2)">전선:</span>
-        <input type="text" value="${sp.elecNote||'해당없음'}" style="width:70px;padding:2px 5px;font-size:10px" onchange="plans[curPid].specials[${spi}].elecNote=this.value;savePlansStorage()">
+        <input type="text" value="${sp.elecNote||'해당없음'}" style="width:70px;padding:2px 5px;font-size:10px" onchange="plans[curPid].specials[${spi}].elecNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
         <span style="font-size:10px;color:var(--text2)">교양:</span>
-        <input type="text" value="${sp.libNote||'해당없음'}" style="width:70px;padding:2px 5px;font-size:10px" onchange="plans[curPid].specials[${spi}].libNote=this.value;savePlansStorage()">
+        <input type="text" value="${sp.libNote||'해당없음'}" style="width:70px;padding:2px 5px;font-size:10px" onchange="plans[curPid].specials[${spi}].libNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
         `:''}
       </div>
     </td></tr>`;
@@ -2765,23 +2787,31 @@ function addSemester(){
   const n=p.semesters.length+1;
   const yr=new Date().getFullYear()%100;
   p.semesters.push({name:`${yr}-${n}학기`,edu:'',kisu:'',date:'',req:[],elec:[],gen:[],lib:[]});
-  savePlansStorage();
-  const si=p.semesters.length-1;
+  LS.set('hk_plans',plans);
+  saveToFirebase();
   renderPlanEditor(p);
-  editSemInfo(si);
+  // 추가된 학기의 편집 폼으로 스크롤
+  setTimeout(()=>{
+    const semForms=document.querySelectorAll('.sem-info-form');
+    if(semForms.length) semForms[semForms.length-1].scrollIntoView({behavior:'smooth',block:'center'});
+  },100);
 }
-function editSemInfo(si){
-  const sem=plans[curPid].semesters[si];
-  const name=prompt('학기명 (예: 26-1학기)',sem.name||''); if(name===null) return;
-  const edu=prompt('교육원',sem.edu||''); if(edu===null) return;
-  const kisu=prompt('기수 (예: 2-1)',sem.kisu||''); if(kisu===null) return;
-  const date=prompt('일자 (예: 5/13-8/25)',sem.date||''); if(date===null) return;
-  Object.assign(sem,{name,edu,kisu,date});
-  savePlansStorage(); renderPlanEditor(plans[curPid]);
+function saveSemInfo(si){
+  const p=plans[curPid]; if(!p) return;
+  const sem=p.semesters[si];
+  sem.name = document.getElementById(`sem-name-${si}`)?.value||sem.name;
+  sem.edu  = document.getElementById(`sem-edu-${si}`)?.value||'';
+  sem.kisu = document.getElementById(`sem-kisu-${si}`)?.value||'';
+  sem.date = document.getElementById(`sem-date-${si}`)?.value||'';
+  LS.set('hk_plans',plans);
+  saveToFirebase();
+  renderPlanEditor(p);
 }
+// editSemInfo는 더 이상 prompt 사용 안 함 — 인라인 편집으로 대체
+function editSemInfo(si){ /* 인라인 폼으로 대체됨 */ }
 function deleteSem(si){
   showDeleteModal(`학기 <strong>${plans[curPid].semesters[si].name}</strong>을 삭제할까요?`,()=>{
-    plans[curPid].semesters.splice(si,1); savePlansStorage(); renderPlanEditor(plans[curPid]);
+    plans[curPid].semesters.splice(si,1); LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(plans[curPid]);
   });
 }
 function addSpecial(type){
@@ -2789,12 +2819,12 @@ function addSpecial(type){
   if(!p.specials) p.specials=[];
   // 자격증 기본: 전공필수(req), 독학사 기본: 전공필수(req)
   p.specials.push({type, section:'req', rows:[], elecNote:'해당없음', libNote:'해당없음'});
-  savePlansStorage(); renderPlanEditor(p);
+  LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
 }
 function deleteSpecial(spi){
   const label=plans[curPid].specials[spi].type==='cert'?'자격증':'독학사';
   showDeleteModal(`<strong>${label}</strong> 행을 삭제할까요?`,()=>{
-    plans[curPid].specials.splice(spi,1); savePlansStorage(); renderPlanEditor(plans[curPid]);
+    plans[curPid].specials.splice(spi,1); LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(plans[curPid]);
   });
 }
 
@@ -2803,12 +2833,12 @@ function addOwnedSpecial(type){
   const p=plans[curPid]; if(!p) return;
   if(!p.owned.specials) p.owned.specials=[];
   p.owned.specials.push({type, section:'req', rows:[], elecNote:'해당없음', libNote:'해당없음'});
-  savePlansStorage(); renderPlanEditor(p);
+  LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
 }
 function deleteOwnedSpecial(spi){
   const label=plans[curPid].owned.specials[spi].type==='cert'?'자격증':'독학사';
   showDeleteModal(`보유학점의 <strong>${label}</strong> 행을 삭제할까요?`,()=>{
-    plans[curPid].owned.specials.splice(spi,1); savePlansStorage(); renderPlanEditor(plans[curPid]);
+    plans[curPid].owned.specials.splice(spi,1); LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(plans[curPid]);
   });
 }
 
@@ -2947,10 +2977,10 @@ function saveSubjModal(){
   else if(subjCtx.type==='sem') p.semesters[subjCtx.idx][subjCtx.section]=cleaned;
   else if(subjCtx.type==='ownedSpec') p.owned.specials[subjCtx.idx].rows=cleaned;
   else p.specials[subjCtx.idx].rows=cleaned;
-  savePlansStorage(); closeModal('modal-plan-subj'); renderPlanEditor(p);
+  LS.set('hk_plans',plans); saveToFirebase(); closeModal('modal-plan-subj'); renderPlanEditor(p);
 }
 
-function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; savePlansStorage(); }
+function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; LS.set('hk_plans',plans); saveToFirebase(); }
 
 // ── 인쇄 미리보기 ────────────────────────────────────────────────
 function openPrintPreview(pid){
