@@ -1896,11 +1896,11 @@ function markSent(id){
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
 
-  // 날짜별 그룹핑 — 마감 제외, 개강일은 당일부터 표시
+  // 날짜별 그룹핑 — 마감 제외, 모든 일정 당일 이후 표시
   const upcoming=schedules.filter(s=>{
     if(s.type.includes('마감')) return false;
     return s.date>=todayStr;
-  }).sort((a,b)=>a.date.localeCompare(b.date));
+  }).sort((a,b)=>a.date.localeCompare(b.date)||a.learnerName.localeCompare(b.learnerName));
 
   // 날짜별로 묶기
   const byDate={};
