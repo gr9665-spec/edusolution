@@ -636,6 +636,11 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <h2><i class="ti ti-printer"></i> 플랜표 미리보기</h2>
     <button class="btn btn-icon" onclick="closeModal('modal-plan-print')"><i class="ti ti-x"></i></button>
   </div>
+  <!-- 뷰 전환 버튼 -->
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button id="btn-view-table" class="btn btn-primary btn-sm" onclick="switchPrintView('table')"><i class="ti ti-table"></i> 표 형식 (PC)</button>
+    <button id="btn-view-mobile" class="btn btn-sm" onclick="switchPrintView('mobile')"><i class="ti ti-device-mobile"></i> 카드 형식 (모바일 캡처)</button>
+  </div>
   <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);max-height:74vh;overflow-y:auto;margin-bottom:12px">
     <div id="plan-print-content" style="padding:20px"></div>
   </div>
@@ -3095,8 +3100,16 @@ function saveSubjModal(){
 function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; LS.set('hk_plans',plans); saveToFirebase(); }
 
 // ── 인쇄 미리보기 ────────────────────────────────────────────────
-function openPrintPreview(pid){
+function openPrintPreview(pid, skipReset){
   const p=plans[pid||curPid]; if(!p) return;
+  _curPrintPid=pid||curPid;
+  // 표 형식 버튼 초기화
+  if(!skipReset){
+    const t=document.getElementById('btn-view-table');
+    const m=document.getElementById('btn-view-mobile');
+    if(t) t.className='btn btn-primary btn-sm';
+    if(m) m.className='btn btn-sm';
+  }
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const BL=PLAN_BLUE, LBL=PLAN_LBLUE, YL=PLAN_YELLOW, DYL=PLAN_DYELLOW, RD=PLAN_RED;
@@ -3295,6 +3308,133 @@ function printPlan(){
     </head><body>${content}</body></html>`);
   w.document.close(); setTimeout(()=>w.print(),300);
 }
+
+let _curPrintPid=null;
+function switchPrintView(mode){
+  const t=document.getElementById('btn-view-table');
+  const m=document.getElementById('btn-view-mobile');
+  if(mode==='table'){
+    t.className='btn btn-primary btn-sm'; m.className='btn btn-sm';
+    openPrintPreview(_curPrintPid, true);
+  } else {
+    m.className='btn btn-primary btn-sm'; t.className='btn btn-sm';
+    renderMobilePlan(_curPrintPid);
+  }
+}
+
+function renderMobilePlan(pid){
+  const p=plans[pid||curPid]; if(!p) return;
+  const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
+  const t=planTotals(p);
+  const RD=PLAN_RED, BL=PLAN_BLUE;
+  const totMajor=t.totReq+t.totElec;
+
+  const majorName=p.major==='기타'&&p.majorCustom?p.majorCustom:p.major;
+
+  // 섹션 렌더 헬퍼
+  const secBlock=(label,rows,color='#222')=>{
+    if(!rows||!rows.length) return '';
+    return rows.map(r=>r.credit||r.subject?
+      `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee">
+        <span style="color:${color};font-weight:${color!=='#222'?'600':'400'}">${r.subject||'—'}</span>
+        <span style="font-weight:600;color:${color}">${r.credit?r.credit+'학점':''}</span>
+      </div>`:''
+    ).join('');
+  };
+
+  // 학기 렌더
+  const semBlocks=(p.semesters||[]).map(sem=>{
+    const tot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
+    const sections=[
+      {label:'전공필수',rows:sem.req,color:RD},
+      {label:'전공선택',rows:sem.elec,color:'#1a5fa8'},
+      {label:'일반학점',rows:sem.gen,color:'#2e6e10'},
+      {label:'교양학점',rows:sem.lib,color:'#6d28d9'},
+    ].filter(s=>s.rows&&s.rows.length);
+
+    return `<div style="background:#fff;border-radius:8px;border:1px solid #ddd;margin-bottom:10px;overflow:hidden">
+      <div style="background:#eeeee8;padding:8px 12px;font-size:12px;font-weight:700">
+        ${sem.name||''} &nbsp;·&nbsp; ${sem.edu||''} ${sem.kisu||''} ${sem.date?'| '+sem.date:''}
+      </div>
+      <div style="padding:8px 12px">
+        ${sections.map(s=>`
+          <div style="margin-bottom:6px">
+            <div style="font-size:10px;font-weight:700;color:${s.color};margin-bottom:3px">${s.label}</div>
+            ${secBlock(s.label,s.rows,s.color)}
+          </div>`).join('')}
+        <div style="text-align:right;font-size:12px;font-weight:700;margin-top:4px;padding-top:4px;border-top:1px solid #eee">취득 ${tot}학점</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // 특수행 (자격증/독학사)
+  const specBlocks=(p.specials||[]).map(sp=>{
+    const label=sp.type==='cert'?'자격증':'독학사';
+    const secLabel={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[sp.section||'req'];
+    const secColor={req:RD,elec:'#1a5fa8',gen:'#2e6e10',lib:'#6d28d9'}[sp.section||'req'];
+    return `<div style="background:#fff;border-radius:8px;border:1px solid #ddd;margin-bottom:10px;overflow:hidden">
+      <div style="background:#eeeee8;padding:8px 12px;font-size:12px;font-weight:700">${label}</div>
+      <div style="padding:8px 12px">
+        <div style="font-size:10px;font-weight:700;color:${secColor};margin-bottom:3px">${secLabel}</div>
+        ${secBlock(label,sp.rows,secColor)}
+      </div>
+    </div>`;
+  }).join('');
+
+  const content=`<div style="font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:13px;max-width:420px;margin:0 auto;color:#222">
+    <!-- 헤더 -->
+    <div style="background:${BL};color:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-size:18px;font-weight:700">${p.clientName||'플랜표'}</div>
+      <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree}</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px">${dr.note}</div>
+    </div>
+
+    <!-- 총학점 요약 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:${t.grand>=dr.total?'#e8f5e9':'#fff3e0'};border-radius:8px;padding:12px;text-align:center;border:1px solid ${t.grand>=dr.total?'#a5d6a7':'#ffcc80'}">
+        <div style="font-size:11px;color:#666;margin-bottom:4px">총학점</div>
+        <div style="font-size:22px;font-weight:700;color:${t.grand>=dr.total?'#2e6e10':RD}">${t.grand}<span style="font-size:13px;color:#999"> / ${dr.total}</span></div>
+      </div>
+      <div style="background:#f3e8ff;border-radius:8px;padding:12px;text-align:center;border:1px solid #d8b4fe">
+        <div style="font-size:11px;color:#666;margin-bottom:4px">전공</div>
+        <div style="font-size:22px;font-weight:700;color:#6d28d9">${totMajor}<span style="font-size:13px;color:#999"> / ${dr.req+(dr.elec||0)}</span></div>
+      </div>
+      <div style="background:#e8f5e9;border-radius:8px;padding:12px;text-align:center;border:1px solid #a5d6a7">
+        <div style="font-size:11px;color:#666;margin-bottom:4px">일반</div>
+        <div style="font-size:20px;font-weight:700;color:#2e6e10">${t.totGen}<span style="font-size:12px;color:#999"> / ${dr.gen}</span></div>
+      </div>
+      <div style="background:#eff6ff;border-radius:8px;padding:12px;text-align:center;border:1px solid #bfdbfe">
+        <div style="font-size:11px;color:#666;margin-bottom:4px">교양</div>
+        <div style="font-size:20px;font-weight:700;color:#1a5fa8">${t.totLib}<span style="font-size:12px;color:#999"> / ${dr.lib}</span></div>
+      </div>
+    </div>
+
+    <!-- 보유학점 (있을 때만) -->
+    ${(t.ownReq+t.ownElec+t.ownGen+t.ownLib)>0?`
+    <div style="background:#fff;border-radius:8px;border:1px solid #ddd;margin-bottom:14px;overflow:hidden">
+      <div style="background:${BL};color:#fff;padding:8px 12px;font-size:12px;font-weight:700;letter-spacing:.05em">▶ 보유학점</div>
+      <div style="padding:8px 12px">
+        ${[{label:'전공필수',rows:p.owned.req,color:RD},{label:'전공선택',rows:p.owned.elec,color:'#1a5fa8'},{label:'일반학점',rows:p.owned.gen,color:'#2e6e10'},{label:'교양학점',rows:p.owned.lib,color:'#6d28d9'}]
+          .filter(s=>s.rows&&s.rows.length)
+          .map(s=>`<div style="margin-bottom:6px"><div style="font-size:10px;font-weight:700;color:${s.color};margin-bottom:3px">${s.label}</div>${secBlock(s.label,s.rows,s.color)}</div>`).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- 이수계획 -->
+    <div style="background:${BL};color:#fff;border-radius:8px 8px 0 0;padding:8px 12px;font-size:12px;font-weight:700;letter-spacing:.05em">▶ 이수계획</div>
+    <div style="margin-bottom:14px">${semBlocks||'<div style="padding:12px;background:#fff;border:1px solid #ddd;border-radius:0 0 8px 8px;font-size:12px;color:#999">등록된 학기 없음</div>'}${specBlocks}</div>
+
+    <!-- 비고 -->
+    ${p.memo?`
+    <div style="background:#fffef5;border:1px solid #e8d86a;border-radius:8px;padding:12px 14px;font-size:12px;line-height:1.9;text-align:center">
+      <strong style="display:block;margin-bottom:6px;color:#333">비고</strong>
+      ${p.memo.split('\\n').map(line=>`<div>${line}</div>`).join('')}
+    </div>`:''}
+  </div>`;
+
+  document.getElementById('plan-print-content').innerHTML=content;
+}
+
 
 // ── 매출파일 가져오기 ─────────────────────────────────────────────────
 
