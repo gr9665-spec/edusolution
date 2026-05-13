@@ -304,6 +304,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <button class="btn" onclick="openBulkScheduleModal()"><i class="ti ti-users"></i>기수별 일괄 등록</button>
       <button class="btn" onclick="document.getElementById('schedule-file-input').click()"><i class="ti ti-file-import"></i>파일 가져오기</button>
       <input type="file" id="schedule-file-input" accept=".xlsx" style="display:none" onchange="importScheduleFile(this)">
+      <button class="btn" style="color:var(--red)" onclick="clearAllSchedules()"><i class="ti ti-trash"></i>전체 삭제</button>
       <button class="btn btn-primary" onclick="openScheduleModal()"><i class="ti ti-plus"></i>1명 추가</button>
     </div>
   </div>
@@ -1802,9 +1803,33 @@ function importScheduleFile(input){
     const reader=new FileReader();
     reader.onload=e=>{
       try{
-        const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+
+        // 엑셀 시리얼 → YYYY-MM-DD (UTC 오프셋 없이 로컬 날짜 그대로)
+        const xlsxDateToStr=(v)=>{
+          if(!v) return '';
+          // 이미 문자열 날짜인 경우
+          if(typeof v==='string'){
+            const m=v.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+            return '';
+          }
+          // 숫자 시리얼 (엑셀 날짜)
+          if(typeof v==='number'&&v>1){
+            // 엑셀 1900년 기준 시리얼 → 날짜 (UTC+0 고정으로 계산, 로컬 오프셋 없음)
+            const serial = v > 60 ? v - 1 : v; // 1900/2/29 버그 보정
+            const ms = (serial - 1) * 86400 * 1000; // 1900-01-01 기준
+            const base = Date.UTC(1900, 0, 1); // 1900-01-01 UTC
+            const date = new Date(base + ms);
+            const y = date.getUTCFullYear();
+            const mo = String(date.getUTCMonth()+1).padStart(2,'0');
+            const d = String(date.getUTCDate()).padStart(2,'0');
+            return `${y}-${mo}-${d}`;
+          }
+          return '';
+        };
         let hdrIdx=0;
         for(let i=0;i<Math.min(rows.length,5);i++){
           const r=rows[i].map(v=>String(v||''));
@@ -1863,16 +1888,8 @@ function importScheduleFile(input){
           const noteBase=[edu,kisu].filter(Boolean).join(' ');
           let startDate='';
           const sr=row[C.start];
-          if(sr instanceof Date){
-            // toISOString()은 UTC 기준이라 KST에서 하루 밀림 → 로컬 날짜로 변환
-            const y=sr.getFullYear(), m=String(sr.getMonth()+1).padStart(2,'0'), d=String(sr.getDate()).padStart(2,'0');
-            startDate=`${y}-${m}-${d}`;
-          } else if(typeof sr==='number'&&sr>40000){
-            // 엑셀 시리얼 숫자 → 로컬 날짜
-            const d=new Date(Math.round((sr-25569)*86400*1000));
-            startDate=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-          }
-          else{const sv=String(sr||'').trim();const dtm=sv.match(/(\d{4})-(\d{2})-(\d{2})/);if(dtm)startDate=`${dtm[1]}-${dtm[2]}-${dtm[3]}`;else{const r=parseRanges(sv);if(r.length)startDate=r[0].start;}}
+          startDate=xlsxDateToStr(sr);
+          if(!startDate){const sv=String(sr||'').trim();const dtm=sv.match(/(\d{4})-(\d{2})-(\d{2})/);if(dtm)startDate=`${dtm[1]}-${dtm[2]}-${dtm[3]}`;else{const r=parseRanges(sv);if(r.length)startDate=r[0].start;}}
           if(startDate&&startDate.length===10)items.push({id:String(++ts),learnerName:name,type:'개강일',date:startDate,sent:'false',note:noteBase});
           const baseYear=startDate?parseInt(startDate.slice(0,4)):2026;
           [{col:C.quiz,type:'쪽지시험'},{col:C.disc,type:'토론'},{col:C.task,type:'과제'},{col:C.mid,type:'중간고사'},{col:C.final,type:'기말고사'}].forEach(({col,type})=>{
@@ -1894,6 +1911,12 @@ function importScheduleFile(input){
     };
     reader.readAsArrayBuffer(file);
   }).catch(()=>alert('라이브러리 로드 실패'));
+}
+function clearAllSchedules(){
+  if(!confirm(`학사일정 전체 ${schedules.length}건을 삭제할까요?\n되돌릴 수 없어요!`)) return;
+  schedules=[];
+  save(); renderSchedule(); renderDashboard();
+  alert('✓ 학사일정이 모두 삭제됐어요');
 }
 function markSent(id){
   const s=schedules.find(x=>x.id===id);
@@ -3679,7 +3702,7 @@ function handleImportFiles(files){
       const reader=new FileReader();
       reader.onload=ev=>{
         try{
-          const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+          const wb=XLSX.read(ev.target.result,{type:'array',cellDates:false});
           wb.SheetNames.forEach(shName=>{
             const ws=wb.Sheets[shName];
             const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
@@ -3735,9 +3758,16 @@ function handleImportFiles(files){
 
               let start='';
               const sr=row[C.start];
-              if(sr instanceof Date) start=sr.toISOString().split('T')[0];
-              else if(typeof sr==='number'&&sr>40000){const d=new Date((sr-25569)*86400000);start=d.toISOString().split('T')[0];}
-              else start=String(sr||'').trim();
+              if(typeof sr==='number'&&sr>1){
+                const serial=sr>60?sr-1:sr;
+                const ms=(serial-1)*86400*1000;
+                const base=Date.UTC(1900,0,1);
+                const dt=new Date(base+ms);
+                start=`${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,'0')}-${String(dt.getUTCDate()).padStart(2,'0')}`;
+              } else if(typeof sr==='string'){
+                const m=sr.match(/(\d{4})-(\d{2})-(\d{2})/);
+                if(m) start=`${m[1]}-${m[2]}-${m[3]}`;
+              }
 
               const rewardPer=rewardTable[code]||0;
               const reward=calcRewardForLearner({code,credit,total,course,rewardType:'per_credit',rewardValue:rewardPer});
