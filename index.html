@@ -313,7 +313,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <select id="sales-month" onchange="renderSales()" style="width:76px">
         <option value="0">전체월</option>
         <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
-        <option value="4" selected>4월</option><option value="5">5월</option><option value="6">6월</option>
+        <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
         <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
         <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
       </select>
@@ -380,7 +380,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <select id="export-month" onchange="renderExport()" style="width:76px">
           <option value="0">전체월</option>
           <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
-          <option value="4" selected>4월</option><option value="5">5월</option><option value="6">6월</option>
+          <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
           <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
           <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
         </select>
@@ -729,7 +729,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         </select>
         <select id="l-month" style="flex:1">
           <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
-          <option value="4" selected>4월</option><option value="5">5월</option><option value="6">6월</option>
+          <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
           <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
           <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
         </select>
@@ -1644,7 +1644,7 @@ function getYearsFromData(){
 }
 function populateYearSelects(){
   const years = getYearsFromData();
-  const now = new Date(); const thisYear = now.getFullYear();
+  const now = new Date(); const thisYear = now.getFullYear(); const thisMon = now.getMonth()+1;
   ['dash-year','filter-year','sales-year','export-year'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
@@ -1653,6 +1653,13 @@ function populateYearSelects(){
     el.innerHTML = allOpt + years.map(y=>`<option value="${y}">${y}년</option>`).join('');
     if(prev && [...el.options].some(o=>o.value===prev)) el.value=prev;
     else el.value=String(thisYear);
+  });
+  // 매출/내보내기 월 셀렉트를 현재 월로 자동 설정 (처음 로드 시만)
+  ['sales-month','export-month'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el||el.dataset.init) return;
+    el.value=String(thisMon);
+    el.dataset.init='1';
   });
 }
 
@@ -1688,11 +1695,22 @@ function renderDashboard(){
   renderTodos();
 
   // 오늘 학사일정
-  const todaySchedules=schedules.filter(s=>s.date===todayStr);
+  const todaySchedules=schedules.filter(s=>s.date===todayStr).sort((a,b)=>a.learnerName.localeCompare(b.learnerName));
+  const typeColor={
+    '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
+    '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
+    '중간고사':'#c0392b','중간고사마감':'#9b1515','기말고사':'#c0392b','기말고사마감':'#9b1515','기타':'#555'
+  };
   document.getElementById('today-schedule').innerHTML=todaySchedules.length
-    ?todaySchedules.map(s=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px">
-        <div><strong style="font-size:13px">${s.learnerName}</strong> <span class="tag">${s.type}</span>${s.sent==='true'?'<span class="pill pill-green" style="font-size:10px;margin-left:4px">발송완료</span>':''}</div>
-        ${s.sent!=='true'?`<button class="btn btn-sm" onclick="markSent('${s.id}');renderDashboard()">연락완료</button>`:''}
+    ?todaySchedules.map(s=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[s.type]||'#999'}">
+        <div style="flex:1;min-width:0">
+          <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
+          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+        </div>
+        ${s.sent==='true'
+          ?'<span class="pill pill-green" style="font-size:10px">완료</span>'
+          :`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="markSent('${s.id}')">연락완료</button>`}
       </div>`).join('')
     :'<div class="empty"><i class="ti ti-check"></i>오늘 예정 없음</div>';
 
@@ -1887,21 +1905,74 @@ function importScheduleFile(input){
     reader.readAsArrayBuffer(file);
   }).catch(()=>alert('라이브러리 로드 실패'));
 }
+function markSent(id){
+  const s=schedules.find(x=>x.id===id);
+  if(s){ s.sent='true'; save(); renderSchedule(); renderDashboard(); }
+}
+
 function renderSchedule(){
-  const now=new Date();const todayStr=now.toISOString().split('T')[0];
+  const now=new Date(); const todayStr=now.toISOString().split('T')[0];
+
+  // 날짜별 그룹핑
   const upcoming=schedules.filter(s=>s.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
-  document.getElementById('upcoming-schedule').innerHTML=upcoming.length
-    ?'<div class="sch-grid">'+upcoming.map(s=>`<div class="sch-item ${s.date===todayStr?'today-item':''}">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:2px">${s.date}</div>
-        <div style="font-size:13px;font-weight:600">${s.learnerName}</div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
-          <span class="tag">${s.type}</span>
-          <div style="display:flex;gap:4px;align-items:center">
-            ${s.sent==='true'?'<span class="pill pill-green" style="font-size:10px">발송완료</span>':`<button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="markSent('${s.id}')">발송</button>`}
-            <button class="btn btn-icon" style="width:22px;height:22px;color:var(--red);padding:0" onclick="deleteSchedule('${s.id}')" title="삭제"><i class="ti ti-trash" style="font-size:12px"></i></button>
-          </div>
-        </div></div>`).join('')+'</div>'
-    :'<div class="empty"><i class="ti ti-calendar"></i>없음</div>';
+
+  // 날짜별로 묶기
+  const byDate={};
+  upcoming.forEach(s=>{
+    if(!byDate[s.date]) byDate[s.date]=[];
+    byDate[s.date].push(s);
+  });
+
+  const typeColor={
+    '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
+    '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
+    '중간고사':'#c0392b','중간고사마감':'#9b1515','기말고사':'#c0392b','기말고사마감':'#9b1515',
+    '기타':'#555'
+  };
+
+  const formatDate=(d)=>{
+    const dt=new Date(d); const days=['일','월','화','수','목','금','토'];
+    const m=dt.getMonth()+1, dd=dt.getDate(), dw=days[dt.getDay()];
+    const isToday=d===todayStr;
+    const diff=Math.round((new Date(d)-now)/(1000*60*60*24));
+    const badge=isToday?'<span style="background:#c0392b;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">오늘</span>'
+      :diff===1?'<span style="background:#b45309;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">내일</span>':'';
+    return `${m}/${dd}(${dw})${badge}`;
+  };
+
+  const html=Object.entries(byDate).map(([date,items])=>{
+    const isToday=date===todayStr;
+    return `<div style="margin-bottom:12px">
+      <!-- 날짜 헤더 -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:5px 10px;background:${isToday?'var(--navy)':'var(--bg2)'};border-radius:var(--r)">
+        <i class="ti ti-calendar-event" style="font-size:13px;color:${isToday?'#fff':'var(--text2)'}"></i>
+        <span style="font-size:13px;font-weight:700;color:${isToday?'#fff':'var(--text)'}">${formatDate(date)}</span>
+        <span style="font-size:11px;color:${isToday?'rgba(255,255,255,.65)':'var(--text3)'}">${items.length}건</span>
+      </div>
+      <!-- 해당 날짜 일정들 -->
+      <div style="display:flex;flex-direction:column;gap:4px;padding-left:8px">
+        ${items.map(s=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${typeColor[s.type]||'#999'}">
+            <div style="flex:1;min-width:0">
+              <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
+              <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+              ${s.note?`<div style="font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note}</div>`:''}
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              ${s.sent==='true'
+                ?'<span class="pill pill-green" style="font-size:10px">완료</span>'
+                :`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="markSent('${s.id}')">발송</button>`}
+              <button class="btn btn-icon" style="width:22px;height:22px;color:var(--text3);padding:0" onclick="deleteSchedule('${s.id}')"><i class="ti ti-trash" style="font-size:11px"></i></button>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('upcoming-schedule').innerHTML = upcoming.length
+    ? html
+    : '<div class="empty"><i class="ti ti-calendar"></i>다가오는 일정 없음</div>';
+
   const withStart=learners.filter(l=>l.start);
   document.getElementById('opening-checklist').innerHTML=withStart.length
     ?withStart.map(l=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid var(--border)"><div><strong>${l.name}</strong> <span style="font-size:12px;color:var(--text2)">${l.edu}·개강 ${l.start}</span></div><div><span class="tag"><i class="ti ti-photo"></i> 학사이미지</span><span class="tag"><i class="ti ti-file-text"></i> 팁자료</span><span class="tag"><i class="ti ti-archive"></i> 개강자료</span></div></div>`).join('')
@@ -2509,9 +2580,27 @@ function renderPlanEditor(p){
     ${buildPlanTableUI(p,t)}
 
     <div class="card">
+      <div class="card-head"><h3><i class="ti ti-notes"></i>비고</h3></div>
+      <!-- 자주쓰는 비고 프리셋 -->
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
+        ${[
+          '학사: 전공60 이상, 교양30 이상 이수 필수',
+          '보유학점(일반 최대 50학점까지만 인정 가능-나머지 절사)',
+          '전문학사: 전공45 이상 이수 필수',
+          '12/15-1/15 학위신청, 27년 2월 학위수여',
+          '자격증 취득 후 학위신청 가능',
+          '온라인 새학기 추가 가능 (3학점 고정)',
+        ].map(t=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPreset('${t.replace(/'/g,"\\'")}')"><i class="ti ti-plus" style="font-size:10px"></i> ${t.length>18?t.slice(0,18)+'…':t}</button>`).join('')}
+      </div>
       <div class="fg2">
-        <div class="fg"><label>비고 1</label><textarea style="height:52px;resize:none;font-size:12px" placeholder="예: 자격증 2개는 26년 12월까지 취득" onchange="upP('memo',this.value)">${p.memo||''}</textarea></div>
-        <div class="fg"><label>비고 2</label><textarea style="height:52px;resize:none;font-size:12px" placeholder="예: 학사: 전공60, 교양30 이수 필수" onchange="upP('note2',this.value)">${p.note2||''}</textarea></div>
+        <div class="fg">
+          <label>비고 1</label>
+          <textarea id="plan-memo-1" style="height:60px;resize:none;font-size:12px;text-align:center" placeholder="비고 내용 입력 또는 위 버튼으로 추가" onchange="upP('memo',this.value)">${p.memo||''}</textarea>
+        </div>
+        <div class="fg">
+          <label>비고 2</label>
+          <textarea id="plan-memo-2" style="height:60px;resize:none;font-size:12px;text-align:center" placeholder="비고 내용 입력 또는 위 버튼으로 추가" onchange="upP('note2',this.value)">${p.note2||''}</textarea>
+        </div>
       </div>
     </div>
   `;
@@ -2785,15 +2874,34 @@ function buildPlanTableUI(p,t){
 }
 
 // ── 학기/특수행 관리 ──────────────────────────────────────────────
+// 비고 프리셋 덧붙이기
+function appendMemoPreset(text){
+  if(!curPid) return;
+  const p=plans[curPid];
+  // 비고1이 비어있으면 비고1에, 아니면 비고2에 추가
+  const memo1=document.getElementById('plan-memo-1');
+  const memo2=document.getElementById('plan-memo-2');
+  if(memo1 && !memo1.value.trim()){
+    memo1.value = text;
+    p.memo = text;
+  } else if(memo2) {
+    const cur=memo2.value.trim();
+    memo2.value = cur ? cur+'\n'+text : text;
+    p.note2 = memo2.value;
+  }
+  LS.set('hk_plans',plans); saveToFirebase();
+}
+
 function addSemester(){
   const p=plans[curPid]; if(!p) return;
   const n=p.semesters.length+1;
   const yr=new Date().getFullYear()%100;
-  p.semesters.push({name:`${yr}-${n}학기`,edu:'',kisu:'',date:'',req:[],elec:[],gen:[],lib:[]});
+  // 온라인 새학기는 전공필수 3학점 자동 고정 (자격증/독학사/전적대는 제외)
+  const defaultReq=[{credit:'3',subject:''}];
+  p.semesters.push({name:`${yr}-${n}학기`,edu:'',kisu:'',date:'',req:defaultReq,elec:[],gen:[],lib:[]});
   LS.set('hk_plans',plans);
   saveToFirebase();
   renderPlanEditor(p);
-  // 추가된 학기의 편집 폼으로 스크롤
   setTimeout(()=>{
     const semForms=document.querySelectorAll('.sem-info-form');
     if(semForms.length) semForms[semForms.length-1].scrollIntoView({behavior:'smooth',block:'center'});
