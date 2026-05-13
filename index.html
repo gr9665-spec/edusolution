@@ -1863,8 +1863,15 @@ function importScheduleFile(input){
           const noteBase=[edu,kisu].filter(Boolean).join(' ');
           let startDate='';
           const sr=row[C.start];
-          if(sr instanceof Date)startDate=sr.toISOString().split('T')[0];
-          else if(typeof sr==='number'&&sr>40000)startDate=new Date((sr-25569)*86400000).toISOString().split('T')[0];
+          if(sr instanceof Date){
+            // toISOString()은 UTC 기준이라 KST에서 하루 밀림 → 로컬 날짜로 변환
+            const y=sr.getFullYear(), m=String(sr.getMonth()+1).padStart(2,'0'), d=String(sr.getDate()).padStart(2,'0');
+            startDate=`${y}-${m}-${d}`;
+          } else if(typeof sr==='number'&&sr>40000){
+            // 엑셀 시리얼 숫자 → 로컬 날짜
+            const d=new Date(Math.round((sr-25569)*86400*1000));
+            startDate=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          }
           else{const sv=String(sr||'').trim();const dtm=sv.match(/(\d{4})-(\d{2})-(\d{2})/);if(dtm)startDate=`${dtm[1]}-${dtm[2]}-${dtm[3]}`;else{const r=parseRanges(sv);if(r.length)startDate=r[0].start;}}
           if(startDate&&startDate.length===10)items.push({id:String(++ts),learnerName:name,type:'개강일',date:startDate,sent:'false',note:noteBase});
           const baseYear=startDate?parseInt(startDate.slice(0,4)):2026;
