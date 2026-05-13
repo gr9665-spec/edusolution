@@ -286,6 +286,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div style="font-size:13px;color:var(--text2)">학사일정을 등록하고 연락 여부를 관리해요</div>
     <div style="display:flex;gap:8px">
       <button class="btn" onclick="openBulkScheduleModal()"><i class="ti ti-users"></i>기수별 일괄 등록</button>
+      <button class="btn" onclick="document.getElementById('schedule-file-input').click()"><i class="ti ti-file-import"></i>파일 가져오기</button>
+      <input type="file" id="schedule-file-input" accept=".xlsx" style="display:none" onchange="importScheduleFile(this)">
       <button class="btn btn-primary" onclick="openScheduleModal()"><i class="ti ti-plus"></i>1명 추가</button>
     </div>
   </div>
@@ -791,7 +793,15 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="fg2">
     <div class="fg"><label>학생명 *</label><select id="s-learner"><option value="">학습자 선택</option></select></div>
     <div class="fg"><label>일정 유형</label>
-      <select id="s-type"><option>과제</option><option>쪽지시험</option><option>토론</option><option>중간고사</option><option>기말고사</option><option>개강</option><option>기타</option></select>
+      <select id="s-type">
+        <option>개강일</option>
+        <option>쪽지시험</option><option>쪽지시험마감</option>
+        <option>토론</option><option>토론마감</option>
+        <option>과제</option><option>과제마감</option>
+        <option>중간고사</option><option>중간고사마감</option>
+        <option>기말고사</option><option>기말고사마감</option>
+        <option>기타</option>
+      </select>
     </div>
     <div class="fg"><label>마감일 *</label><input type="date" id="s-date"></div>
     <div class="fg"><label>연락 여부</label><select id="s-sent"><option value="false">미발송</option><option value="true">발송완료</option></select></div>
@@ -1736,7 +1746,147 @@ function saveSchedule(){
   schedules.push({id:Date.now()+'',learnerName:ln,type:document.getElementById('s-type').value,date,sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
-function markSent(id){const s=schedules.find(x=>x.id===id);if(s){s.sent='true';save();renderSchedule();renderDashboard();}}
+function importScheduleFile(input){
+  const file = input.files[0];
+  if(!file) return;
+  input.value = '';
+
+  const loadXLSX = () => new Promise((res,rej)=>{
+    if(window.XLSX){res();return;}
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=res; s.onerror=rej;
+    document.head.appendChild(s);
+  });
+
+  loadXLSX().then(()=>{
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+        // 헤더행 찾기 (기관이름 or 학생명 있는 행)
+        let hdrIdx = 0;
+        for(let i=0; i<Math.min(rows.length,5); i++){
+          const r = rows[i].map(v=>String(v||''));
+          if(r.some(v=>v.includes('학생명')||v.includes('기관'))){
+            hdrIdx = i; break;
+          }
+        }
+        const dataRows = rows.slice(hdrIdx+1);
+
+        // col 인덱스 (0-based, 헤더 기준)
+        // col1=교육원, col6=기수, col7=개강일, col10=학생명
+        // col18=쪽지시험, col19=토론, col20=과제, col21=중간고사, col22=기말고사
+        const C = { edu:0, kisu:5, start:6, name:9,
+                    quiz:17, discussion:18, task:19, mid:20, final:21 };
+
+        const items = [];
+        let ts = Date.now();
+
+        // "4/22-4/28 22:59" → 시작일/종료일 파싱
+        const parseStart = (s) => {
+          if(!s) return '';
+          s = String(s).trim();
+          if(s.includes('종강일')) return '';
+          // 앞부분만 (- 이전)
+          const part = s.split('-')[0].trim().replace(/\s.*$/,'');
+          const slash = part.split('/');
+          if(slash.length >= 2){
+            const mm=parseInt(slash[0]), dd=parseInt(slash[1]);
+            if(!isNaN(mm)&&!isNaN(dd))
+              return `2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+          }
+          return '';
+        };
+        const parseEnd = (s) => {
+          if(!s) return '';
+          s = String(s).trim();
+          if(s.includes('종강일')) return '';
+          const parts = s.split('-');
+          if(parts.length < 2) return '';
+          // 마지막 부분 (시간 제거)
+          const end = parts[parts.length-1].trim().replace(/\s.*$/,'').replace(/\d{1,2}:\d{2}.*/,'').trim();
+          // 슬래시 있으면 MM/DD
+          if(end.includes('/')){
+            const slash = end.split('/');
+            const mm=parseInt(slash[0]), dd=parseInt(slash[1]);
+            if(!isNaN(mm)&&!isNaN(dd))
+              return `2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+          }
+          // 슬래시 없으면 DD만 → 시작 MM 사용
+          const startPart = parts[0].trim().replace(/\s.*$/,'');
+          const startSlash = startPart.split('/');
+          if(startSlash.length >= 1){
+            const mm=parseInt(startSlash[0]), dd=parseInt(end);
+            if(!isNaN(mm)&&!isNaN(dd))
+              return `2026-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+          }
+          return '';
+        };
+
+        dataRows.forEach(row => {
+          const name = String(row[C.name]||'').trim();
+          if(!name) return;
+
+          let edu = String(row[C.edu]||'').trim();
+          if(edu.includes('공동체')) edu = '하나원격';
+
+          const kisu = String(row[C.kisu]||'').trim();
+          const noteBase = [edu, kisu].filter(Boolean).join(' ');
+
+          // 개강일
+          let startDate = '';
+          const sr = row[C.start];
+          if(sr instanceof Date) startDate = sr.toISOString().split('T')[0];
+          else if(typeof sr==='number'&&sr>40000){
+            startDate = new Date((sr-25569)*86400000).toISOString().split('T')[0];
+          } else startDate = String(sr||'').trim().slice(0,10);
+
+          const quiz = String(row[C.quiz]||'').trim();
+          const disc = String(row[C.discussion]||'').trim();
+          const task = String(row[C.task]||'').trim();
+          const mid  = String(row[C.mid]||'').trim();
+          const fin  = String(row[C.final]||'').trim();
+
+          const add = (type, date, range='') => {
+            if(date&&date.length===10)
+              items.push({id:String(++ts), learnerName:name, type, date,
+                sent:'false', note: range?`${noteBase} | ${range}`:noteBase});
+          };
+
+          add('개강일',       startDate);
+          add('쪽지시험',     parseStart(quiz),  quiz);
+          add('쪽지시험마감', parseEnd(quiz),    quiz);
+          add('토론',         parseStart(disc),  disc);
+          add('토론마감',     parseEnd(disc),    disc);
+          add('과제',         parseStart(task),  task);
+          add('과제마감',     parseEnd(task),    task);
+          add('중간고사',     parseStart(mid),   mid);
+          add('중간고사마감', parseEnd(mid),     mid);
+          add('기말고사',     parseStart(fin),   fin);
+          add('기말고사마감', parseEnd(fin),     fin);
+        });
+
+        if(!items.length){ alert('파싱된 일정이 없어요'); return; }
+
+        // 중복 제거
+        const existing = new Set(schedules.map(s=>`${s.learnerName}|${s.type}|${s.date}`));
+        const newItems = items.filter(i=>!existing.has(`${i.learnerName}|${i.type}|${i.date}`));
+        const dupCnt = items.length - newItems.length;
+
+        if(!confirm(`총 ${items.length}건 파싱\n신규: ${newItems.length}건 | 중복제외: ${dupCnt}건\n\n가져올까요?`)) return;
+
+        schedules.push(...newItems);
+        save(); renderSchedule(); renderDashboard();
+        alert(`✓ ${newItems.length}건 학사일정 등록 완료!`);
+      } catch(err){ alert('파일 읽기 실패: '+err.message+'\n'+err.stack); }
+    };
+    reader.readAsArrayBuffer(file);
+  }).catch(()=>alert('라이브러리 로드 실패'));
+}
 function renderSchedule(){
   const now=new Date();const todayStr=now.toISOString().split('T')[0];
   const upcoming=schedules.filter(s=>s.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date));
@@ -2140,7 +2290,7 @@ function selectAllBulk(checked){
 }
 
 function renderBulkRows(){
-  const types = ['과제','쪽지시험','토론','중간고사','기말고사','개강','기타'];
+  const types = ['개강일','쪽지시험','쪽지시험마감','토론','토론마감','과제','과제마감','중간고사','중간고사마감','기말고사','기말고사마감','기타'];
   const container = document.getElementById('bulk-schedule-rows');
   container.innerHTML = Array.from({length:bulkRows},(_,i)=>`
     <div class="bulk-row" id="brow-${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
@@ -2228,9 +2378,18 @@ let plans = LS.get('hk_plans')||{};
 let curPid = null;
 let subjCtx = null;
 
-
-
-function initPlanTab(){
+function blankPlan(){
+  return {
+    id:'p'+Date.now(),
+    clientName:'', phone:'', counselDate:new Date().toISOString().split('T')[0],
+    degree:'학사', major:'경영', majorCustom:'',
+    linkedLearner:'',
+    owned:{ req:[], elec:[], gen:[], lib:[], specials:[] },
+    semesters:[],
+    specials:[],
+    memo:'', note2:'',
+  };
+}function initPlanTab(){
   renderPlanList();
   if(curPid && plans[curPid]) renderPlanEditor(plans[curPid]);
 }
