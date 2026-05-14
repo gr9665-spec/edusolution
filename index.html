@@ -1171,9 +1171,9 @@ function copyTodoList(){
   const am=todayTodos.filter(t=>t.period!=='오후');
   const pm=todayTodos.filter(t=>t.period==='오후');
   let body='';
-  if(am.length) body+=`+오전\n\n${am.map(t=>`- ${t.text}`).join('\n')}`;
+  if(am.length) body+=`+오전\n\n${am.map(t=>`- ${t.text}${t.done?' ㅇ':''}`).join('\n')}`;
   if(am.length&&pm.length) body+='\n\n';
-  if(pm.length) body+=`+오후\n\n${pm.map(t=>`- ${t.text}`).join('\n')}`;
+  if(pm.length) body+=`+오후\n\n${pm.map(t=>`- ${t.text}${t.done?' ㅇ':''}`).join('\n')}`;
   const text=`To do list (${m}/${d})\n\n<업무>\n\n${body}`;
   if(navigator.clipboard){
     navigator.clipboard.writeText(text).then(()=>{
