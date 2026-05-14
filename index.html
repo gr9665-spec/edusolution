@@ -2044,11 +2044,6 @@ function renderSchedule(){
   document.getElementById('upcoming-schedule').innerHTML = upcoming.length
     ? html
     : '<div class="empty"><i class="ti ti-calendar"></i>다가오는 일정 없음</div>';
-
-  const withStart=learners.filter(l=>l.start);
-  document.getElementById('opening-checklist').innerHTML=withStart.length
-    ?withStart.map(l=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;border-bottom:1px solid var(--border)"><div><strong>${l.name}</strong> <span style="font-size:12px;color:var(--text2)">${l.edu}·개강 ${l.start}</span></div><div><span class="tag"><i class="ti ti-photo"></i> 학사이미지</span><span class="tag"><i class="ti ti-file-text"></i> 팁자료</span><span class="tag"><i class="ti ti-archive"></i> 개강자료</span></div></div>`).join('')
-    :'<div class="empty"><i class="ti ti-inbox"></i>없음</div>';
 }
 function deleteSchedule(id){
   const s=schedules.find(x=>x.id===id);
