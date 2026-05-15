@@ -2585,12 +2585,22 @@ function planTotals(p){
   const semElec=p.semesters.reduce((a,s)=>a+sumC(s.elec),0);
   const semGen=p.semesters.reduce((a,s)=>a+sumC(s.gen),0);
   const semLib=p.semesters.reduce((a,s)=>a+sumC(s.lib),0);
-  // 특수행: section별 집계
+  // 이수계획 특수행 (자격증/독학사): section별 집계
   const specReq =(p.specials||[]).filter(sp=>sp.section==='req' ).reduce((a,sp)=>a+sumC(sp.rows),0);
   const specElec=(p.specials||[]).filter(sp=>sp.section==='elec').reduce((a,sp)=>a+sumC(sp.rows),0);
   const specGen =(p.specials||[]).filter(sp=>sp.section==='gen' ).reduce((a,sp)=>a+sumC(sp.rows),0);
   const specLib =(p.specials||[]).filter(sp=>sp.section==='lib' ).reduce((a,sp)=>a+sumC(sp.rows),0);
-  const ownReq=sumC(o.req), ownElec=sumC(o.elec), ownGen=sumC(o.gen), ownLib=sumC(o.lib);
+  // 보유학점 기본
+  const ownReqBase=sumC(o.req), ownElecBase=sumC(o.elec), ownGenBase=sumC(o.gen), ownLibBase=sumC(o.lib);
+  // 보유학점 특수행 (owned.specials): section별 집계
+  const ownSpecReq =(o.specials||[]).filter(sp=>sp.section==='req' ).reduce((a,sp)=>a+sumC(sp.rows),0);
+  const ownSpecElec=(o.specials||[]).filter(sp=>sp.section==='elec').reduce((a,sp)=>a+sumC(sp.rows),0);
+  const ownSpecGen =(o.specials||[]).filter(sp=>sp.section==='gen' ).reduce((a,sp)=>a+sumC(sp.rows),0);
+  const ownSpecLib =(o.specials||[]).filter(sp=>sp.section==='lib' ).reduce((a,sp)=>a+sumC(sp.rows),0);
+  const ownReq=ownReqBase+ownSpecReq;
+  const ownElec=ownElecBase+ownSpecElec;
+  const ownGen=ownGenBase+ownSpecGen;
+  const ownLib=ownLibBase+ownSpecLib;
   const ownAll=ownReq+ownElec+ownGen+ownLib;
   const totReq=ownReq+semReq+specReq;
   const totElec=ownElec+semElec+specElec;
