@@ -2753,13 +2753,9 @@ function buildOwnedTableUI(p,t){
 
   const th=(s,c='')=>`<th style="padding:6px 5px;border:1px solid #aaa;text-align:center;background:${PLAN_LBLUE};font-size:11px;color:${c||'#222'}">${s}</th>`;
 
-  // 보유학점 소계 (owned specials 포함)
-  const oSpecReq=(o.specials||[]).filter(sp=>sp.section==='req').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const oSpecElec=(o.specials||[]).filter(sp=>sp.section==='elec').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const oSpecGen=(o.specials||[]).filter(sp=>sp.section==='gen').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const oSpecLib=(o.specials||[]).filter(sp=>sp.section==='lib').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const tOR=t.ownReq+oSpecReq, tOE=t.ownElec+oSpecElec, tOG=t.ownGen+oSpecGen, tOL=t.ownLib+oSpecLib;
-  const tOAll=tOR+tOE+tOG+tOL;
+  // 보유학점 소계 — planTotals에서 이미 owned.specials 포함해서 계산됨
+  const tOR=t.ownReq, tOE=t.ownElec, tOG=t.ownGen, tOL=t.ownLib;
+  const tOAll=t.ownAll;
 
   return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px">
     <div style="text-align:center;font-weight:700;font-size:13px;background:${PLAN_BLUE};color:#fff;padding:9px;letter-spacing:.1em">▶ 보 유 학 점 ◀</div>
@@ -3274,13 +3270,9 @@ function openPrintPreview(pid){
   const BL=PLAN_BLUE, LBL=PLAN_LBLUE, YL=PLAN_YELLOW, DYL=PLAN_DYELLOW, RD=PLAN_RED;
   const th=(s,c,bg)=>`<th style="padding:6px 4px;border:1px solid #aaa;text-align:center;font-size:11px;background:${bg||LBL};color:${c||'#222'}">${s}</th>`;
 
-  // 보유학점 총합 계산 (owned specials 포함)
-  const oSpecReq=(p.owned.specials||[]).filter(sp=>sp.section==='req').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const oSpecElec=(p.owned.specials||[]).filter(sp=>sp.section==='elec').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const oSpecGen=(p.owned.specials||[]).filter(sp=>sp.section==='gen').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const oSpecLib=(p.owned.specials||[]).filter(sp=>sp.section==='lib').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const tOR=t.ownReq+oSpecReq, tOE=t.ownElec+oSpecElec, tOG=t.ownGen+oSpecGen, tOL=t.ownLib+oSpecLib;
-  const tOAll=tOR+tOE+tOG+tOL;
+  // 보유학점 총합 — planTotals에서 이미 owned.specials 포함해서 계산됨
+  const tOR=t.ownReq, tOE=t.ownElec, tOG=t.ownGen, tOL=t.ownLib;
+  const tOAll=t.ownAll;
   const hasOwned = tOAll > 0;  // 보유학점 있는지 여부
 
   // 보유학점 행 (owned specials 포함)
