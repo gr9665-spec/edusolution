@@ -1904,9 +1904,19 @@ function importScheduleFile(input){
         const guessYear=(s,fb=2026)=>{const m=s.match(/(\d{2,4})년/);if(m){const y=parseInt(m[1]);return y<100?2000+y:y;}return fb;};
         const toDate=(mm,dd,year)=>{if(isNaN(mm)||isNaN(dd)||mm<1||mm>12||dd<1||dd>31)return '';return `${year}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;};
         const parseSlash=p=>{p=p.trim().replace(/[^0-9\/]/g,'');const sl=p.split('/');if(sl.length>=2)return{mm:parseInt(sl[0]),dd:parseInt(sl[1])};return null;};
+        const parseKorDate=s=>{const m=s.match(/(\d{1,2})월\s*(\d{1,2})일/);return m?{mm:parseInt(m[1]),dd:parseInt(m[2])}:null;};
         const parseSingleRange=(seg,year)=>{
           seg=seg.replace(/\s+/g,' ').trim();
-          seg=seg.replace(/\s*\d{1,2}[:시]\d{0,2}\S*/g,'').trim();
+          seg=seg.replace(/\s*\d{1,2}[시:]\d{0,2}[분]?\S*/g,'').replace(/\s*\d{1,2}시/g,'').trim();
+          // 한글 날짜 "5월20일~5월26일", "26년5월20일~5월26일23시" 등
+          if(/월.*일/.test(seg)){
+            const segYear=guessYear(seg,year);
+            const clean=seg.replace(/\d{2,4}년도?\s*/g,'').trim();
+            const div=clean.includes('~')?'~':'-';
+            const pts=clean.split(div).map(p=>p.trim());
+            const k0=parseKorDate(pts[0]), k1=parseKorDate(pts[pts.length-1]);
+            if(k0) return{start:toDate(k0.mm,k0.dd,segYear),end:toDate(k1?k1.mm:k0.mm,k1?k1.dd:k0.dd,segYear)};
+          }
           let parts;
           if(seg.includes('~')){parts=seg.split('~');}
           else{const m=seg.match(/^(\d+\/\d+)\s*-\s*(\d+\/?\d*)$/);if(m)parts=[m[1],m[2]];else return null;}
@@ -1919,14 +1929,18 @@ function importScheduleFile(input){
         const parseRanges=(raw,fb=2026)=>{
           if(isInv(raw))return[];
           let s=String(raw).trim(); const year=guessYear(s,fb);
-          s=s.replace(/\d{2,4}년\s*/g,'');
           const results=[];
           if(/[12]차/.test(s)){
             const rounds=s.split(/(?=[12]차)/).filter(x=>x.trim());
             rounds.forEach((seg,i)=>{const clean=seg.replace(/^[12]차\s*/,'').trim();const r=parseSingleRange(clean,year);if(r&&r.start)results.push({...r,round:i+1});});
           } else {
-            const rangeMatches=[...s.matchAll(/(\d+\/\d+)\s*[~\-]\s*(\d+\/?\d*)/g)];
-            if(rangeMatches.length>0){const last=rangeMatches[rangeMatches.length-1];const r=parseSingleRange(last[0],year);if(r&&r.start)results.push({...r,round:0});}
+            const r=parseSingleRange(s,year);
+            if(r&&r.start){results.push({...r,round:0});}
+            else{
+              const clean=s.replace(/\d{2,4}년도?\s*/g,'');
+              const rm=[...clean.matchAll(/(\d+\/\d+)\s*[~\-]\s*(\d+\/?\d*)/g)];
+              if(rm.length>0){const r2=parseSingleRange(rm[rm.length-1][0],year);if(r2&&r2.start)results.push({...r2,round:0});}
+            }
           }
           return results;
         };
