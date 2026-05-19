@@ -1937,8 +1937,29 @@ function importScheduleFile(input){
           const noteBase=[edu,kisu].filter(Boolean).join(' ');
           let startDate='';
           const sr=row[C.start];
+          // 1. 숫자 시리얼 → xlsxDateToStr
           startDate=xlsxDateToStr(sr);
-          if(!startDate){const sv=String(sr||'').trim();const dtm=sv.match(/(\d{4})-(\d{2})-(\d{2})/);if(dtm)startDate=`${dtm[1]}-${dtm[2]}-${dtm[3]}`;else{const r=parseRanges(sv);if(r.length)startDate=r[0].start;}}
+          // 2. Date 객체로 왔을 때 (cellDates:false여도 발생)
+          if(!startDate && sr instanceof Date){
+            const y=sr.getFullYear(),mo=String(sr.getMonth()+1).padStart(2,'0'),d2=String(sr.getDate()).padStart(2,'0');
+            startDate=`${y}-${mo}-${d2}`;
+          }
+          // 3. 문자열 처리
+          if(!startDate){
+            const sv=String(sr||'').trim();
+            const dtm=sv.match(/(\d{4})-(\d{2})-(\d{2})/);
+            if(dtm) startDate=`${dtm[1]}-${dtm[2]}-${dtm[3]}`;
+            else {
+              // "5월14일", "5월 20일", "26년 5월 13일" 한글 날짜
+              const km=sv.match(/(?:(\d{2,4})년\s*)?(\d{1,2})월\s*(\d{1,2})일/);
+              if(km){
+                const y=km[1]?(parseInt(km[1])<100?2000+parseInt(km[1]):parseInt(km[1])):2026;
+                startDate=`${y}-${String(parseInt(km[2])).padStart(2,'0')}-${String(parseInt(km[3])).padStart(2,'0')}`;
+              } else {
+                const r2=parseRanges(sv);if(r2.length)startDate=r2[0].start;
+              }
+            }
+          }
           if(startDate&&startDate.length===10)items.push({id:String(++ts),learnerName:name,type:'개강일',date:startDate,sent:'false',note:noteBase});
           const baseYear=startDate?parseInt(startDate.slice(0,4)):2026;
           [{col:C.quiz,type:'쪽지시험'},{col:C.disc,type:'토론'},{col:C.task,type:'과제'},{col:C.mid,type:'중간고사'},{col:C.final,type:'기말고사'}].forEach(({col,type})=>{
