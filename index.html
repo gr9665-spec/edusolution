@@ -2744,7 +2744,8 @@ function buildOwnedTableUI(p,t){
     const doksaSecs=[{v:'req',l:'전공필수'},{v:'elec',l:'전공선택'},{v:'gen',l:'일반학점'},{v:'lib',l:'교양학점'}];
     const secOpts=(isCert?certSecs:doksaSecs).map(o=>`<option value="${o.v}" ${sec===o.v?'selected':''}>${o.l}</option>`).join('');
     const maxSR=Math.max(1,(sp.rows||[]).length);
-    specRows+=`<tr style="background:#f0f0e8"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700">
+    const barBg1=isCert?'#d0eeff':'#d4f5d4'; const barFg1=isCert?'#1a5fa8':'#2e6e10';
+    specRows+=`<tr style="background:${barBg1}"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${barFg1}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
         <span>${label}</span>
         <div style="display:flex;align-items:center;gap:5px">
@@ -2891,8 +2892,10 @@ function buildPlanTableUI(p,t){
     const doksaSections=[{v:'req',l:'전공필수'},{v:'elec',l:'전공선택'},{v:'gen',l:'일반학점'},{v:'lib',l:'교양학점'}];
     const secOptions=(isCert?certSections:doksaSections).map(o=>`<option value="${o.v}" ${sec===o.v?'selected':''}>${o.l}</option>`).join('');
 
-    body+=`<tr style="background:#f0f0e8">
-      <td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700">
+    const planBarBg=isCert?'#d0eeff':'#d4f5d4';
+    const planBarFg=isCert?'#1a5fa8':'#2e6e10';
+    body+=`<tr style="background:${planBarBg}">
+      <td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${planBarFg}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
           <span>${label}</span>
           <div style="display:flex;align-items:center;gap:6px">
@@ -3332,7 +3335,8 @@ function openPrintPreview(pid){
     const isCert=sp.type==='cert'; const label=isCert?'자격증':'독학사';
     const sec=sp.section||'req';
     const maxR=Math.max(1,(sp.rows||[]).length);
-    ownRows+=`<tr style="background:#f0f0e8"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">${label}</td></tr>`;
+    const oBg=isCert?'#d0eeff':'#d4f5d4'; const oFg=isCert?'#1a5fa8':'#2e6e10';
+    ownRows+=`<tr style="background:${oBg}"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center;color:${oFg}">${label}</td></tr>`;
     for(let i=0;i<maxR;i++){
       const r=sp.rows&&sp.rows[i];
       const credit=r&&r.credit?r.credit:'', subject=r&&r.subject?r.subject:'';
@@ -3383,9 +3387,11 @@ function openPrintPreview(pid){
   (p.specials||[]).forEach(sp=>{
     const isCert=sp.type==='cert';
     const label=isCert?'자격증':'독학사';
+    const barColor=isCert?'#87ceeb':'#90ee90'; // 자격증=하늘색, 독학사=연두색
+    const barText=isCert?'#1a5fa8':'#2e6e10';
     const sec=sp.section||'req';
     const maxR=Math.max(1,(sp.rows||[]).length);
-    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">${label}</td></tr>`;
+    planRows+=`<tr style="background:${barColor}"><td colspan="9" style="padding:5px 8px;font-size:12px;border:1px solid #ccc;font-weight:700;text-align:center;color:${barText}">${label}</td></tr>`;
     for(let i=0;i<maxR;i++){
       const r=sp.rows&&sp.rows[i];
       const credit=r&&r.credit?r.credit:'';
@@ -3476,9 +3482,13 @@ function openPrintPreview(pid){
     </table>
 
     ${p.memo?`
-    <div style="margin-top:12px;border:1px solid #ccc;border-radius:4px;padding:10px 12px;font-size:11px;color:#444;line-height:2;background:#fffef5;text-align:center">
-      <strong style="display:block;margin-bottom:6px;color:#333">비고</strong>
-      ${p.memo.split('\n').map(line=>`<div>${line}</div>`).join('')}
+    <div style="margin-top:12px;border:2px solid #c8a900;border-radius:4px;background:#fffef0;text-align:center">
+      <div style="background:#c8a900;color:#fff;padding:5px 12px;font-size:13px;font-weight:700;letter-spacing:.05em">비 고</div>
+      <div style="padding:4px 12px">
+        ${p.memo.split('\n').map((line,i,arr)=>`
+          <div style="padding:7px 0;font-size:13px;font-weight:600;color:#222;${i<arr.length-1?'border-bottom:1px solid #e0d080;':''}">${line||'&nbsp;'}</div>
+        `).join('')}
+      </div>
     </div>`:''}
   </div>`;
 
