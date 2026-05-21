@@ -2617,9 +2617,8 @@ function importPlanFromXlsx(input){
         let clientName='', degree='학사', major='경영';
         for(let i=0;i<Math.min(rows.length,10);i++){
           const r=rows[i];
-          // 이름: '이름' 레이블 옆이나 아래
+          // 이름: 파일명에서 추출 (병합셀 문제로 엑셀에서 못 읽는 경우 대비)
           if(cv(r[0])==='이름' && cv(r[1])) clientName=cv(r[1]);
-          if(cv(r[0])==='이름' && !cv(r[1]) && i+1<rows.length && cv(rows[i+1][0])) clientName=cv(rows[i+1][0]);
           // 목표학위
           if(cv(r[3])&&cv(r[3]).includes('목표')) {
             const degStr=cv(r[4])||cv(r[5])||'';
@@ -2705,8 +2704,17 @@ function importPlanFromXlsx(input){
               if(toInt(rj[5])&&cv(rj[6])) dokGen.push({credit:String(toInt(rj[5])),subject:cv(rj[6])});
               if(toInt(rj[7])&&cv(rj[8])) dokLib.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
             }
-            if(dokGen.length) specials.push({type:'doksa',section:'gen',rows:dokGen});
-            if(dokLib.length) specials.push({type:'doksa',section:'lib',rows:dokLib});
+            // 일반+교양이 모두 있으면 section이 더 많은 쪽으로 합치거나 각각 추가
+            // 단, 같은 독학사 항목은 하나로 — 일반만 있으면 gen, 교양만 있으면 lib, 둘 다면 더 많은 쪽
+            if(dokGen.length&&dokLib.length){
+              // 둘 다 있으면 각각 별도 special로 (section 다름)
+              specials.push({type:'doksa',section:'gen',rows:dokGen});
+              specials.push({type:'doksa',section:'lib',rows:dokLib});
+            } else if(dokGen.length){
+              specials.push({type:'doksa',section:'gen',rows:dokGen});
+            } else if(dokLib.length){
+              specials.push({type:'doksa',section:'lib',rows:dokLib});
+            }
           }
         }
 
@@ -2727,11 +2735,12 @@ function importPlanFromXlsx(input){
         }
 
 
-        // 플랜 객체 생성
+          // 이름이 없으면 파일명 사용 (병합셀로 못 읽은 경우)
+          if(!clientName) clientName=file.name.replace(/\.[^.]+$/,'');
         const newId='p'+Date.now();
         const plan={
           id:newId,
-          clientName: clientName||file.name.replace('.xlsx',''),
+          clientName: clientName,
           phone:'', counselDate:new Date().toISOString().split('T')[0],
           degree, major, majorCustom:'',
           linkedLearner:'',
