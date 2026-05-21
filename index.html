@@ -2929,18 +2929,18 @@ function planTotals(p){
   const semElec=p.semesters.reduce((a,s)=>a+sumC(s.elec),0);
   const semGen=p.semesters.reduce((a,s)=>a+sumC(s.gen),0);
   const semLib=p.semesters.reduce((a,s)=>a+sumC(s.lib),0);
-  // 이수계획 특수행 (자격증/독학사): section별 집계
-  const specReq =(p.specials||[]).filter(sp=>sp.section==='req' ).reduce((a,sp)=>a+sumC(sp.rows),0);
-  const specElec=(p.specials||[]).filter(sp=>sp.section==='elec').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const specGen =(p.specials||[]).filter(sp=>sp.section==='gen' ).reduce((a,sp)=>a+sumC(sp.rows),0);
-  const specLib =(p.specials||[]).filter(sp=>sp.section==='lib' ).reduce((a,sp)=>a+sumC(sp.rows),0);
+  // 이수계획 특수행 (자격증/독학사): 각 열별 합산
+  const specReq =(p.specials||[]).reduce((a,sp)=>a+sumC(sp.req||[]),0);
+  const specElec=(p.specials||[]).reduce((a,sp)=>a+sumC(sp.elec||[]),0);
+  const specGen =(p.specials||[]).reduce((a,sp)=>a+sumC(sp.gen||[]),0);
+  const specLib =(p.specials||[]).reduce((a,sp)=>a+sumC(sp.lib||[]),0);
   // 보유학점 기본
   const ownReqBase=sumC(o.req), ownElecBase=sumC(o.elec), ownGenBase=sumC(o.gen), ownLibBase=sumC(o.lib);
-  // 보유학점 특수행 (owned.specials): section별 집계
-  const ownSpecReq =(o.specials||[]).filter(sp=>sp.section==='req' ).reduce((a,sp)=>a+sumC(sp.rows),0);
-  const ownSpecElec=(o.specials||[]).filter(sp=>sp.section==='elec').reduce((a,sp)=>a+sumC(sp.rows),0);
-  const ownSpecGen =(o.specials||[]).filter(sp=>sp.section==='gen' ).reduce((a,sp)=>a+sumC(sp.rows),0);
-  const ownSpecLib =(o.specials||[]).filter(sp=>sp.section==='lib' ).reduce((a,sp)=>a+sumC(sp.rows),0);
+  // 보유학점 특수행 (owned.specials): 각 열별 합산
+  const ownSpecReq =(o.specials||[]).reduce((a,sp)=>a+sumC(sp.req||[]),0);
+  const ownSpecElec=(o.specials||[]).reduce((a,sp)=>a+sumC(sp.elec||[]),0);
+  const ownSpecGen =(o.specials||[]).reduce((a,sp)=>a+sumC(sp.gen||[]),0);
+  const ownSpecLib =(o.specials||[]).reduce((a,sp)=>a+sumC(sp.lib||[]),0);
   const ownReq=ownReqBase+ownSpecReq;
   const ownElec=ownElecBase+ownSpecElec;
   const ownGen=ownGenBase+ownSpecGen;
@@ -3049,44 +3049,36 @@ function buildOwnedTableUI(p,t){
   (o.specials||[]).forEach((sp,spi)=>{
     const isCert=sp.type==='cert';
     const label=isCert?'자격증':'독학사';
-    const sec=sp.section||'req';
-    const certSecs=[{v:'req',l:'전공필수'},{v:'gen',l:'일반학점'}];
-    const doksaSecs=[{v:'req',l:'전공필수'},{v:'elec',l:'전공선택'},{v:'gen',l:'일반학점'},{v:'lib',l:'교양학점'}];
-    const secOpts=(isCert?certSecs:doksaSecs).map(o=>`<option value="${o.v}" ${sec===o.v?'selected':''}>${o.l}</option>`).join('');
-    const maxSR=Math.max(1,(sp.rows||[]).length);
-    const barBg1=isCert?'#e8f4fd':'#e8f8e8'; const barFg1=isCert?'#1a5fa8':'#2e6e10';
-    const secLabel1={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[sec];
-    specRows+=`<tr style="background:${barBg1}"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${barFg1}">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
-        <span>${label} · ${secLabel1}</span>
+    const bg=isCert?'#e8f4fd':'#e8f8e8';
+    const fg=isCert?'#1a5fa8':'#2e6e10';
+    const rReq=sp.req||[], rElec=sp.elec||[], rGen=sp.gen||[], rLib=sp.lib||[];
+    const maxSR=Math.max(1,rReq.length,rElec.length,rGen.length,rLib.length);
+    specRows+=`<tr style="background:${bg}"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${fg}">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span>${label}</span>
         <button class="btn btn-sm" style="padding:1px 6px;font-size:10px;color:var(--red)" onclick="deleteOwnedSpecial(${spi})"><i class="ti ti-trash"></i></button>
       </div>
     </td></tr>`;
     for(let i=0;i<maxSR;i++){
-      const r=sp.rows&&sp.rows[i];
-      const credit=r&&r.credit?r.credit:'', subject=r&&r.subject?r.subject:'';
-      const cells={req:['',''],elec:['',''],gen:['',''],lib:['','']};
-      cells[sec]=[credit,subject];
+      const rq=rReq[i],el=rElec[i],gn=rGen[i],lb=rLib[i];
       specRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#f9f9f4">${cells.req[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${cells.req[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.elec[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${i===0&&isCert&&sec!=='elec'?(sp.elecNote||'해당없음'):cells.elec[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.gen[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.gen[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.lib[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${i===0&&isCert&&sec!=='lib'?(sp.libNote||'해당없음'):cells.lib[1]}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
     specRows+=`<tr><td colspan="9" style="padding:0;border:none">
-      <div style="display:flex;gap:5px;padding:4px 8px;background:${PLAN_GRAY};align-items:center;flex-wrap:wrap">
-        <button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('ownedSpec','rows',${spi})">${label} 과목 입력</button>
-        ${isCert?`<span style="font-size:10px;color:var(--text2)">전선:</span>
-        <input type="text" value="${sp.elecNote||'해당없음'}" style="width:65px;padding:2px 5px;font-size:10px" onchange="plans[curPid].owned.specials[${spi}].elecNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
-        <span style="font-size:10px;color:var(--text2)">교양:</span>
-        <input type="text" value="${sp.libNote||'해당없음'}" style="width:65px;padding:2px 5px;font-size:10px" onchange="plans[curPid].owned.specials[${spi}].libNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
-        `:''}
+      <div style="display:flex;gap:5px;padding:4px 8px;background:${PLAN_GRAY};flex-wrap:wrap">
+        <button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('ownedSpec','req',${spi})">전공필수</button>
+        ${isCert?'':`<button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('ownedSpec','elec',${spi})">전공선택</button>`}
+        <button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('ownedSpec','gen',${spi})">일반학점</button>
+        ${isCert?'':`<button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('ownedSpec','lib',${spi})">교양학점</button>`}
       </div>
     </td></tr>`;
   });
@@ -3110,16 +3102,8 @@ function buildOwnedTableUI(p,t){
       <button class="btn btn-sm" onclick="openSubjModal('owned','elec',-1)"><i class="ti ti-edit" style="font-size:11px"></i> 전공선택</button>
       <button class="btn btn-sm" onclick="openSubjModal('owned','gen',-1)"><i class="ti ti-edit" style="font-size:11px"></i> 일반학점</button>
       <button class="btn btn-sm" onclick="openSubjModal('owned','lib',-1)"><i class="ti ti-edit" style="font-size:11px"></i> 교양학점</button>
-      <div style="width:1px;background:var(--border);margin:0 2px"></div>
-      <span style="font-size:10px;color:var(--text2)">자격증+</span>
-      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#1a5fa8" onclick="addOwnedSpecial('cert','req')">전필</button>
-      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#2e6e10" onclick="addOwnedSpecial('cert','gen')">일반</button>
-      <div style="width:1px;background:var(--border);margin:0 2px"></div>
-      <span style="font-size:10px;color:var(--text2)">독학사+</span>
-      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#1a5fa8" onclick="addOwnedSpecial('doksa','req')">전필</button>
-      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#1565a8" onclick="addOwnedSpecial('doksa','elec')">전선</button>
-      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#2e6e10" onclick="addOwnedSpecial('doksa','gen')">일반</button>
-      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#6d28d9" onclick="addOwnedSpecial('doksa','lib')">교양</button>
+      <button class="btn btn-sm" style="color:#1a5fa8" onclick="addOwnedSpecial('cert')"><i class="ti ti-plus" style="font-size:11px"></i> 자격증</button>
+      <button class="btn btn-sm" style="color:#2e6e10" onclick="addOwnedSpecial('doksa')"><i class="ti ti-plus" style="font-size:11px"></i> 독학사</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;background:${PLAN_YELLOW};border-top:2px solid ${PLAN_BLUE};font-size:12px;font-weight:700">
       <div style="padding:7px;text-align:center;border-right:1px solid #ccc">전필 <span style="color:${PLAN_RED}">${tOR}</span></div>
@@ -3195,57 +3179,37 @@ function buildPlanTableUI(p,t){
   (p.specials||[]).forEach((sp,spi)=>{
     const isCert=sp.type==='cert';
     const label=isCert?'자격증':'독학사';
-    const sec=sp.section||'req'; // 현재 선택된 섹션
-    const secLabel={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[sec];
-    const maxR=Math.max(1,(sp.rows||[]).length);
-
-    // 섹션 선택 옵션
-    const certSections=[{v:'req',l:'전공필수'},{v:'gen',l:'일반학점'}];
-    const doksaSections=[{v:'req',l:'전공필수'},{v:'elec',l:'전공선택'},{v:'gen',l:'일반학점'},{v:'lib',l:'교양학점'}];
-    const secOptions=(isCert?certSections:doksaSections).map(o=>`<option value="${o.v}" ${sec===o.v?'selected':''}>${o.l}</option>`).join('');
-
-    const planBarBg=isCert?'#e8f4fd':'#e8f8e8';
-    const planBarFg=isCert?'#1a5fa8':'#2e6e10';
-    body+=`<tr style="background:${planBarBg}">
-      <td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${planBarFg}">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <span>${label} · ${secLabel}</span>
-          <button class="btn btn-sm" style="padding:2px 7px;font-size:10px;color:var(--red)" onclick="deleteSpecial(${spi})"><i class="ti ti-trash"></i> 삭제</button>
-        </div>
-      </td>
-    </tr>`;
-
+    const bg=isCert?'#e8f4fd':'#e8f8e8';
+    const fg=isCert?'#1a5fa8':'#2e6e10';
+    // 4개 열 각각 rows
+    const rReq=sp.req||[], rElec=sp.elec||[], rGen=sp.gen||[], rLib=sp.lib||[];
+    const maxR=Math.max(1,rReq.length,rElec.length,rGen.length,rLib.length);
+    body+=`<tr style="background:${bg}"><td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${fg}">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span>${label}</span>
+        <button class="btn btn-sm" style="padding:2px 7px;font-size:10px;color:var(--red)" onclick="deleteSpecial(${spi})"><i class="ti ti-trash"></i> 삭제</button>
+      </div>
+    </td></tr>`;
     for(let i=0;i<maxR;i++){
-      const r=sp.rows&&sp.rows[i];
-      const credit=r&&r.credit?r.credit:'';
-      const subject=r&&r.subject?r.subject:'';
-      // 선택된 섹션 열에만 데이터 표시, 나머지는 '해당없음' 또는 빈칸
-      const cells={req:['',''],elec:['',''],gen:['',''],lib:['','']};
-      cells[sec]=[credit,subject];
-      const otherSecs=(isCert?certSections:doksaSections).filter(o=>o.v!==sec).map(o=>o.v);
-      const noteSecs=isCert?['elec','lib']:[];// 자격증은 전선/교양에 해당없음
+      const rq=rReq[i],el=rElec[i],gn=rGen[i],lb=rLib[i];
       body+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#f9f9f4">${cells.req[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;background:#f9f9f4">${cells.req[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.elec[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${i===0&&isCert&&sec!=='elec'?(sp.elecNote||'해당없음'):cells.elec[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.gen[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${cells.gen[1]||''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.lib[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc">${i===0&&isCert&&sec!=='lib'?(sp.libNote||'해당없음'):cells.lib[1]}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
     body+=`<tr><td colspan="9" style="padding:0;border:none">
-      <div style="display:flex;gap:5px;padding:5px 8px;background:${PLAN_GRAY};align-items:center;flex-wrap:wrap">
-        <button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('spec','rows',${spi})">${label} 과목 입력</button>
-        <span style="font-size:11px;color:var(--text2);margin-left:4px">→ <strong>${secLabel}</strong> 열에 집계됩니다</span>
-        ${isCert?`
-        <span style="margin-left:8px;font-size:10px;color:var(--text2)">전선:</span>
-        <input type="text" value="${sp.elecNote||'해당없음'}" style="width:70px;padding:2px 5px;font-size:10px" onchange="plans[curPid].specials[${spi}].elecNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
-        <span style="font-size:10px;color:var(--text2)">교양:</span>
-        <input type="text" value="${sp.libNote||'해당없음'}" style="width:70px;padding:2px 5px;font-size:10px" onchange="plans[curPid].specials[${spi}].libNote=this.value;LS.set('hk_plans',plans);saveToFirebase()">
-        `:''}
+      <div style="display:flex;gap:5px;padding:5px 8px;background:${PLAN_GRAY};flex-wrap:wrap;align-items:center">
+        <button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('spec','req',${spi})">전공필수</button>
+        ${isCert?'':`<button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('spec','elec',${spi})">전공선택</button>`}
+        <button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('spec','gen',${spi})">일반학점</button>
+        ${isCert?'':`<button class="btn btn-sm" style="font-size:10px" onclick="openSubjModal('spec','lib',${spi})">교양학점</button>`}
       </div>
     </td></tr>`;
   });
@@ -3255,16 +3219,8 @@ function buildPlanTableUI(p,t){
       <span>▶ 이 수 계 획 ◀</span>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3);font-size:11px" onclick="addSemester()"><i class="ti ti-plus"></i> 학기</button>
-        <div style="width:1px;background:rgba(255,255,255,.3);margin:0 2px"></div>
-        <span style="font-size:10px;color:rgba(255,255,255,.7)">자격증</span>
-        <button class="btn btn-sm" style="background:rgba(135,206,235,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('cert','req')">전필</button>
-        <button class="btn btn-sm" style="background:rgba(135,206,235,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('cert','gen')">일반</button>
-        <div style="width:1px;background:rgba(255,255,255,.3);margin:0 2px"></div>
-        <span style="font-size:10px;color:rgba(255,255,255,.7)">독학사</span>
-        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','req')">전필</button>
-        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','elec')">전선</button>
-        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','gen')">일반</button>
-        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','lib')">교양</button>
+        <button class="btn btn-sm" style="background:rgba(135,206,235,.4);color:#fff;border-color:rgba(255,255,255,.3);font-size:11px" onclick="addSpecial('cert')"><i class="ti ti-plus"></i> 자격증</button>
+        <button class="btn btn-sm" style="background:rgba(144,238,144,.4);color:#fff;border-color:rgba(255,255,255,.3);font-size:11px" onclick="addSpecial('doksa')"><i class="ti ti-plus"></i> 독학사</button>
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -3444,11 +3400,14 @@ function deleteSem(si){
     plans[curPid].semesters.splice(si,1); LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(plans[curPid]);
   });
 }
-function addSpecial(type, section){
+function addSpecial(type){
   const p=plans[curPid]; if(!p) return;
   if(!p.specials) p.specials=[];
-  const sec=section||'req';
-  p.specials.push({type, section:sec, rows:[], elecNote:'해당없음', libNote:'해당없음'});
+  // 이미 같은 type이 있으면 추가 안 함 (하나만 유지)
+  if(p.specials.some(sp=>sp.type===type)){
+    alert((type==='cert'?'자격증':'독학사')+' 항목이 이미 있어요. 과목 입력 버튼으로 추가하세요!'); return;
+  }
+  p.specials.push({type, req:[], elec:[], gen:[], lib:[]});
   LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
 }
 function deleteSpecial(spi){
@@ -3459,11 +3418,13 @@ function deleteSpecial(spi){
 }
 
 // ── 과목 입력 모달 ────────────────────────────────────────────────
-function addOwnedSpecial(type, section){
+function addOwnedSpecial(type){
   const p=plans[curPid]; if(!p) return;
   if(!p.owned.specials) p.owned.specials=[];
-  const sec=section||'req';
-  p.owned.specials.push({type, section:sec, rows:[], elecNote:'해당없음', libNote:'해당없음'});
+  if(p.owned.specials.some(sp=>sp.type===type)){
+    alert((type==='cert'?'자격증':'독학사')+' 항목이 이미 있어요!'); return;
+  }
+  p.owned.specials.push({type, req:[], elec:[], gen:[], lib:[]});
   LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
 }
 function deleteOwnedSpecial(spi){
@@ -3487,14 +3448,16 @@ function openSubjModal(type, section, idx){
     title=`${p.semesters[idx].name||'학기'} — ${labels[section]}`;
     desc='이번 학기 이수 과목을 입력해주세요';
   } else if(type==='ownedSpec'){
-    rows=[...((p.owned.specials[idx].rows)||[])];
+    rows=[...((p.owned.specials[idx][section])||[])];
     const spLabel=p.owned.specials[idx].type==='cert'?'자격증':'독학사';
-    title=`보유학점 — ${spLabel} 과목 입력`;
+    const secLabel={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[section]||section;
+    title=`보유학점 — ${spLabel} · ${secLabel}`;
     desc='인정 과목명과 학점을 입력해주세요';
   } else {
-    rows=[...((p.specials[idx].rows)||[])];
+    rows=[...((p.specials[idx][section])||[])];
     const spLabel=p.specials[idx].type==='cert'?'자격증':'독학사';
-    title=`${spLabel} 과목 입력`;
+    const secLabel={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[section]||section;
+    title=`${spLabel} — ${secLabel}`;
     desc='인정 과목명과 학점을 입력해주세요';
   }
   subjCtx.rows=[...rows];
@@ -3606,8 +3569,8 @@ function saveSubjModal(){
   const cleaned=subjCtx.rows.filter(r=>r.credit||r.subject);
   if(subjCtx.type==='owned') p.owned[subjCtx.section]=cleaned;
   else if(subjCtx.type==='sem') p.semesters[subjCtx.idx][subjCtx.section]=cleaned;
-  else if(subjCtx.type==='ownedSpec') p.owned.specials[subjCtx.idx].rows=cleaned;
-  else p.specials[subjCtx.idx].rows=cleaned;
+  else if(subjCtx.type==='ownedSpec'){ if(!p.owned.specials[subjCtx.idx]) return; p.owned.specials[subjCtx.idx][subjCtx.section]=cleaned; }
+  else { if(!p.specials[subjCtx.idx]) return; p.specials[subjCtx.idx][subjCtx.section]=cleaned; }
   LS.set('hk_plans',plans); saveToFirebase(); closeModal('modal-plan-subj'); renderPlanEditor(p);
 }
 
