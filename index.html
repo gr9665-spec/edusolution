@@ -94,7 +94,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <style>
     /* 로그인 화면 */
     #login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2563b0 100%);
@@ -804,6 +804,29 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div id="modal-calc" style="background:var(--bg2);border-radius:var(--r);padding:10px;font-size:13px;color:var(--text2)">학점과 금액 입력 시 자동 계산됩니다</div>
   </div>
   <div class="fg" style="margin-top:10px"><label>특이사항/메모</label><textarea id="l-note" style="height:50px;resize:none"></textarea></div>
+
+  <!-- 입금확인 이미지 첨부 -->
+  <div style="margin-top:10px;border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg2)">
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+      <i class="ti ti-photo" style="font-size:14px"></i> 입금확인 이미지
+      <span style="font-size:11px;font-weight:400;color:var(--text2)">(카톡 캡처 붙여넣기 또는 파일 선택)</span>
+    </div>
+    <!-- 드래그앤드롭/붙여넣기 영역 -->
+    <div id="img-drop-zone"
+      style="border:2px dashed var(--border2);border-radius:var(--r);padding:16px;text-align:center;cursor:pointer;font-size:12px;color:var(--text2);transition:all .2s;min-height:60px;display:flex;align-items:center;justify-content:center;gap:8px"
+      onclick="document.getElementById('l-img-input').click()"
+      ondragover="event.preventDefault();this.style.borderColor='var(--navy)';this.style.background='var(--blue-bg)'"
+      ondragleave="this.style.borderColor='';this.style.background=''"
+      ondrop="handleImgDrop(event)">
+      <i class="ti ti-upload" style="font-size:18px"></i>
+      <span>클릭하거나 이미지를 끌어다 놓으세요<br><span style="font-size:11px">Ctrl+V로 붙여넣기도 가능해요</span></span>
+    </div>
+    <input type="file" id="l-img-input" accept="image/*" multiple style="display:none" onchange="handleImgSelect(this)">
+    <!-- 업로드된 이미지 미리보기 -->
+    <div id="img-preview-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+    <div id="img-upload-status" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+  </div>
+
   <div class="fa">
     <button class="btn" onclick="closeModal('modal-learner')">취소</button>
     <button class="btn btn-primary" onclick="saveLearner()">저장</button>
@@ -1001,33 +1024,21 @@ let currentUserRank = '주임';
 let DEFAULT_REWARDS_CURRENT = null;
 let allMembersData = {}; // {uid: {name, email, learners, schedules, ...}}
 
+let fbStorage = null;
+let _pendingImgs = []; // 저장 전 임시 이미지 목록 {file, url, storagePath}
+
 function initFirebase(){
   try {
     fbApp  = firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth = firebase.auth();
     fbDb   = firebase.firestore();
-
-    // 오프라인 지원
+    fbStorage = firebase.storage();
     fbDb.enablePersistence().catch(()=>{});
-
-    // 인증 상태 감지
     fbAuth.onAuthStateChanged(async user=>{
-      if(user){
-        currentUser=user;
-        isAdmin=(user.email===ADMIN_EMAIL);
-        await loadUserData();
-        showApp();
-      } else {
-        currentUser=null;
-        isAdmin=false;
-        showLoginScreen();
-      }
+      if(user){ currentUser=user; isAdmin=(user.email===ADMIN_EMAIL); await loadUserData(); showApp(); }
+      else { currentUser=null; isAdmin=false; showLoginScreen(); }
     });
-  } catch(e){
-    console.warn('Firebase 초기화 실패, 로컬 모드로 실행:', e);
-    // Firebase 설정 전이면 로컬스토리지로 폴백
-    showApp();
-  }
+  } catch(e){ console.warn('Firebase 초기화 실패, 로컬 모드:', e); showApp(); }
 }
 
 // ── 인증 함수 ────────────────────────────────────────────
@@ -1541,15 +1552,84 @@ function autoCalcTotal(){
   document.getElementById('modal-calc').innerHTML=`총매출: <strong>${total.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;예상수당: <strong style="color:var(--green)">${reward.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;보고서입력금액: <strong style="color:var(--blue)">${exportTotal.toLocaleString()}원</strong>${halfMark}`;
 }
 
+// ── 입금확인 이미지 기능 ──────────────────────────────────────────────
+function handleImgSelect(input){
+  const files=[...input.files];
+  files.forEach(f=>addImgPreview(f));
+  input.value='';
+}
+function handleImgDrop(e){
+  e.preventDefault();
+  document.getElementById('img-drop-zone').style.borderColor='';
+  document.getElementById('img-drop-zone').style.background='';
+  const files=[...e.dataTransfer.files].filter(f=>f.type.startsWith('image/'));
+  files.forEach(f=>addImgPreview(f));
+}
+// Ctrl+V 붙여넣기 처리 (모달 열려있을 때)
+document.addEventListener('paste', e=>{
+  const modal=document.getElementById('modal-learner');
+  if(!modal||!modal.classList.contains('open')) return;
+  const items=[...e.clipboardData.items].filter(i=>i.type.startsWith('image/'));
+  items.forEach(item=>{ const f=item.getAsFile(); if(f) addImgPreview(f); });
+});
+
+function addImgPreview(file){
+  const url=URL.createObjectURL(file);
+  const id='img_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  _pendingImgs.push({id, file, localUrl:url, storagePath:null, downloadUrl:null});
+  renderImgPreviews();
+}
+function renderImgPreviews(){
+  const list=document.getElementById('img-preview-list'); if(!list) return;
+  list.innerHTML=_pendingImgs.map(img=>`
+    <div style="position:relative;display:inline-block">
+      <img src="${img.downloadUrl||img.localUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer"
+        onclick="window.open('${img.downloadUrl||img.localUrl}','_blank')">
+      <button onclick="removeImg('${img.id}')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0">×</button>
+    </div>`).join('');
+}
+function removeImg(id){
+  const img=_pendingImgs.find(i=>i.id===id);
+  if(img&&img.storagePath&&fbStorage){
+    fbStorage.ref(img.storagePath).delete().catch(()=>{});
+  }
+  _pendingImgs=_pendingImgs.filter(i=>i.id!==id);
+  renderImgPreviews();
+}
+
+async function uploadPendingImgs(learnerName){
+  if(!fbStorage||!currentUser) return;
+  const status=document.getElementById('img-upload-status');
+  let uploaded=0;
+  for(const img of _pendingImgs){
+    if(img.storagePath) continue; // 이미 업로드됨
+    try{
+      if(status) status.textContent=`이미지 업로드 중... (${++uploaded}/${_pendingImgs.length})`;
+      const path=`receipts/${currentUser.uid}/${learnerName}_${img.id}`;
+      const ref=fbStorage.ref(path);
+      await ref.put(img.file);
+      img.downloadUrl=await ref.getDownloadURL();
+      img.storagePath=path;
+    }catch(e){ console.warn('이미지 업로드 실패:', e); }
+  }
+  if(status) status.textContent='';
+}
+
 function openLearnerModal(idx){
   editIdx=idx!==undefined?idx:-1;
   document.getElementById('learner-modal-title').textContent=editIdx>=0?'학습자 수정':'학습자 추가';
+  // 이미지 초기화
+  _pendingImgs=[];
   if(editIdx>=0){
     const l=learners[editIdx];
     ['name','id','phone','email','edu','kisu','start','year','month','paydate','code','approve','credit','unitprice','type','course','note']
       .forEach(f=>{const el=document.getElementById('l-'+f);if(el)el.value=l[f]??'';});
     document.getElementById('l-reward-type').value=l.rewardType||'per_credit';
     document.getElementById('l-reward-value').value=l.rewardValue!=null?l.rewardValue:'';
+    // 기존 이미지 로드
+    if(l.images&&l.images.length){
+      _pendingImgs=l.images.map(img=>({id:img.id,file:null,localUrl:img.url,storagePath:img.path,downloadUrl:img.url}));
+    }
     toggleRewardInput(); autoCalcTotal();
   } else {
     ['name','id','phone','email','kisu','start','paydate','approve','credit','unitprice','note']
@@ -1559,10 +1639,11 @@ function openLearnerModal(idx){
     document.getElementById('modal-calc').textContent='학점과 금액 입력 시 자동 계산됩니다';
     document.getElementById('reward-preview').textContent='';
   }
+  renderImgPreviews();
   openModal('modal-learner');
 }
 
-function saveLearner(){
+async function saveLearner(){
   const name=document.getElementById('l-name').value.trim();
   if(!name){alert('학생명을 입력해주세요');return;}
   const credit=parseInt(document.getElementById('l-credit').value)||0;
@@ -1587,6 +1668,9 @@ function saveLearner(){
     note:document.getElementById('l-note').value.trim(),
     addedAt:new Date().toISOString()
   };
+  // 이미지 업로드 후 저장
+  await uploadPendingImgs(name);
+  l.images=_pendingImgs.filter(i=>i.downloadUrl).map(i=>({id:i.id,url:i.downloadUrl,path:i.storagePath}));
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
   save();closeModal('modal-learner');renderLearners();renderDashboard();
 }
@@ -2698,22 +2782,19 @@ function importPlanFromXlsx(input){
           }
           if(lbl.includes('독학사')&&(lbl.includes('예정')||lbl.includes('보유')||lbl==='독학사')){
             const dokGen=[],dokLib=[];
+            let jEnd=i;
             for(let j=i;j<Math.min(i+15,rows.length);j++){
               const rj=rows[j];
               if(j>i&&cv(rj[0])&&!cv(rj[0]).includes('독학사')&&cv(rj[0])!=='') break;
               if(toInt(rj[5])&&cv(rj[6])) dokGen.push({credit:String(toInt(rj[5])),subject:cv(rj[6])});
               if(toInt(rj[7])&&cv(rj[8])) dokLib.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
+              jEnd=j;
             }
-            // 일반+교양이 모두 있으면 section이 더 많은 쪽으로 합치거나 각각 추가
-            // 단, 같은 독학사 항목은 하나로 — 일반만 있으면 gen, 교양만 있으면 lib, 둘 다면 더 많은 쪽
-            if(dokGen.length&&dokLib.length){
-              // 둘 다 있으면 각각 별도 special로 (section 다름)
-              specials.push({type:'doksa',section:'gen',rows:dokGen});
-              specials.push({type:'doksa',section:'lib',rows:dokLib});
-            } else if(dokGen.length){
-              specials.push({type:'doksa',section:'gen',rows:dokGen});
-            } else if(dokLib.length){
-              specials.push({type:'doksa',section:'lib',rows:dokLib});
+            const allDok=[...dokGen,...dokLib];
+            if(allDok.length){
+              const sec=dokLib.length>=dokGen.length?'lib':'gen';
+              specials.push({type:'doksa',section:sec,rows:allDok});
+              i=jEnd; // 이미 파싱한 행 스킵
             }
           }
         }
@@ -2959,17 +3040,11 @@ function buildOwnedTableUI(p,t){
     const secOpts=(isCert?certSecs:doksaSecs).map(o=>`<option value="${o.v}" ${sec===o.v?'selected':''}>${o.l}</option>`).join('');
     const maxSR=Math.max(1,(sp.rows||[]).length);
     const barBg1=isCert?'#e8f4fd':'#e8f8e8'; const barFg1=isCert?'#1a5fa8':'#2e6e10';
+    const secLabel1={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[sec];
     specRows+=`<tr style="background:${barBg1}"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${barFg1}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
-        <span>${label}</span>
-        <div style="display:flex;align-items:center;gap:5px">
-          <span style="font-size:10px;color:#666">구분:</span>
-          <select style="font-size:11px;padding:1px 4px;height:20px;border-radius:3px;border:1px solid #ccc"
-            onchange="plans[curPid].owned.specials[${spi}].section=this.value;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])">
-            ${secOpts}
-          </select>
-          <button class="btn btn-sm" style="padding:1px 6px;font-size:10px;color:var(--red)" onclick="deleteOwnedSpecial(${spi})"><i class="ti ti-trash"></i></button>
-        </div>
+        <span>${label} · ${secLabel1}</span>
+        <button class="btn btn-sm" style="padding:1px 6px;font-size:10px;color:var(--red)" onclick="deleteOwnedSpecial(${spi})"><i class="ti ti-trash"></i></button>
       </div>
     </td></tr>`;
     for(let i=0;i<maxSR;i++){
@@ -3020,8 +3095,16 @@ function buildOwnedTableUI(p,t){
       <button class="btn btn-sm" onclick="openSubjModal('owned','elec',-1)"><i class="ti ti-edit" style="font-size:11px"></i> 전공선택</button>
       <button class="btn btn-sm" onclick="openSubjModal('owned','gen',-1)"><i class="ti ti-edit" style="font-size:11px"></i> 일반학점</button>
       <button class="btn btn-sm" onclick="openSubjModal('owned','lib',-1)"><i class="ti ti-edit" style="font-size:11px"></i> 교양학점</button>
-      <button class="btn btn-sm" onclick="addOwnedSpecial('cert')" style="color:var(--blue)"><i class="ti ti-plus" style="font-size:11px"></i> 자격증</button>
-      <button class="btn btn-sm" onclick="addOwnedSpecial('doksa')" style="color:var(--blue)"><i class="ti ti-plus" style="font-size:11px"></i> 독학사</button>
+      <div style="width:1px;background:var(--border);margin:0 2px"></div>
+      <span style="font-size:10px;color:var(--text2)">자격증+</span>
+      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#1a5fa8" onclick="addOwnedSpecial('cert','req')">전필</button>
+      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#2e6e10" onclick="addOwnedSpecial('cert','gen')">일반</button>
+      <div style="width:1px;background:var(--border);margin:0 2px"></div>
+      <span style="font-size:10px;color:var(--text2)">독학사+</span>
+      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#1a5fa8" onclick="addOwnedSpecial('doksa','req')">전필</button>
+      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#1565a8" onclick="addOwnedSpecial('doksa','elec')">전선</button>
+      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#2e6e10" onclick="addOwnedSpecial('doksa','gen')">일반</button>
+      <button class="btn btn-sm" style="font-size:10px;padding:2px 6px;color:#6d28d9" onclick="addOwnedSpecial('doksa','lib')">교양</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;background:${PLAN_YELLOW};border-top:2px solid ${PLAN_BLUE};font-size:12px;font-weight:700">
       <div style="padding:7px;text-align:center;border-right:1px solid #ccc">전필 <span style="color:${PLAN_RED}">${tOR}</span></div>
@@ -3111,15 +3194,8 @@ function buildPlanTableUI(p,t){
     body+=`<tr style="background:${planBarBg}">
       <td colspan="9" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${planBarFg}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <span>${label}</span>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span style="font-size:10px;color:#666">구분:</span>
-            <select style="font-size:11px;padding:2px 5px;height:22px;border-radius:4px;border:1px solid #ccc"
-              onchange="plans[curPid].specials[${spi}].section=this.value;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])">
-              ${secOptions}
-            </select>
-            <button class="btn btn-sm" style="padding:2px 7px;font-size:10px;color:var(--red)" onclick="deleteSpecial(${spi})"><i class="ti ti-trash"></i> 삭제</button>
-          </div>
+          <span>${label} · ${secLabel}</span>
+          <button class="btn btn-sm" style="padding:2px 7px;font-size:10px;color:var(--red)" onclick="deleteSpecial(${spi})"><i class="ti ti-trash"></i> 삭제</button>
         </div>
       </td>
     </tr>`;
@@ -3164,8 +3240,16 @@ function buildPlanTableUI(p,t){
       <span>▶ 이 수 계 획 ◀</span>
       <div style="display:flex;gap:6px">
         <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3);font-size:11px" onclick="addSemester()"><i class="ti ti-plus"></i> 학기</button>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3);font-size:11px" onclick="addSpecial('cert')"><i class="ti ti-plus"></i> 자격증</button>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border-color:rgba(255,255,255,.3);font-size:11px" onclick="addSpecial('doksa')"><i class="ti ti-plus"></i> 독학사</button>
+        <div style="width:1px;background:rgba(255,255,255,.3);margin:0 2px"></div>
+        <span style="font-size:10px;color:rgba(255,255,255,.7)">자격증</span>
+        <button class="btn btn-sm" style="background:rgba(135,206,235,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('cert','req')">전필</button>
+        <button class="btn btn-sm" style="background:rgba(135,206,235,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('cert','gen')">일반</button>
+        <div style="width:1px;background:rgba(255,255,255,.3);margin:0 2px"></div>
+        <span style="font-size:10px;color:rgba(255,255,255,.7)">독학사</span>
+        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','req')">전필</button>
+        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','elec')">전선</button>
+        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','gen')">일반</button>
+        <button class="btn btn-sm" style="background:rgba(144,238,144,.3);color:#fff;border-color:rgba(255,255,255,.3);font-size:10px;padding:2px 6px" onclick="addSpecial('doksa','lib')">교양</button>
       </div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -3345,11 +3429,11 @@ function deleteSem(si){
     plans[curPid].semesters.splice(si,1); LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(plans[curPid]);
   });
 }
-function addSpecial(type){
+function addSpecial(type, section){
   const p=plans[curPid]; if(!p) return;
   if(!p.specials) p.specials=[];
-  // 자격증 기본: 전공필수(req), 독학사 기본: 전공필수(req)
-  p.specials.push({type, section:'req', rows:[], elecNote:'해당없음', libNote:'해당없음'});
+  const sec=section||'req';
+  p.specials.push({type, section:sec, rows:[], elecNote:'해당없음', libNote:'해당없음'});
   LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
 }
 function deleteSpecial(spi){
@@ -3360,10 +3444,11 @@ function deleteSpecial(spi){
 }
 
 // ── 과목 입력 모달 ────────────────────────────────────────────────
-function addOwnedSpecial(type){
+function addOwnedSpecial(type, section){
   const p=plans[curPid]; if(!p) return;
   if(!p.owned.specials) p.owned.specials=[];
-  p.owned.specials.push({type, section:'req', rows:[], elecNote:'해당없음', libNote:'해당없음'});
+  const sec=section||'req';
+  p.owned.specials.push({type, section:sec, rows:[], elecNote:'해당없음', libNote:'해당없음'});
   LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
 }
 function deleteOwnedSpecial(spi){
