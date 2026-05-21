@@ -2606,7 +2606,8 @@ function importPlanFromXlsx(input){
     reader.onload=e=>{
       try{
         const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
-        const ws=wb.Sheets[wb.SheetNames[0]];
+        const wsRaw=wb.Sheets[wb.SheetNames[0]];
+        const ws=wsRaw;
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
         const cv=v=>String(v||'').trim();
         const num=v=>{try{return parseInt(float(String(v)));} catch{return 0;} };
@@ -2647,9 +2648,15 @@ function importPlanFromXlsx(input){
           }
         }
 
-        // 학기 파싱
+        // 숨겨진 행 목록 (XLSX.js !rows hidden 속성)
+        const hiddenRows=new Set();
+        if(wsRaw['!rows']){wsRaw['!rows'].forEach((r,i)=>{if(r&&r.hidden)hiddenRows.add(i+1);});}
+        const isHidden=idx=>hiddenRows.has(idx);
+
+        // 학기 파싱 — 숨겨진 행 스킵, 과목 없는 학기 제외
         const semesters=[];
         for(let i=0;i<rows.length;i++){
+          if(isHidden(i+1)) continue;
           const r=rows[i];
           if(cv(r[0])==='학기구분'&&cv(r[1])){
             const info=cv(r[1]);
@@ -2657,6 +2664,7 @@ function importPlanFromXlsx(input){
             const edu=eduM?eduM[1].trim():''; const kisu=kisuM?kisuM[1].trim():''; const date=dateM?dateM[1].trim():'';
             let semName=''; const req=[],elec=[],gen=[],lib=[];
             for(let j=i+1;j<rows.length;j++){
+              if(isHidden(j+1)) continue;
               const rj=rows[j];
               const lbl=cv(rj[0]);
               if(lbl==='학기구분'||lbl==='자격증'||lbl==='소계'||lbl==='이수학점'||lbl==='총학점'||lbl==='비고'||lbl.includes('독학사')) break;
@@ -2667,34 +2675,38 @@ function importPlanFromXlsx(input){
               if(toInt(rj[5])&&cv(rj[6])) gen.push({credit:String(toInt(rj[5])),subject:cv(rj[6])});
               if(toInt(rj[7])&&cv(rj[8])) lib.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
             }
-            if(semName) semesters.push({name:semName,edu,kisu,date,req,elec,gen,lib});
+            // 과목 있는 학기만 추가
+            if(semName&&(req.length||elec.length||gen.length||lib.length)){
+              semesters.push({name:semName,edu,kisu,date,req,elec,gen,lib});
+            }
           }
         }
 
-        // 자격증/독학사 파싱
+        // 자격증/독학사 파싱 — 독학사 일반(col5,6)+교양(col7,8) 모두 읽기
         const specials=[];
         for(let i=0;i<rows.length;i++){
+          if(isHidden(i+1)) continue;
           const r=rows[i];
           const lbl=cv(r[0]);
           if(lbl==='자격증'){
             const certRows=[];
             for(let j=i;j<Math.min(i+15,rows.length);j++){
               const rj=rows[j];
-              if(j>i && cv(rj[0])&&cv(rj[0])!=='') break;
+              if(j>i&&cv(rj[0])&&cv(rj[0])!=='') break;
               if(toInt(rj[1])&&cv(rj[2])) certRows.push({credit:String(toInt(rj[1])),subject:cv(rj[2])});
             }
             if(certRows.length) specials.push({type:'cert',section:'req',rows:certRows,elecNote:'해당없음',libNote:'해당없음'});
           }
           if(lbl.includes('독학사')&&(lbl.includes('예정')||lbl.includes('보유')||lbl==='독학사')){
-            const dokRows=[];
+            const dokGen=[],dokLib=[];
             for(let j=i;j<Math.min(i+15,rows.length);j++){
               const rj=rows[j];
-              if(j>i && cv(rj[0])&&!cv(rj[0]).includes('독학사')) break;
-              // 독학사는 주로 교양 (col7,col8)
-              if(toInt(rj[7])&&cv(rj[8])) dokRows.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
-              else if(toInt(rj[1])&&cv(rj[2])) dokRows.push({credit:String(toInt(rj[1])),subject:cv(rj[2])});
+              if(j>i&&cv(rj[0])&&!cv(rj[0]).includes('독학사')&&cv(rj[0])!=='') break;
+              if(toInt(rj[5])&&cv(rj[6])) dokGen.push({credit:String(toInt(rj[5])),subject:cv(rj[6])});
+              if(toInt(rj[7])&&cv(rj[8])) dokLib.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
             }
-            if(dokRows.length) specials.push({type:'doksa',section:'lib',rows:dokRows});
+            if(dokGen.length) specials.push({type:'doksa',section:'gen',rows:dokGen});
+            if(dokLib.length) specials.push({type:'doksa',section:'lib',rows:dokLib});
           }
         }
 
@@ -2713,6 +2725,7 @@ function importPlanFromXlsx(input){
             break;
           }
         }
+
 
         // 플랜 객체 생성
         const newId='p'+Date.now();
