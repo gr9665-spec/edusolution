@@ -604,10 +604,14 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <button class="btn btn-primary" style="width:100%;margin-bottom:10px;font-size:13px" onclick="newPlan()">
         <i class="ti ti-plus"></i> 새 플랜 작성
       </button>
-      <button class="btn btn-sm" style="width:100%;margin-bottom:10px;font-size:12px" onclick="document.getElementById('plan-import-input').click()">
+      <button class="btn btn-sm" style="width:100%;margin-bottom:6px;font-size:12px" onclick="document.getElementById('plan-import-input').click()">
         <i class="ti ti-upload"></i> 플랜 가져오기 (.json)
       </button>
+      <button class="btn btn-sm" style="width:100%;margin-bottom:10px;font-size:12px;color:var(--green)" onclick="document.getElementById('plan-xlsx-input').click()">
+        <i class="ti ti-file-spreadsheet"></i> 엑셀 플랜 가져오기 (.xlsx)
+      </button>
       <input type="file" id="plan-import-input" accept=".json" style="display:none" onchange="importPlanFile(this)">
+      <input type="file" id="plan-xlsx-input" accept=".xlsx" style="display:none" onchange="importPlanFromXlsx(this)">
       <div id="plan-list"></div>
     </div>
     <div id="plan-body">
@@ -2586,6 +2590,154 @@ function renderPlanList(){
       <div style="font-size:10px;color:${cur?'rgba(255,255,255,.45)':'var(--text3)'};margin-top:1px">${p.counselDate||''}</div>
     </div>`;
   }).join('');
+}
+
+function importPlanFromXlsx(input){
+  const file=input.files[0]; if(!file) return;
+  input.value='';
+  const loadXLSX=()=>new Promise((res,rej)=>{
+    if(window.XLSX){res();return;}
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=res; s.onerror=rej; document.head.appendChild(s);
+  });
+  loadXLSX().then(()=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array',cellDates:false});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        const cv=v=>String(v||'').trim();
+        const num=v=>{try{return parseInt(float(String(v)));} catch{return 0;} };
+        const toInt=v=>{const n=parseInt(String(v||''));return isNaN(n)?0:n;};
+
+        // 이름·학위·전공 추출
+        let clientName='', degree='학사', major='경영';
+        for(let i=0;i<Math.min(rows.length,10);i++){
+          const r=rows[i];
+          // 이름: '이름' 레이블 옆이나 아래
+          if(cv(r[0])==='이름' && cv(r[1])) clientName=cv(r[1]);
+          if(cv(r[0])==='이름' && !cv(r[1]) && i+1<rows.length && cv(rows[i+1][0])) clientName=cv(rows[i+1][0]);
+          // 목표학위
+          if(cv(r[3])&&cv(r[3]).includes('목표')) {
+            const degStr=cv(r[4])||cv(r[5])||'';
+            if(degStr.includes('전문학사')) degree='전문학사';
+            else if(degStr.includes('학사')) degree='학사';
+            // 전공 파싱 (마지막 단어)
+            const parts=degStr.replace(/학사|전문학사/,'').trim();
+            if(parts) major=parts;
+          }
+        }
+
+        // 보유학점 파싱 (row9부터 row42 사이)
+        const ownReq=[], ownElec=[], ownGen=[], ownLib=[];
+        let inOwned=false;
+        for(let i=0;i<rows.length;i++){
+          const r=rows[i];
+          if(cv(r[0])==='유형'&&cv(r[1])==='학점') {inOwned=true; continue;}
+          if(inOwned){
+            if(cv(r[0])==='소계'||cv(r[0])==='보유자격증'||cv(r[0]).includes('독학사')||cv(r[0]).includes('이수')) break;
+            const label=cv(r[0]);
+            // col1=전필학점, col2=전필과목, col3=전선학점, col4=전선과목, col5=일반학점, col6=일반과목, col7=교양학점, col8=교양과목
+            if(toInt(r[1])&&cv(r[2])) ownReq.push({credit:String(toInt(r[1])),subject:cv(r[2])});
+            if(toInt(r[3])&&cv(r[4])) ownElec.push({credit:String(toInt(r[3])),subject:cv(r[4])});
+            if(toInt(r[5])&&cv(r[6])) ownGen.push({credit:String(toInt(r[5])),subject:cv(r[6])});
+            if(toInt(r[7])&&cv(r[8])) ownLib.push({credit:String(toInt(r[7])),subject:cv(r[8])});
+          }
+        }
+
+        // 학기 파싱
+        const semesters=[];
+        for(let i=0;i<rows.length;i++){
+          const r=rows[i];
+          if(cv(r[0])==='학기구분'&&cv(r[1])){
+            const info=cv(r[1]);
+            const eduM=info.match(/교육원\s*:\s*([^|]+)/); const kisuM=info.match(/기수\s*:\s*([^|]+)/); const dateM=info.match(/일자\s*:\s*(.+)/);
+            const edu=eduM?eduM[1].trim():''; const kisu=kisuM?kisuM[1].trim():''; const date=dateM?dateM[1].trim():'';
+            let semName=''; const req=[],elec=[],gen=[],lib=[];
+            for(let j=i+1;j<rows.length;j++){
+              const rj=rows[j];
+              const lbl=cv(rj[0]);
+              if(lbl==='학기구분'||lbl==='자격증'||lbl==='소계'||lbl==='이수학점'||lbl==='총학점'||lbl==='비고'||lbl.includes('독학사')) break;
+              if(lbl==='취득학점'){i=j+1;break;}
+              if(lbl&&/\d{2}-\d/.test(lbl)) semName=lbl;
+              if(toInt(rj[1])&&cv(rj[2])) req.push({credit:String(toInt(rj[1])),subject:cv(rj[2])});
+              if(toInt(rj[3])&&cv(rj[4])) elec.push({credit:String(toInt(rj[3])),subject:cv(rj[4])});
+              if(toInt(rj[5])&&cv(rj[6])) gen.push({credit:String(toInt(rj[5])),subject:cv(rj[6])});
+              if(toInt(rj[7])&&cv(rj[8])) lib.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
+            }
+            if(semName) semesters.push({name:semName,edu,kisu,date,req,elec,gen,lib});
+          }
+        }
+
+        // 자격증/독학사 파싱
+        const specials=[];
+        for(let i=0;i<rows.length;i++){
+          const r=rows[i];
+          const lbl=cv(r[0]);
+          if(lbl==='자격증'){
+            const certRows=[];
+            for(let j=i;j<Math.min(i+15,rows.length);j++){
+              const rj=rows[j];
+              if(j>i && cv(rj[0])&&cv(rj[0])!=='') break;
+              if(toInt(rj[1])&&cv(rj[2])) certRows.push({credit:String(toInt(rj[1])),subject:cv(rj[2])});
+            }
+            if(certRows.length) specials.push({type:'cert',section:'req',rows:certRows,elecNote:'해당없음',libNote:'해당없음'});
+          }
+          if(lbl.includes('독학사')&&(lbl.includes('예정')||lbl.includes('보유')||lbl==='독학사')){
+            const dokRows=[];
+            for(let j=i;j<Math.min(i+15,rows.length);j++){
+              const rj=rows[j];
+              if(j>i && cv(rj[0])&&!cv(rj[0]).includes('독학사')) break;
+              // 독학사는 주로 교양 (col7,col8)
+              if(toInt(rj[7])&&cv(rj[8])) dokRows.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
+              else if(toInt(rj[1])&&cv(rj[2])) dokRows.push({credit:String(toInt(rj[1])),subject:cv(rj[2])});
+            }
+            if(dokRows.length) specials.push({type:'doksa',section:'lib',rows:dokRows});
+          }
+        }
+
+        // 비고 파싱
+        let memo='';
+        for(let i=0;i<rows.length;i++){
+          if(cv(rows[i][0])==='비고'){
+            const lines=[];
+            for(let j=i;j<Math.min(i+10,rows.length);j++){
+              for(let k=1;k<9;k++){
+                const v=cv(rows[j][k]);
+                if(v&&!lines.includes(v)) lines.push(v);
+              }
+            }
+            memo=lines.join('\n');
+            break;
+          }
+        }
+
+        // 플랜 객체 생성
+        const newId='p'+Date.now();
+        const plan={
+          id:newId,
+          clientName: clientName||file.name.replace('.xlsx',''),
+          phone:'', counselDate:new Date().toISOString().split('T')[0],
+          degree, major, majorCustom:'',
+          linkedLearner:'',
+          owned:{req:ownReq,elec:ownElec,gen:ownGen,lib:ownLib,specials:[]},
+          semesters,
+          specials,
+          memo, note2:'',
+        };
+
+        plans[newId]=plan;
+        LS.set('hk_plans',plans); saveToFirebase();
+        curPid=newId;
+        renderPlanList();
+        renderPlanEditor(plan);
+        alert(`✓ "${plan.clientName}" 플랜을 엑셀에서 가져왔어요!\n학기 ${semesters.length}개, 자격증/독학사 ${specials.length}개 인식됐어요.`);
+      }catch(err){alert('파일 읽기 실패: '+err.message);}
+    };
+    reader.readAsArrayBuffer(file);
+  }).catch(()=>alert('라이브러리 로드 실패'));
 }
 
 function exportPlan(pid){
