@@ -94,6 +94,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <style>
     /* 로그인 화면 */
@@ -1024,15 +1025,15 @@ let currentUserRank = '주임';
 let DEFAULT_REWARDS_CURRENT = null;
 let allMembersData = {}; // {uid: {name, email, learners, schedules, ...}}
 
+let _pendingImgs = []; // 임시 이미지 목록 {id, file, localUrl, dataUrl}
 let fbStorage = null;
-let _pendingImgs = []; // 저장 전 임시 이미지 목록 {file, url, storagePath}
 
 function initFirebase(){
   try {
     fbApp  = firebase.initializeApp(FIREBASE_CONFIG);
     fbAuth = firebase.auth();
     fbDb   = firebase.firestore();
-    fbStorage = firebase.storage();
+    try { fbStorage = firebase.storage(); } catch(e){ console.warn('Storage 미사용:', e); }
     fbDb.enablePersistence().catch(()=>{});
     fbAuth.onAuthStateChanged(async user=>{
       if(user){ currentUser=user; isAdmin=(user.email===ADMIN_EMAIL); await loadUserData(); showApp(); }
@@ -1598,18 +1599,32 @@ function removeImg(id){
 }
 
 async function uploadPendingImgs(learnerName){
-  if(!fbStorage||!currentUser) return;
+  if(!currentUser) return;
   const status=document.getElementById('img-upload-status');
   let uploaded=0;
   for(const img of _pendingImgs){
     if(img.storagePath) continue; // 이미 업로드됨
+    if(!img.file) continue; // 파일 없으면 스킵
     try{
-      if(status) status.textContent=`이미지 업로드 중... (${++uploaded}/${_pendingImgs.length})`;
-      const path=`receipts/${currentUser.uid}/${learnerName}_${img.id}`;
-      const ref=fbStorage.ref(path);
-      await ref.put(img.file);
-      img.downloadUrl=await ref.getDownloadURL();
-      img.storagePath=path;
+      if(status) status.textContent=`이미지 업로드 중... (${++uploaded}/${_pendingImgs.filter(i=>!i.storagePath&&i.file).length})`;
+      if(fbStorage){
+        // Firebase Storage 사용
+        const path=`receipts/${currentUser.uid}/${Date.now()}_${img.id}`;
+        const ref=fbStorage.ref(path);
+        await ref.put(img.file);
+        img.downloadUrl=await ref.getDownloadURL();
+        img.storagePath=path;
+      } else {
+        // Storage 없으면 Base64로 Firestore에 저장
+        const dataUrl=await new Promise((res,rej)=>{
+          const r=new FileReader();
+          r.onload=e=>res(e.target.result);
+          r.onerror=rej;
+          r.readAsDataURL(img.file);
+        });
+        img.downloadUrl=dataUrl;
+        img.storagePath='base64';
+      }
     }catch(e){ console.warn('이미지 업로드 실패:', e); }
   }
   if(status) status.textContent='';
@@ -1717,7 +1732,7 @@ function renderLearners(){
       <td style="text-align:center">
         <input type="checkbox" class="learner-chk" data-idx="${origIdx}" style="width:auto;cursor:pointer" onchange="updateLearnerSelCount()">
       </td>
-      <td><strong>${l.name}</strong><br><span style="font-size:11px;color:var(--text2)">${l.phone||''}</span></td>
+      <td><strong>${l.name}</strong>${l.images&&l.images.length?`<span style="font-size:10px;background:#e8f4fd;color:#1a5fa8;border-radius:3px;padding:0 4px;margin-left:4px"><i class="ti ti-photo" style="font-size:10px"></i> ${l.images.length}</span>`:''}<br><span style="font-size:11px;color:var(--text2)">${l.phone||''}</span></td>
       <td>${l.edu||''}</td>
       <td style="font-size:11px;color:var(--text2);white-space:nowrap">${lyear}년 ${l.month}월</td>
       <td style="font-size:12px">${l.kisu||''}</td>
