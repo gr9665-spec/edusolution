@@ -2787,13 +2787,13 @@ function importPlanFromXlsx(input){
           const r=rows[i];
           const lbl=cv(r[0]);
           if(lbl==='자격증'){
-            const certRows=[];
+            const certReq=[];
             for(let j=i;j<Math.min(i+15,rows.length);j++){
               const rj=rows[j];
               if(j>i&&cv(rj[0])&&cv(rj[0])!=='') break;
-              if(toInt(rj[1])&&cv(rj[2])) certRows.push({credit:String(toInt(rj[1])),subject:cv(rj[2])});
+              if(toInt(rj[1])&&cv(rj[2])) certReq.push({credit:String(toInt(rj[1])),subject:cv(rj[2])});
             }
-            if(certRows.length) specials.push({type:'cert',section:'req',rows:certRows,elecNote:'해당없음',libNote:'해당없음'});
+            if(certReq.length) specials.push({type:'cert', req:certReq, elec:[], gen:[], lib:[]});
           }
           if(lbl.includes('독학사')&&(lbl.includes('예정')||lbl.includes('보유')||lbl==='독학사')){
             const dokGen=[],dokLib=[];
@@ -2805,11 +2805,9 @@ function importPlanFromXlsx(input){
               if(toInt(rj[7])&&cv(rj[8])) dokLib.push({credit:String(toInt(rj[7])),subject:cv(rj[8])});
               jEnd=j;
             }
-            const allDok=[...dokGen,...dokLib];
-            if(allDok.length){
-              const sec=dokLib.length>=dokGen.length?'lib':'gen';
-              specials.push({type:'doksa',section:sec,rows:allDok});
-              i=jEnd; // 이미 파싱한 행 스킵
+            if(dokGen.length||dokLib.length){
+              specials.push({type:'doksa', req:[], elec:[], gen:dokGen, lib:dokLib});
+              i=jEnd;
             }
           }
         }
