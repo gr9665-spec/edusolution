@@ -3608,25 +3608,22 @@ function openPrintPreview(pid){
   // owned specials (자격증/독학사 보유분)
   (p.owned.specials||[]).forEach(sp=>{
     const isCert=sp.type==='cert'; const label=isCert?'자격증':'독학사';
-    const sec=sp.section||'req';
-    const maxR=Math.max(1,(sp.rows||[]).length);
+    const rReq=sp.req||[], rElec=sp.elec||[], rGen=sp.gen||[], rLib=sp.lib||[];
+    const maxR=Math.max(1,rReq.length,rElec.length,rGen.length,rLib.length);
     const oBg=isCert?'#e8f4fd':'#e8f8e8'; const oFg=isCert?'#1a5fa8':'#2e6e10';
     ownRows+=`<tr style="background:${oBg}"><td colspan="9" style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center;color:${oFg}">${label}</td></tr>`;
     for(let i=0;i<maxR;i++){
-      const r=sp.rows&&sp.rows[i];
-      const credit=r&&r.credit?r.credit:'', subject=r&&r.subject?r.subject:'';
-      const cells={req:['',''],elec:['',''],gen:['',''],lib:['','']};
-      cells[sec]=[credit,subject];
+      const rq=rReq[i],el=rElec[i],gn=rGen[i],lb=rLib[i];
       ownRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f9f9f4">${cells.req[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${cells.req[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.elec[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.elec[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.gen[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.gen[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.lib[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.lib[1]}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f9f9f4">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
   });
@@ -3662,27 +3659,23 @@ function openPrintPreview(pid){
   (p.specials||[]).forEach(sp=>{
     const isCert=sp.type==='cert';
     const label=isCert?'자격증':'독학사';
-    const barColor=isCert?'#e8f4fd':'#e8f8e8'; // 자격증=하늘색, 독학사=연두색
+    const barColor=isCert?'#e8f4fd':'#e8f8e8';
     const barText=isCert?'#1a5fa8':'#2e6e10';
-    const sec=sp.section||'req';
-    const maxR=Math.max(1,(sp.rows||[]).length);
+    const rReq=sp.req||[], rElec=sp.elec||[], rGen=sp.gen||[], rLib=sp.lib||[];
+    const maxR=Math.max(1,rReq.length,rElec.length,rGen.length,rLib.length);
     planRows+=`<tr style="background:${barColor}"><td colspan="9" style="padding:5px 8px;font-size:12px;border:1px solid #ccc;font-weight:700;text-align:center;color:${barText}">${label}</td></tr>`;
     for(let i=0;i<maxR;i++){
-      const r=sp.rows&&sp.rows[i];
-      const credit=r&&r.credit?r.credit:'';
-      const subject=r&&r.subject?r.subject:'';
-      const cells={req:['',''],elec:['',''],gen:['',''],lib:['','']};
-      cells[sec]=[credit,subject];
+      const rq=rReq[i],el=rElec[i],gn=rGen[i],lb=rLib[i];
       planRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#f8f8f3;color:${RD};font-weight:700">${cells.req[0]}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${cells.req[1]}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.elec[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.elec[1]||''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.gen[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.gen[1]||''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center">${cells.lib[0]||''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${cells.lib[1]||''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#f8f8f3;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
   });
@@ -3821,13 +3814,19 @@ function openMobilePlanPage(){
 
   const specBlocks=(p.specials||[]).map(sp=>{
     const label=sp.type==='cert'?'자격증':'독학사';
-    const secLabel={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[sp.section||'req'];
-    const secColor={req:RD,elec:'#1a5fa8',gen:'#2e6e10',lib:'#6d28d9'}[sp.section||'req'];
+    const sections=[
+      {label:'전공필수',rows:sp.req,color:RD},
+      {label:'전공선택',rows:sp.elec,color:'#1a5fa8'},
+      {label:'일반학점',rows:sp.gen,color:'#2e6e10'},
+      {label:'교양학점',rows:sp.lib,color:'#6d28d9'},
+    ].filter(s=>s.rows&&s.rows.length);
     return `<div style="background:#fff;border-radius:10px;border:1px solid #e0e0e0;margin-bottom:12px;overflow:hidden">
       <div style="background:#f5f5ef;padding:10px 14px;font-size:13px;font-weight:700;border-bottom:1px solid #e0e0e0">${label}</div>
       <div style="padding:10px 14px">
-        <div style="font-size:11px;font-weight:700;color:${secColor};margin-bottom:4px">${secLabel}</div>
-        ${secBlock(sp.rows,secColor)}
+        ${sections.map(s=>`<div style="margin-bottom:6px">
+          <div style="font-size:11px;font-weight:700;color:${s.color};margin-bottom:3px">${s.label}</div>
+          ${secBlock(s.rows,s.color)}
+        </div>`).join('')}
       </div>
     </div>`;
   }).join('');
@@ -3970,13 +3969,19 @@ function renderMobilePlan(pid){
   // 특수행 (자격증/독학사)
   const specBlocks=(p.specials||[]).map(sp=>{
     const label=sp.type==='cert'?'자격증':'독학사';
-    const secLabel={req:'전공필수',elec:'전공선택',gen:'일반학점',lib:'교양학점'}[sp.section||'req'];
-    const secColor={req:RD,elec:'#1a5fa8',gen:'#2e6e10',lib:'#6d28d9'}[sp.section||'req'];
+    const sections=[
+      {label:'전공필수',rows:sp.req,color:RD},
+      {label:'전공선택',rows:sp.elec,color:'#1a5fa8'},
+      {label:'일반학점',rows:sp.gen,color:'#2e6e10'},
+      {label:'교양학점',rows:sp.lib,color:'#6d28d9'},
+    ].filter(s=>s.rows&&s.rows.length);
     return `<div style="background:#fff;border-radius:8px;border:1px solid #ddd;margin-bottom:10px;overflow:hidden">
       <div style="background:#eeeee8;padding:8px 12px;font-size:12px;font-weight:700">${label}</div>
       <div style="padding:8px 12px">
-        <div style="font-size:10px;font-weight:700;color:${secColor};margin-bottom:3px">${secLabel}</div>
-        ${secBlock(label,sp.rows,secColor)}
+        ${sections.map(s=>`<div style="margin-bottom:6px">
+          <div style="font-size:10px;font-weight:700;color:${s.color};margin-bottom:3px">${s.label}</div>
+          ${secBlock(s.rows,s.color)}
+        </div>`).join('')}
       </div>
     </div>`;
   }).join('');
