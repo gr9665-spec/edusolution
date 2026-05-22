@@ -282,6 +282,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <select id="filter-type" onchange="renderLearners()" style="width:76px">
         <option value="">전체</option><option value="신규">신규</option><option value="기존">기존</option>
       </select>
+      <select id="filter-edu" onchange="renderLearners()" style="width:100px">
+        <option value="">전체 교육원</option>
+      </select>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <span id="learner-sel-count" style="font-size:12px;color:var(--text2);display:none"></span>
@@ -325,15 +328,20 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <!-- 매출 관리 -->
 <div id="panel-sales" class="panel">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
-    <div style="display:flex;gap:8px;align-items:center">
-      <select id="sales-year" onchange="renderSales()" style="width:76px">
-      </select>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select id="sales-year" onchange="renderSales()" style="width:76px"></select>
       <select id="sales-month" onchange="renderSales()" style="width:76px">
         <option value="0">전체월</option>
         <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
         <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
         <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
         <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+      </select>
+      <select id="sales-edu" onchange="renderSales()" style="width:100px">
+        <option value="">전체 교육원</option>
+      </select>
+      <select id="sales-type" onchange="renderSales()" style="width:76px">
+        <option value="">전체</option><option value="신규">신규</option><option value="기존">기존</option>
       </select>
       <span style="font-size:13px;color:var(--text2)">기준</span>
     </div>
@@ -524,7 +532,19 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div id="settings-saved" style="display:none;margin-top:10px;font-size:13px;color:var(--green)">✓ 저장되었습니다</div>
 </div>
-<!-- 매출파일 가져오기 -->
+<!-- 승인 대기 화면 -->
+<div id="pending-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2563b0 100%);display:none;align-items:center;justify-content:center;z-index:9998;flex-direction:column">
+  <div style="background:#fff;border-radius:16px;padding:36px 32px;width:min(380px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center">
+    <i class="ti ti-clock" style="font-size:48px;color:#f59e0b;display:block;margin-bottom:16px"></i>
+    <h2 style="font-size:20px;font-weight:700;color:#1e3a5f;margin-bottom:8px">승인 대기 중</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.6">가입 신청이 완료됐어요.<br>관리자 승인 후 사용할 수 있어요.</p>
+    <p id="pending-email" style="font-size:12px;color:#888;margin-bottom:20px"></p>
+    <button onclick="firebase.auth().signOut().then(()=>{document.getElementById('pending-screen').style.display='none';showLoginScreen()})" 
+      style="width:100%;padding:11px;background:#f0f0e8;color:#1e3a5f;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">
+      로그아웃
+    </button>
+  </div>
+</div>
 <div id="panel-import" class="panel">
   <div style="margin-bottom:16px">
     <div style="font-size:15px;font-weight:700;margin-bottom:4px">매출파일 가져오기</div>
@@ -1014,7 +1034,8 @@ const FIREBASE_CONFIG = {
   appId:             "1:671414743520:web:5e445c99617b171abafb85"
 };
 // ★★★ 조직장 이메일 — 본인 이메일로 교체하세요 ★★★
-const ADMIN_EMAIL = "admin@example.com";
+const ADMIN_EMAILS = ["gr9665@gmail.com"]; // 관리자 이메일 목록 (여러 명 추가 가능)
+const ADMIN_EMAIL = ADMIN_EMAILS[0]; // 하위 호환용
 // ════════════════════════════════════════════════════════
 
 // Firebase 초기화
@@ -1036,7 +1057,20 @@ function initFirebase(){
     try { fbStorage = firebase.storage(); } catch(e){ console.warn('Storage 미사용:', e); }
     fbDb.enablePersistence().catch(()=>{});
     fbAuth.onAuthStateChanged(async user=>{
-      if(user){ currentUser=user; isAdmin=(user.email===ADMIN_EMAIL); await loadUserData(); showApp(); }
+      if(user){
+        currentUser=user; isAdmin=ADMIN_EMAILS.includes(user.email);
+        // 관리자 승인 여부 확인
+        if(!isAdmin && fbDb){
+          const doc=await fbDb.collection('userData').doc(user.uid).get();
+          const data=doc.exists?doc.data():{};
+          if(data.approved===false){
+            // 미승인 상태 — 승인 대기 화면 표시
+            showPendingApproval(user.email);
+            return;
+          }
+        }
+        await loadUserData(); showApp();
+      }
       else { currentUser=null; isAdmin=false; showLoginScreen(); }
     });
   } catch(e){ console.warn('Firebase 초기화 실패, 로컬 모드:', e); showApp(); }
@@ -1061,6 +1095,13 @@ function showRegister(){
 }
 function hideRegister(){
   document.getElementById('register-form').style.display='none';
+}
+
+function showPendingApproval(email){
+  document.getElementById('login-screen').style.display='none';
+  const ps=document.getElementById('pending-screen');
+  ps.style.display='flex';
+  document.getElementById('pending-email').textContent=email||'';
 }
 
 function doRegister(){
@@ -1295,8 +1336,12 @@ function renderAdminMembers(){
   tbody.innerHTML=members.map(m=>{
     const learnerCount=(m.learners||[]).length;
     const rc=rankColor[m.rank]||'#666';
-    return `<tr>
-      <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:600">${m.name||'-'}</td>
+    const isPending=m.approved===false;
+    return `<tr style="${isPending?'background:#fff8e1;':''}">
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-weight:600">
+        ${m.name||'-'}
+        ${isPending?'<span style="font-size:10px;background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:99px;padding:1px 6px;margin-left:4px">승인대기</span>':''}
+      </td>
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)">${m.email||'-'}</td>
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
         <select style="font-size:12px;padding:3px 7px;border-radius:99px;border:1px solid ${rc}44;background:${rc}11;color:${rc};font-weight:600;cursor:pointer"
@@ -1308,11 +1353,32 @@ function renderAdminMembers(){
         <span class="pill pill-blue">${learnerCount}명</span>
       </td>
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;font-size:12px;color:var(--text2)">${(m.createdAt||'').split('T')[0]||'-'}</td>
-      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
-        <button class="btn btn-sm" style="font-size:11px" onclick="viewMemberDetail('${m.uid}')"><i class="ti ti-eye"></i> 상세</button>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;display:flex;gap:4px;justify-content:center">
+        ${isPending
+          ?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="approveMember('${m.uid}')"><i class="ti ti-check"></i> 승인</button>
+             <button class="btn btn-sm" style="font-size:11px;color:var(--red)" onclick="rejectMember('${m.uid}')"><i class="ti ti-x"></i> 거절</button>`
+          :`<button class="btn btn-sm" style="font-size:11px" onclick="viewMemberDetail('${m.uid}')"><i class="ti ti-eye"></i> 상세</button>`}
       </td>
     </tr>`;
   }).join('');
+}
+
+async function approveMember(uid){
+  if(!fbDb) return;
+  await fbDb.collection('userData').doc(uid).set({approved:true},{merge:true});
+  await fbDb.collection('users').doc(uid).update({approved:true});
+  if(allMembersData[uid]) allMembersData[uid].approved=true;
+  renderAdminMembers();
+  alert('✓ 승인됐어요! 해당 멤버가 이제 로그인할 수 있어요.');
+}
+async function rejectMember(uid){
+  if(!confirm('이 멤버를 거절할까요? 계정이 삭제돼요.')) return;
+  if(!fbDb) return;
+  await fbDb.collection('users').doc(uid).delete().catch(()=>{});
+  await fbDb.collection('userData').doc(uid).delete().catch(()=>{});
+  delete allMembersData[uid];
+  renderAdminMembers();
+  alert('거절됐어요.');
 }
 
 async function updateMemberRank(uid, newRank){
@@ -1706,17 +1772,26 @@ function deleteLearner(idx){
 
 function renderLearners(){
   populateYearSelects();
+  // 교육원 목록 동적 생성
+  const eduSel=document.getElementById('filter-edu');
+  if(eduSel){
+    const cur=eduSel.value;
+    const edus=[...new Set(learners.map(l=>l.edu||'').filter(Boolean))].sort();
+    eduSel.innerHTML='<option value="">전체 교육원</option>'+edus.map(e=>`<option value="${e}" ${e===cur?'selected':''}>${e}</option>`).join('');
+  }
   const q=document.getElementById('search-learner').value.toLowerCase();
   const fyear=document.getElementById('filter-year').value;
   const month=document.getElementById('filter-month').value;
   const type=document.getElementById('filter-type').value;
+  const edu=document.getElementById('filter-edu')?.value||'';
   const now=new Date();
   const filtered=learners.filter(l=>{
     const mQ=!q||(l.name||'').toLowerCase().includes(q)||(l.id||'').toLowerCase().includes(q);
     const mY=!fyear||String(parseInt(l.year)||now.getFullYear())===fyear;
     const mM=!month||String(l.month)===month;
     const mT=!type||l.type===type;
-    return mQ&&mY&&mM&&mT;
+    const mE=!edu||(l.edu||'')===edu;
+    return mQ&&mY&&mM&&mT&&mE;
   });
   const tbody=document.getElementById('learner-tbody');
   const empty=document.getElementById('learner-empty');
@@ -2199,10 +2274,22 @@ function renderSales(){
   const now=new Date();
   const selYear=parseInt(document.getElementById('sales-year').value)||now.getFullYear();
   const selMonth=parseInt(document.getElementById('sales-month').value)||0;
+  const selEdu=document.getElementById('sales-edu')?.value||'';
+  const selType=document.getElementById('sales-type')?.value||'';
+  // 교육원 목록 동적 생성
+  const eduSel=document.getElementById('sales-edu');
+  if(eduSel){
+    const cur=eduSel.value;
+    const edus=[...new Set(learners.map(l=>l.edu||'').filter(Boolean))].sort();
+    eduSel.innerHTML='<option value="">전체 교육원</option>'+edus.map(e=>`<option value="${e}" ${e===cur?'selected':''}>${e}</option>`).join('');
+  }
   const filtered=learners.filter(l=>{
     const ly=parseInt(l.year)||now.getFullYear();
     const lm=parseInt(l.month)||0;
-    return ly===selYear && (selMonth===0||lm===selMonth);
+    const mYear=ly===selYear && (selMonth===0||lm===selMonth);
+    const mEdu=!selEdu||(l.edu||'')===selEdu;
+    const mType=!selType||l.type===selType;
+    return mYear&&mEdu&&mType;
   });
   const totalSales=filtered.reduce((a,l)=>a+(l.total||0),0);
   const totalReward=filtered.reduce((a,l)=>a+calcRewardForLearner(l),0);
