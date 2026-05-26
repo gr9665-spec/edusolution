@@ -532,6 +532,22 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div id="settings-saved" style="display:none;margin-top:10px;font-size:13px;color:var(--green)">✓ 저장되었습니다</div>
 </div>
+<!-- 플랜 연결 모달 -->
+<div class="overlay" id="modal-plan-link">
+<div class="modal" style="max-width:400px">
+  <div class="modal-head">
+    <h2><i class="ti ti-clipboard-list"></i> 플랜 연결</h2>
+    <button class="btn btn-icon" onclick="closeModal('modal-plan-link')"><i class="ti ti-x"></i></button>
+  </div>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:12px"><strong id="plan-link-name"></strong> 학습자와 연결할 플랜을 선택해주세요</p>
+  <select id="plan-link-select" style="width:100%;margin-bottom:16px;padding:9px 12px;font-size:13px"></select>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn" onclick="closeModal('modal-plan-link')">취소</button>
+    <button class="btn btn-primary" onclick="confirmPlanLink()">연결</button>
+  </div>
+</div>
+</div>
+
 <!-- 승인 대기 화면 -->
 <div id="pending-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2563b0 100%);display:none;align-items:center;justify-content:center;z-index:9998;flex-direction:column">
   <div style="background:#fff;border-radius:16px;padding:36px 32px;width:min(380px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center">
@@ -759,12 +775,15 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>연락처</label><input type="text" id="l-phone" placeholder="010-0000-0000"></div>
     <div class="fg"><label>메일</label><input type="text" id="l-email"></div>
     <div class="fg"><label>교육원 *</label>
-      <select id="l-edu">
+      <select id="l-edu" onchange="toggleEduCustom()">
         <option>올에듀</option><option>하나원격</option><option>글로벌</option><option>국사평</option>
         <option>라인</option><option>아이티뱅크</option><option>마이에듀</option><option>사이에듀</option>
         <option>서사평</option><option>이젠에듀</option><option>에이스</option><option>숭실</option>
-        <option>서원평</option><option>에듀업</option><option>국민사이버</option><option>기타</option>
+        <option>서원평</option><option>에듀업</option><option>국민사이버</option>
+        <option>케이스원격</option><option>케이스터디</option>
+        <option>기타</option>
       </select>
+      <input type="text" id="l-edu-custom" placeholder="교육원명 직접 입력" style="display:none;margin-top:5px">
     </div>
     <div class="fg"><label>기수</label><input type="text" id="l-kisu" placeholder="26년도 1-7"></div>
     <div class="fg"><label>개강일</label><input type="date" id="l-start"></div>
@@ -1696,6 +1715,57 @@ async function uploadPendingImgs(learnerName){
   if(status) status.textContent='';
 }
 
+function linkLearnerToPlan(idx){
+  const l=learners[idx];
+  if(!l) return;
+  const planList=Object.values(plans);
+  if(!planList.length){
+    if(confirm(`"${l.name}" 학습자의 플랜이 없어요.\n새 플랜을 만들까요?`)){
+      switchTab('plan',document.querySelectorAll('.tab')[3]);
+      setTimeout(()=>newPlan(),200);
+    }
+    return;
+  }
+  // 플랜 선택 모달 표시
+  const existing=planList.find(p=>p.linkedLearner===l.name||(p.clientName&&p.clientName===l.name));
+  const opts=planList.map(p=>`<option value="${p.id}" ${existing&&p.id===existing.id?'selected':''}>${p.clientName||'(미입력)'} — ${p.degree} ${p.major}</option>`).join('');
+  document.getElementById('plan-link-name').textContent=l.name;
+  document.getElementById('plan-link-select').innerHTML=`<option value="">-- 선택 안 함 --</option>`+opts;
+  document.getElementById('plan-link-select').value=existing?existing.id:'';
+  _linkLearnerIdx=idx;
+  openModal('modal-plan-link');
+}
+let _linkLearnerIdx=-1;
+function confirmPlanLink(){
+  const l=learners[_linkLearnerIdx]; if(!l) return;
+  const selPid=document.getElementById('plan-link-select').value;
+  if(selPid){
+    // 플랜에 학습자 연결
+    if(plans[selPid]){
+      plans[selPid].linkedLearner=l.name;
+      plans[selPid].clientName=l.name;
+      LS.set('hk_plans',plans); saveToFirebase();
+    }
+    alert(`✓ "${l.name}" → 플랜 "${plans[selPid]?.clientName||selPid}" 연결됐어요!`);
+  }
+  closeModal('modal-plan-link');
+  renderLearners();
+}
+function openLinkedPlan(idx){
+  const l=learners[idx]; if(!l) return;
+  const p=Object.values(plans).find(p=>p.linkedLearner===l.name||p.clientName===l.name);
+  if(!p){ alert('연결된 플랜이 없어요. 📋 버튼으로 연결해주세요!'); return; }
+  switchTab('plan',document.querySelectorAll('.tab')[3]);
+  setTimeout(()=>{curPid=p.id;renderPlanList();renderPlanEditor(p);},200);
+}
+
+function toggleEduCustom(){
+  const sel=document.getElementById('l-edu');
+  const custom=document.getElementById('l-edu-custom');
+  if(!sel||!custom) return;
+  custom.style.display=sel.value==='기타'?'block':'none';
+  if(sel.value!=='기타') custom.value='';
+}
 function openLearnerModal(idx){
   editIdx=idx!==undefined?idx:-1;
   document.getElementById('learner-modal-title').textContent=editIdx>=0?'학습자 수정':'학습자 추가';
@@ -1703,8 +1773,18 @@ function openLearnerModal(idx){
   _pendingImgs=[];
   if(editIdx>=0){
     const l=learners[editIdx];
-    ['name','id','phone','email','edu','kisu','start','year','month','paydate','code','approve','credit','unitprice','type','course','note']
+    ['name','id','phone','email','kisu','start','year','month','paydate','code','approve','credit','unitprice','type','course','note']
       .forEach(f=>{const el=document.getElementById('l-'+f);if(el)el.value=l[f]??'';});
+    // 교육원 복원 (기타인 경우 처리)
+    const eduSel=document.getElementById('l-edu');
+    const eduOpts=[...eduSel.options].map(o=>o.value);
+    if(eduOpts.includes(l.edu)){
+      eduSel.value=l.edu;
+    } else {
+      eduSel.value='기타';
+      document.getElementById('l-edu-custom').value=l.edu||'';
+    }
+    toggleEduCustom();
     document.getElementById('l-reward-type').value=l.rewardType||'per_credit';
     document.getElementById('l-reward-value').value=l.rewardValue!=null?l.rewardValue:'';
     // 기존 이미지 로드
@@ -1715,6 +1795,9 @@ function openLearnerModal(idx){
   } else {
     ['name','id','phone','email','kisu','start','paydate','approve','credit','unitprice','note']
       .forEach(f=>{const el=document.getElementById('l-'+f);if(el)el.value='';});
+    document.getElementById('l-edu').value='올에듀';
+    document.getElementById('l-edu-custom').value='';
+    toggleEduCustom();
     document.getElementById('l-reward-type').value='per_credit';
     document.getElementById('l-reward-value').value='';
     document.getElementById('modal-calc').textContent='학점과 금액 입력 시 자동 계산됩니다';
@@ -1736,11 +1819,14 @@ async function saveLearner(){
   const rewardValue=parseFloat(document.getElementById('l-reward-value').value)||0;
   const reward=calcRewardForLearner({code,credit,total,course,rewardType,rewardValue});
   const year=parseInt(document.getElementById('l-year').value)||new Date().getFullYear();
+  const eduSel=document.getElementById('l-edu').value;
+  const eduCustom=document.getElementById('l-edu-custom').value.trim();
+  const edu=eduSel==='기타'?(eduCustom||'기타'):eduSel;
   const l={
     name,id:document.getElementById('l-id').value.trim(),
     phone:document.getElementById('l-phone').value.trim(),
     email:document.getElementById('l-email').value.trim(),
-    edu:document.getElementById('l-edu').value,kisu:document.getElementById('l-kisu').value.trim(),
+    edu, kisu:document.getElementById('l-kisu').value.trim(),
     start:document.getElementById('l-start').value,year,month:document.getElementById('l-month').value,
     paydate:document.getElementById('l-paydate').value.trim(),
     code,approve:document.getElementById('l-approve').value.trim(),
@@ -1817,6 +1903,7 @@ function renderLearners(){
       <td style="color:var(--green);font-weight:600">${reward.toLocaleString()}원${badge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="플랜 연결" style="color:var(--navy)"><i class="ti ti-clipboard-list"></i></button>
         <button class="btn btn-icon btn-sm" onclick="deleteLearner(${origIdx})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
       </td></tr>`;
   }).join('');
