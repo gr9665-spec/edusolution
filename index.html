@@ -3835,6 +3835,15 @@ function openPrintPreview(pid){
   const BL=PLAN_BLUE, LBL=PLAN_LBLUE, YL=PLAN_YELLOW, DYL=PLAN_DYELLOW, RD=PLAN_RED;
   const th=(s,c,bg)=>`<th style="padding:6px 4px;border:1px solid #aaa;text-align:center;font-size:11px;background:${bg||LBL};color:${c||'#222'}">${s}</th>`;
 
+  // 공통 colgroup — 두 표가 동일한 열 너비 사용
+  const colgroup=`<colgroup>
+    <col style="width:8%">
+    <col style="width:5%"><col style="width:17%">
+    <col style="width:5%"><col style="width:17%">
+    <col style="width:5%"><col style="width:17%">
+    <col style="width:5%"><col style="width:17%">
+  </colgroup>`;
+
   // 보유학점 총합 — planTotals에서 이미 owned.specials 포함해서 계산됨
   const tOR=t.ownReq, tOE=t.ownElec, tOG=t.ownGen, tOL=t.ownLib;
   const tOAll=t.ownAll;
@@ -3960,9 +3969,10 @@ function openPrintPreview(pid){
     <!-- 보유학점 — 0이면 전체 섹션 숨김 -->
     ${hasOwned ? `
     <div style="text-align:center;font-weight:700;font-size:13px;background:${BL};color:#fff;padding:7px;letter-spacing:.15em;margin-top:14px;border-radius:3px 3px 0 0">▶ 보 유 학 점 ◀</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
+      ${colgroup}
       <thead><tr>
-        ${th('유형')} ${th('학점',RD,LBL)} ${th('전공필수',RD,LBL)} ${th('학점','',LBL)} ${th('전공선택','',LBL)} ${th('학점','',LBL)} ${th('일반학점','',LBL)} ${th('학점','',LBL)} ${th('교양학점','',LBL)}
+        ${th('유형',null,LBL)} ${th('학점',RD,LBL)} ${th('전공필수',RD,LBL)} ${th('학점','',LBL)} ${th('전공선택','',LBL)} ${th('학점','',LBL)} ${th('일반학점','',LBL)} ${th('학점','',LBL)} ${th('교양학점','',LBL)}
       </tr></thead>
       <tbody>${ownRows}</tbody>
       <tfoot>
@@ -3982,9 +3992,10 @@ function openPrintPreview(pid){
 
     <!-- 이수계획 -->
     <div style="text-align:center;font-weight:700;font-size:13px;background:${BL};color:#fff;padding:7px;letter-spacing:.15em;margin-top:14px;border-radius:3px 3px 0 0">▶ 이 수 계 획 ◀</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
+      ${colgroup}
       <thead><tr>
-        ${th('')} ${th('학점',RD,LBL)} ${th('전공필수',RD,LBL)} ${th('학점','',LBL)} ${th('전공선택','',LBL)} ${th('학점','',LBL)} ${th('일반학점','',LBL)} ${th('학점','',LBL)} ${th('교양학점','',LBL)}
+        ${th('',null,LBL)} ${th('학점',RD,LBL)} ${th('전공필수',RD,LBL)} ${th('학점','',LBL)} ${th('전공선택','',LBL)} ${th('학점','',LBL)} ${th('일반학점','',LBL)} ${th('학점','',LBL)} ${th('교양학점','',LBL)}
       </tr></thead>
       <tbody>${planRows}</tbody>
       <tfoot>
@@ -4029,9 +4040,9 @@ function printPlan(){
   const content=document.getElementById('plan-print-content').innerHTML;
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>플랜표</title>
-    <style>*{box-sizing:border-box}body{margin:16px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px}@media print{body{margin:4mm}}</style>
+    <style>*{box-sizing:border-box}body{margin:16px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px}</style>
     </head><body>${content}</body></html>`);
-  w.document.close(); setTimeout(()=>w.print(),300);
+  w.document.close();
 }
 
 function openMobilePlanPage(){
