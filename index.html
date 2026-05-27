@@ -4041,7 +4041,7 @@ function openPrintPreview(pid){
 
 function printPlan(){
   const content=document.getElementById('plan-print-content').innerHTML;
-  const w=window.open('','_blank','width=860,height=900,scrollbars=yes,resizable=yes');
+  const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>플랜표</title>
     <style>*{box-sizing:border-box}body{margin:16px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px}</style>
     </head><body>${content}</body></html>`);
