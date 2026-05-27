@@ -1716,9 +1716,19 @@ async function uploadPendingImgs(learnerName){
 }
 
 function linkLearnerToPlan(idx){
-  const l=learners[idx];
-  if(!l) return;
+  const l=learners[idx]; if(!l) return;
   const planList=Object.values(plans);
+
+  // 이미 연결된 플랜 있으면 바로 이동
+  const existing=planList.find(p=>p.linkedLearner===l.name||(p.clientName&&p.clientName===l.name));
+  if(existing){
+    closeModal('modal-learner');
+    switchTab('plan',document.querySelectorAll('.tab')[3]);
+    setTimeout(()=>{curPid=existing.id;renderPlanList();renderPlanEditor(existing);},200);
+    return;
+  }
+
+  // 플랜 없으면 새로 만들기
   if(!planList.length){
     if(confirm(`"${l.name}" 학습자의 플랜이 없어요.\n새 플랜을 만들까요?`)){
       switchTab('plan',document.querySelectorAll('.tab')[3]);
@@ -1726,37 +1736,30 @@ function linkLearnerToPlan(idx){
     }
     return;
   }
-  // 플랜 선택 모달 표시
-  const existing=planList.find(p=>p.linkedLearner===l.name||(p.clientName&&p.clientName===l.name));
-  const opts=planList.map(p=>`<option value="${p.id}" ${existing&&p.id===existing.id?'selected':''}>${p.clientName||'(미입력)'} — ${p.degree} ${p.major}</option>`).join('');
+
+  // 플랜은 있는데 연결 안 됨 → 선택 모달
+  const opts=planList.map(p=>`<option value="${p.id}">${p.clientName||'(미입력)'} — ${p.degree} ${p.major}</option>`).join('');
   document.getElementById('plan-link-name').textContent=l.name;
   document.getElementById('plan-link-select').innerHTML=`<option value="">-- 선택 안 함 --</option>`+opts;
-  document.getElementById('plan-link-select').value=existing?existing.id:'';
+  document.getElementById('plan-link-select').value='';
   _linkLearnerIdx=idx;
   openModal('modal-plan-link');
 }
+
 let _linkLearnerIdx=-1;
+
 function confirmPlanLink(){
   const l=learners[_linkLearnerIdx]; if(!l) return;
   const selPid=document.getElementById('plan-link-select').value;
-  if(selPid){
-    // 플랜에 학습자 연결
-    if(plans[selPid]){
-      plans[selPid].linkedLearner=l.name;
-      plans[selPid].clientName=l.name;
-      LS.set('hk_plans',plans); saveToFirebase();
-    }
-    alert(`✓ "${l.name}" → 플랜 "${plans[selPid]?.clientName||selPid}" 연결됐어요!`);
-  }
   closeModal('modal-plan-link');
-  renderLearners();
-}
-function openLinkedPlan(idx){
-  const l=learners[idx]; if(!l) return;
-  const p=Object.values(plans).find(p=>p.linkedLearner===l.name||p.clientName===l.name);
-  if(!p){ alert('연결된 플랜이 없어요. 📋 버튼으로 연결해주세요!'); return; }
-  switchTab('plan',document.querySelectorAll('.tab')[3]);
-  setTimeout(()=>{curPid=p.id;renderPlanList();renderPlanEditor(p);},200);
+  if(selPid&&plans[selPid]){
+    plans[selPid].linkedLearner=l.name;
+    plans[selPid].clientName=l.name;
+    LS.set('hk_plans',plans); saveToFirebase();
+    // 연결 즉시 플랜 탭으로 이동
+    switchTab('plan',document.querySelectorAll('.tab')[3]);
+    setTimeout(()=>{curPid=selPid;renderPlanList();renderPlanEditor(plans[selPid]);},200);
+  }
 }
 
 function toggleEduCustom(){
@@ -1903,7 +1906,7 @@ function renderLearners(){
       <td style="color:var(--green);font-weight:600">${reward.toLocaleString()}원${badge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
-        <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="플랜 연결" style="color:var(--navy)"><i class="ti ti-clipboard-list"></i></button>
+        <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'플랜 바로가기':'플랜 연결'}" style="color:${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'var(--green)':'var(--navy)'}"><i class="ti ti-clipboard-list"></i></button>
         <button class="btn btn-icon btn-sm" onclick="deleteLearner(${origIdx})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
       </td></tr>`;
   }).join('');
