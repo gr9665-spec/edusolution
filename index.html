@@ -3948,6 +3948,15 @@ function openPrintPreview(pid){
       </div>
     </div>
 
+    <!-- 안내 문구 -->
+    <div style="border:1px solid #e0e0e0;border-radius:0 0 6px 6px;padding:8px 14px;background:#f9f9f9;margin-bottom:14px">
+      ${[
+        '본 플랜의 모든 내용은 국가평생교육진흥원 표준교육과정을 기반으로 작성되었습니다.',
+        '학점은행제 정식인가 교육훈련기관 소속으로 상담비용, 대행료 등 추가 비용을 일절 받지 않습니다.',
+        '수강신청은 선착순 마감 방식으로 진행되므로, 과목 마감 시 변경 혹은 수강신청이 불가할 수 있습니다.',
+      ].map(t=>`<div style="font-size:10px;color:#888;line-height:1.8;display:flex;gap:5px"><span style="flex-shrink:0">•</span><span>${t}</span></div>`).join('')}
+    </div>
+
     <!-- 보유학점 — 0이면 전체 섹션 숨김 -->
     ${hasOwned ? `
     <div style="text-align:center;font-weight:700;font-size:13px;background:${BL};color:#fff;padding:7px;letter-spacing:.15em;margin-top:14px;border-radius:3px 3px 0 0">▶ 보 유 학 점 ◀</div>
