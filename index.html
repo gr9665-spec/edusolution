@@ -3282,7 +3282,7 @@ function buildOwnedTableUI(p,t){
   for(let i=0;i<maxR;i++){
     const rq=o.req[i], el=o.elec[i], gn=o.gen[i], lb=o.lib[i];
     rows+=`<tr>
-      <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'전적대학교 학점':''}</td>
+      <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
       <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
@@ -3362,7 +3362,7 @@ function buildOwnedTableUI(p,t){
       <div style="padding:7px;text-align:center">교양 ${tOL}</div>
     </div>
     <div style="padding:9px;text-align:center;font-size:13px;font-weight:700;background:${PLAN_DYELLOW};border-top:1px solid #ddd">
-      총보유학점 &nbsp;&nbsp; ${tOAll}
+      합계 &nbsp; ${tOAll}
     </div>
   </div>`;
 }
@@ -3855,7 +3855,7 @@ function openPrintPreview(pid){
   for(let i=0;i<ownMax;i++){
     const rq=p.owned.req[i],el=p.owned.elec[i],gn=p.owned.gen[i],lb=p.owned.lib[i];
     ownRows+=`<tr>
-      <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'전적대학교 학점':''}</td>
+      <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
       <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
@@ -3984,7 +3984,7 @@ function openPrintPreview(pid){
           <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">교양 ${tOL}</td>
         </tr>
         <tr style="background:${DYL};font-weight:700;font-size:13px">
-          <td style="padding:7px;border:1px solid #aaa;text-align:center">총보유학점</td>
+          <td style="padding:7px;border:1px solid #aaa;text-align:center">합계</td>
           <td colspan="8" style="padding:7px;border:1px solid #aaa;text-align:center">${tOAll}</td>
         </tr>
       </tfoot>
@@ -4038,7 +4038,7 @@ function openPrintPreview(pid){
 
 function printPlan(){
   const content=document.getElementById('plan-print-content').innerHTML;
-  const w=window.open('','_blank');
+  const w=window.open('','_blank','width=860,height=900,scrollbars=yes,resizable=yes');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>플랜표</title>
     <style>*{box-sizing:border-box}body{margin:16px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px}</style>
     </head><body>${content}</body></html>`);
