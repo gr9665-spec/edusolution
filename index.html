@@ -1173,6 +1173,7 @@ async function showApp(){
     const userDoc=await fbDb.collection('users').doc(currentUser.uid).get().catch(()=>null);
     const udata=userDoc?.data()||{};
     const userName=udata.name||currentUser.email.split('@')[0];
+    window._currentUserName=userName; // 전역 저장
     const rank=udata.rank||'';
     const rankColor={신입:'#6c757d',경력:'#5a6268',주임:'#1a5fa8',대리:'#2e6e10',부팀장:'#854F0B',팀장:'#9b1515'}[rank]||'#666';
 
@@ -2471,7 +2472,7 @@ function renderExport(){
     const openingDate=l.start?l.start.replace(/-/g,''):'';
     return [
       l.code||'',l.edu||'',`${l.month}월`,'2코드',l.approve||'',l.paydate||'',l.kisu||'',openingDate,
-      '상희경',l.type||'',l.name||'',l.id||'',l.phone||'',l.email||'',
+      l.manager||(window._currentUserName||currentUser?.email?.split('@')[0]||''),l.type||'',l.name||'',l.id||'',l.phone||'',l.email||'',
       l.course||'이론',l.credit||0,(l.unitprice||0),exportTotal
     ];
   });
@@ -2888,10 +2889,10 @@ renderDashboard();calcReward();
 
 // ── 플랜표 ───────────────────────────────────────────────────────────
 const DEG_REQ = {
-  '학사':           {total:140, req:60,  elec:0,  gen:35, lib:30, note:'전공60 · 교양30 · 총140학점'},
-  '전문학사':       {total:80,  req:45,  elec:0,  gen:15, lib:10, note:'전공45 · 총80학점'},
-  '타전공 전문학사':{total:80,  req:21,  elec:24, gen:15, lib:10, note:'전필21+전선24 · 총80학점'},
-  '타전공 학사':    {total:140, req:30,  elec:30, gen:35, lib:15, note:'전필30+전선30 · 총140학점'},
+  '학사':           {total:140, req:60,  elec:0,  gen:35, lib:30, major:60,  note:'전공60 · 교양30 · 총140학점'},
+  '전문학사':       {total:80,  req:45,  elec:0,  gen:15, lib:10, major:45,  note:'전공45 · 총80학점'},
+  '타전공 전문학사':{total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:36,  note:'전공36학점 (복수전공)'},
+  '타전공 학사':    {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:48,  note:'전공48학점 (복수전공)'},
 };
 
 let plans = LS.get('hk_plans')||{};
@@ -3630,22 +3631,22 @@ function buildSemLimitWarning(p){
 // ── 학위취득 가능여부 체커 (내부 전용) ────────────────────────────────
 function buildDegreeChecker(p,t,dr){
   const totalMajor=t.totReq+t.totElec;
-  const needMajor=dr.req+(dr.elec||0);
-  const needLib=dr.lib;
-  const needTotal=dr.total;
+  const needMajor=dr.major!=null ? dr.major : dr.req+(dr.elec||0);
+  const isTaJeon=dr.total===0; // 타전공: 전공학점만 체크
 
   const lackMajor=Math.max(0, needMajor-totalMajor);
-  const lackLib  =Math.max(0, needLib-t.totLib);
-  const lackTotal=Math.max(0, needTotal-t.grand);
+  const lackLib  =isTaJeon ? 0 : Math.max(0, (dr.lib||0)-t.totLib);
+  const lackTotal=isTaJeon ? 0 : Math.max(0, dr.total-t.grand);
 
   const possible=lackMajor===0&&lackLib===0&&lackTotal===0;
 
-  // 각 항목 상태
-  const items=[
-    {label:'전공학점', need:needMajor, have:totalMajor, lack:lackMajor},
-    {label:'교양학점', need:needLib,   have:t.totLib,   lack:lackLib},
-    {label:'총학점',   need:needTotal, have:t.grand,    lack:lackTotal},
-  ];
+  const items=isTaJeon
+    ? [{label:'전공학점', need:needMajor, have:totalMajor, lack:lackMajor}]
+    : [
+        {label:'전공학점', need:needMajor, have:totalMajor, lack:lackMajor},
+        {label:'교양학점', need:dr.lib,    have:t.totLib,   lack:lackLib},
+        {label:'총학점',   need:dr.total,  have:t.grand,    lack:lackTotal},
+      ];
 
   return `<div class="card" style="padding:0;overflow:hidden;border:2px solid ${possible?'#81c784':'#ef9a9a'}">
     <div style="background:#f5f5f5;padding:7px 14px;font-size:11px;font-weight:600;color:#666;border-bottom:1px solid #eee;display:flex;align-items:center;gap:6px">
@@ -4080,8 +4081,8 @@ function openPrintPreview(pid){
         </tr>
         <tr style="background:${DYL};font-weight:700;font-size:14px">
           <td style="padding:8px;border:1px solid #aaa;text-align:center;background:#ffe0b2">총학점</td>
-          <td colspan="8" style="padding:8px;border:1px solid #aaa;text-align:center;background:#ffe0b2;color:${t.grand>=dr.total?'#1a6e1a':RD};font-size:16px">
-            ${t.grand} / ${dr.total}
+          <td colspan="8" style="padding:8px;border:1px solid #aaa;text-align:center;background:#ffe0b2;color:${(dr.total===0?totMajor>=needMajor:t.grand>=dr.total)?'#1a6e1a':RD};font-size:16px">
+            ${dr.total===0?("전공 "+totMajor+"학점"):t.grand+" / "+dr.total}
           </td>
         </tr>
       </tfoot>
@@ -4340,7 +4341,7 @@ function renderMobilePlan(pid){
       </div>
       <div style="background:#f3e8ff;border-radius:8px;padding:12px;text-align:center;border:1px solid #d8b4fe">
         <div style="font-size:11px;color:#666;margin-bottom:4px">전공</div>
-        <div style="font-size:22px;font-weight:700;color:#6d28d9">${totMajor}<span style="font-size:13px;color:#999"> / ${dr.req+(dr.elec||0)}</span></div>
+        <div style="font-size:22px;font-weight:700;color:#6d28d9">${totMajor}<span style="font-size:13px;color:#999"> / ${dr.major!=null?dr.major:dr.req+(dr.elec||0)}</span></div>
       </div>
       <div style="background:#e8f5e9;border-radius:8px;padding:12px;text-align:center;border:1px solid #a5d6a7">
         <div style="font-size:11px;color:#666;margin-bottom:4px">일반</div>
@@ -4441,6 +4442,7 @@ function handleImportFiles(files){
               course:ci(['이론/대면','과정유형','이론']),
               credit:ci(['학점']), unitprice:ci(['학점당금액','학점당']),
               total:ci(['총매출금액','총매출']),
+              manager:ci(['담당자']),
             };
             if(C.name<0||C.edu<0) return;
 
@@ -4499,6 +4501,7 @@ function handleImportFiles(files){
                 code, approve:String(row[C.approve]||'').trim(),
                 credit, unitprice, total, reward, course,
                 type:ltype, rewardType:'per_credit', rewardValue:rewardPer,
+                manager:C.manager>=0?String(row[C.manager]||'').trim():'',
                 note:'', addedAt:new Date().toISOString()
               });
             }
