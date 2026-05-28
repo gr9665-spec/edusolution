@@ -3914,7 +3914,9 @@ function openPrintPreview(pid){
   // 보유학점 총합 — planTotals에서 이미 owned.specials 포함해서 계산됨
   const tOR=t.ownReq, tOE=t.ownElec, tOG=t.ownGen, tOL=t.ownLib;
   const tOAll=t.ownAll;
-  const hasOwned = tOAll > 0;  // 보유학점 있는지 여부
+  const hasOwned = tOAll > 0;
+  const totMajor = t.totReq + t.totElec;
+  const needMajor = dr.major!=null ? dr.major : dr.req+(dr.elec||0);  // 보유학점 있는지 여부
 
   // 보유학점 행 (owned specials 포함)
   const ownMax=Math.max(1,(p.owned.req||[]).length,(p.owned.elec||[]).length,(p.owned.gen||[]).length,(p.owned.lib||[]).length);
@@ -4009,7 +4011,6 @@ function openPrintPreview(pid){
   });
 
   // 이수학점에서 전공(전필+전선) 합산
-  const totMajor = t.totReq + t.totElec;
 
   const content=`<div style="font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px;color:#222">
     <!-- 헤더 — 연락처(phone) 제외 -->
