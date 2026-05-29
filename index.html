@@ -1259,13 +1259,18 @@ function copyTodoList(){
   if(!todayTodos.length){alert('오늘 할 일이 없어요!');return;}
   const now=new Date();
   const m=now.getMonth()+1, d=now.getDate();
+
+  // 이름에서 뒤 두 글자 (희경, 찬혁 등)
+  const fullName=window._currentUserName||'';
+  const shortName=fullName.length>=2?fullName.slice(-2):fullName;
+
   const am=todayTodos.filter(t=>t.period!=='오후');
   const pm=todayTodos.filter(t=>t.period==='오후');
   let body='';
-  if(am.length) body+=`+오전\n\n${am.map(t=>`- ${t.text}${t.done?' ㅇ':''}`).join('\n')}`;
+  if(am.length) body+=`*오전\n${am.map(t=>`- ${t.text}${t.done?' ㅇ':''}`).join('\n')}`;
   if(am.length&&pm.length) body+='\n\n';
-  if(pm.length) body+=`+오후\n\n${pm.map(t=>`- ${t.text}${t.done?' ㅇ':''}`).join('\n')}`;
-  const text=`To do list (${m}/${d})\n\n<업무>\n\n${body}`;
+  if(pm.length) body+=`*오후\n${pm.map(t=>`- ${t.text}${t.done?' ㅇ':''}`).join('\n')}`;
+  const text=`To do list ${shortName} (${m}/${d})\n\n<업무>\n\n${body}`;
   if(navigator.clipboard){
     navigator.clipboard.writeText(text).then(()=>{
       alert('✓ 복사됐어요!\n카톡에 붙여넣기(길게 누르기→붙여넣기) 하세요');
@@ -2346,7 +2351,7 @@ function renderSchedule(){
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
               <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
-              ${s.note?`<div style="font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note}</div>`:''}
+              ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
               ${s.sent==='true'
@@ -3686,11 +3691,12 @@ function appendMemoPreset(text){
 
 function addSemester(){
   const p=plans[curPid]; if(!p) return;
-  const n=p.semesters.length+1;
-  const yr=new Date().getFullYear()%100;
-  // 온라인 새학기는 전공필수 3학점 자동 고정 (자격증/독학사/전적대는 제외)
+  // 학기 순서: 26-2 → 27-1 → 27-2 → 28-1 → 28-2 → ...
+  const semSeq=['26-2','27-1','27-2','28-1','28-2','29-1','29-2','30-1','30-2'];
+  const n=p.semesters.length; // 0-based index
+  const semName=semSeq[n]?semSeq[n]+'학기':`${26+Math.floor((n+2)/2)}-${(n%2===0)?2:1}학기`;
   const defaultReq=[{credit:'3',subject:''}];
-  p.semesters.push({name:`${yr}-${n}학기`,edu:'',kisu:'',date:'',req:defaultReq,elec:[],gen:[],lib:[]});
+  p.semesters.push({name:semName,edu:'',kisu:'',date:'',req:defaultReq,elec:[],gen:[],lib:[]});
   LS.set('hk_plans',plans);
   saveToFirebase();
   renderPlanEditor(p);
