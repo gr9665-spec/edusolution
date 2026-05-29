@@ -309,15 +309,23 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 
 <!-- 학사일정 -->
 <div id="panel-schedule" class="panel">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <div style="font-size:13px;color:var(--text2)">학사일정을 등록하고 연락 여부를 관리해요</div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="openBulkScheduleModal()"><i class="ti ti-users"></i>기수별 일괄 등록</button>
       <button class="btn" onclick="document.getElementById('schedule-file-input').click()"><i class="ti ti-file-import"></i>파일 가져오기</button>
       <input type="file" id="schedule-file-input" accept=".xlsx" style="display:none" onchange="importScheduleFile(this)">
       <button class="btn" style="color:var(--red)" onclick="clearAllSchedules()"><i class="ti ti-trash"></i>전체 삭제</button>
       <button class="btn btn-primary" onclick="openScheduleModal()"><i class="ti ti-plus"></i>1명 추가</button>
     </div>
+  </div>
+  <!-- 학습자별 삭제 -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;padding:10px 12px;background:var(--bg2);border-radius:var(--r)">
+    <i class="ti ti-user-x" style="color:var(--red);font-size:14px"></i>
+    <span style="font-size:12px;color:var(--text2);flex-shrink:0">학습자 일정 삭제:</span>
+    <input type="text" id="schedule-del-input" placeholder="이름 입력 후 삭제" style="flex:1;padding:6px 10px;font-size:13px" oninput="previewScheduleDel()">
+    <span id="schedule-del-count" style="font-size:12px;color:var(--text2);flex-shrink:0"></span>
+    <button class="btn btn-sm" style="color:var(--red);flex-shrink:0" onclick="deleteScheduleByName()"><i class="ti ti-trash"></i> 삭제</button>
   </div>
   <div class="card">
     <div class="card-head"><h3><i class="ti ti-calendar-event"></i>다가오는 일정</h3></div>
@@ -2284,6 +2292,27 @@ function importScheduleFile(input){
     reader.readAsArrayBuffer(file);
   }).catch(()=>alert('라이브러리 로드 실패'));
 }
+function previewScheduleDel(){
+  const name=document.getElementById('schedule-del-input').value.trim();
+  const cnt=document.getElementById('schedule-del-count');
+  if(!name){cnt.textContent='';return;}
+  const count=schedules.filter(s=>s.learnerName===name).length;
+  cnt.textContent=count?`${count}건`:'없음';
+  cnt.style.color=count?'var(--red)':'var(--text3)';
+}
+function deleteScheduleByName(){
+  const name=document.getElementById('schedule-del-input').value.trim();
+  if(!name){alert('이름을 입력해주세요');return;}
+  const count=schedules.filter(s=>s.learnerName===name).length;
+  if(!count){alert(`"${name}" 학습자의 일정이 없어요`);return;}
+  if(!confirm(`"${name}" 학습자의 학사일정 ${count}건을 삭제할까요?`)) return;
+  schedules=schedules.filter(s=>s.learnerName!==name);
+  save();renderSchedule();renderDashboard();
+  document.getElementById('schedule-del-input').value='';
+  document.getElementById('schedule-del-count').textContent='';
+  alert(`✓ "${name}" 학습자 일정 ${count}건이 삭제됐어요`);
+}
+
 function clearAllSchedules(){
   if(!confirm(`학사일정 전체 ${schedules.length}건을 삭제할까요?\n되돌릴 수 없어요!`)) return;
   schedules=[];
@@ -2730,9 +2759,12 @@ function openBulkScheduleModal(){
   const copyKisuSel = document.getElementById('copy-kisu-sel');
   const kisuGroups = {};
   schedules.forEach(s=>{
-    const key = s.note ? s.note.split('|')[0].trim() : '';
-    if(key && !kisuGroups[key]) kisuGroups[key] = [];
-    if(key) kisuGroups[key].push(s);
+    const note = s.note||'';
+    // note 형식: "하나원격 26년도 2-1 | 날짜범위" 또는 "하나원격 2-1" (일괄등록)
+    const key = note.split('|')[0].trim();
+    if(!key) return;
+    if(!kisuGroups[key]) kisuGroups[key] = [];
+    kisuGroups[key].push(s);
   });
   // 기수별로 몇 건인지 표시
   const kisuOptions = Object.entries(kisuGroups)
@@ -2867,14 +2899,18 @@ function saveBulkSchedule(){
   checked.forEach(chk=>{
     const learner = learners[parseInt(chk.dataset.idx)];
     if(!learner) return;
+    const noteBase = [learner.edu, learner.kisu].filter(Boolean).join(' ');
     scheduleItems.forEach(s=>{
+      // 중복 체크 (같은 학습자+유형+날짜)
+      const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date);
+      if(dup) return;
       schedules.push({
         id: Date.now()+'-'+Math.random().toString(36).slice(2),
         learnerName: learner.name,
         type: s.type,
         date: s.date,
         sent: 'false',
-        note: ''
+        note: noteBase
       });
       count++;
     });
