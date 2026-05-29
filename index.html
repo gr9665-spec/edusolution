@@ -2803,7 +2803,7 @@ function applyCopyKisu(){
 
   // 초기값을 renderBulkRows에 직접 전달
   bulkRows = unique.length;
-  renderBulkRows(unique.map(s=>({type:s.type, date:s.date})));
+  renderBulkRows(unique.map(s=>({type:s.type, date:s.date, note:s.note})));
   updateBulkPreview();
   const prev=document.getElementById('copy-kisu-preview');
   prev.textContent = `✓ ${unique.length}개 일정이 채워졌어요! 날짜를 확인/수정 후 등록하세요.`;
@@ -2848,6 +2848,7 @@ function renderBulkRows(initVals=[]){
     const init=initVals[i]||{};
     return `
     <div class="bulk-row" id="brow-${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+      <input type="hidden" class="bulk-note" value="${(init.note||'').replace(/"/g,'&quot;')}">
       <div class="fg">
         ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">일정 유형</label>':''}
         <select class="bulk-type">
@@ -2891,7 +2892,8 @@ function saveBulkSchedule(){
   const rows = [...document.querySelectorAll('.bulk-row')];
   const scheduleItems = rows.map(r=>({
     type: r.querySelector('.bulk-type').value,
-    date: r.querySelector('.bulk-date').value
+    date: r.querySelector('.bulk-date').value,
+    origNote: r.querySelector('.bulk-note')?.value||''
   })).filter(s=>s.date);
   if(!scheduleItems.length){ alert('마감일을 하나 이상 입력해주세요'); return; }
 
@@ -2904,13 +2906,17 @@ function saveBulkSchedule(){
       // 중복 체크 (같은 학습자+유형+날짜)
       const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date);
       if(dup) return;
+      // note: 원본 기수 note에서 날짜 범위 부분만 재활용, 교육원+기수는 이 학습자 기준으로
+      const origNoteParts = s.origNote.split('|');
+      const dateRange = origNoteParts.length > 1 ? origNoteParts.slice(1).join('|').trim() : '';
+      const note = dateRange ? `${noteBase} | ${dateRange}` : noteBase;
       schedules.push({
         id: Date.now()+'-'+Math.random().toString(36).slice(2),
         learnerName: learner.name,
         type: s.type,
         date: s.date,
         sent: 'false',
-        note: noteBase
+        note
       });
       count++;
     });
