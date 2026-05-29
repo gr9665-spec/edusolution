@@ -2769,19 +2769,13 @@ function applyCopyKisu(){
     .sort((a,b)=>a.date.localeCompare(b.date));
   if(!unique.length){ alert('복사할 일정이 없어요'); return; }
 
-  // bulk rows에 자동 채우기
-  const types = ['개강일','쪽지시험','쪽지시험마감','토론','토론마감','과제','과제마감','중간고사','중간고사마감','기말고사','기말고사마감','기타'];
+  // 초기값을 renderBulkRows에 직접 전달
   bulkRows = unique.length;
-  renderBulkRows();
-  unique.forEach((s,i)=>{
-    const rowType = document.querySelector(`#brow-${i} .bulk-type`);
-    const rowDate = document.querySelector(`#brow-${i} .bulk-date`);
-    if(rowType) rowType.value = s.type;
-    if(rowDate) rowDate.value = s.date;
-  });
+  renderBulkRows(unique.map(s=>({type:s.type, date:s.date})));
   updateBulkPreview();
-  document.getElementById('copy-kisu-preview').textContent = `✓ ${unique.length}개 일정이 채워졌어요! 날짜를 확인/수정 후 등록하세요.`;
-  document.getElementById('copy-kisu-preview').style.color = 'var(--green)';
+  const prev=document.getElementById('copy-kisu-preview');
+  prev.textContent = `✓ ${unique.length}개 일정이 채워졌어요! 날짜를 확인/수정 후 등록하세요.`;
+  prev.style.color = 'var(--green)';
 }
 
 function refreshBulkList(){
@@ -2815,23 +2809,26 @@ function selectAllBulk(checked){
   updateBulkPreview();
 }
 
-function renderBulkRows(){
+function renderBulkRows(initVals=[]){
   const types = ['개강일','쪽지시험','쪽지시험마감','토론','토론마감','과제','과제마감','중간고사','중간고사마감','기말고사','기말고사마감','기타'];
   const container = document.getElementById('bulk-schedule-rows');
-  container.innerHTML = Array.from({length:bulkRows},(_,i)=>`
+  container.innerHTML = Array.from({length:bulkRows},(_,i)=>{
+    const init=initVals[i]||{};
+    return `
     <div class="bulk-row" id="brow-${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
       <div class="fg">
         ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">일정 유형</label>':''}
         <select class="bulk-type">
-          ${types.map(t=>`<option>${t}</option>`).join('')}
+          ${types.map(t=>`<option ${init.type===t?'selected':''}>${t}</option>`).join('')}
         </select>
       </div>
       <div class="fg">
         ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">마감일</label>':''}
-        <input type="date" class="bulk-date">
+        <input type="date" class="bulk-date" value="${init.date||''}">
       </div>
       <button class="btn btn-icon" style="color:var(--red);margin-top:${i===0?'16px':'0'}" onclick="removeBulkRow(${i})" ${bulkRows<=1?'disabled':''}><i class="ti ti-trash"></i></button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function addBulkRow(){
