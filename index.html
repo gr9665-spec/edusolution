@@ -658,6 +658,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <input type="file" id="plan-import-input" accept=".json" style="display:none" onchange="importPlanFile(this)">
       <input type="file" id="plan-xlsx-input" accept=".xlsx" style="display:none" onchange="importPlanFromXlsx(this)">
       <div id="plan-list"></div>
+      <!-- 폴더 필터 -->
+      <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
+        <button id="plan-filter-all" class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 8px" onclick="setPlanFilter('all')">전체</button>
+        <button id="plan-filter-가망" class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="setPlanFilter('가망')">가망</button>
+        <button id="plan-filter-결제완료" class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="setPlanFilter('결제완료')">결제완료</button>
+      </div>
+      <div id="plan-list-content"></div>
     </div>
     <div id="plan-body">
       <div class="empty" style="margin-top:80px">
@@ -2962,14 +2969,39 @@ function blankPlan(){
   },0);
 }
 
+let _planFilter='all';
+function setPlanFilter(f){
+  _planFilter=f;
+  ['all','가망','결제완료'].forEach(k=>{
+    const btn=document.getElementById('plan-filter-'+k);
+    if(btn) btn.className='btn btn-sm'+(f===k?' btn-primary':'');
+  });
+  renderPlanList();
+}
+
 function renderPlanList(){
-  const el=document.getElementById('plan-list');
-  const list=Object.values(plans).sort((a,b)=>(b.counselDate||'').localeCompare(a.counselDate||''));
-  if(!list.length){ el.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">작성된 플랜이 없어요</div>'; return; }
+  const el=document.getElementById('plan-list-content');
+  if(!el) return;
+  // 최신 생성순 정렬 (id는 'p'+timestamp 형식)
+  let list=Object.values(plans).sort((a,b)=>{
+    const ta=parseInt((a.id||'').replace('p',''))||0;
+    const tb=parseInt((b.id||'').replace('p',''))||0;
+    return tb-ta;
+  });
+  if(_planFilter!=='all') list=list.filter(p=>(p.status||'가망')===_planFilter);
+  if(!list.length){
+    el.innerHTML=`<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">${_planFilter==='all'?'작성된 플랜이 없어요':_planFilter+' 플랜이 없어요'}</div>`;
+    return;
+  }
   el.innerHTML=list.map(p=>{
     const cur=p.id===curPid;
+    const status=p.status||'가망';
+    const statusColor=status==='결제완료'?'var(--green)':'var(--amber)';
     return `<div onclick="selectPlan('${p.id}')" style="padding:10px 12px;border-radius:var(--r);border:1px solid ${cur?'var(--navy)':'var(--border)'};background:${cur?'var(--navy)':'var(--bg)'};cursor:pointer;margin-bottom:6px">
-      <div style="font-size:13px;font-weight:600;color:${cur?'#fff':'var(--text)'}">${p.clientName||'(이름 미입력)'}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+        <div style="font-size:13px;font-weight:600;color:${cur?'#fff':'var(--text)'};;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.clientName||'(이름 미입력)'}</div>
+        <span style="font-size:10px;background:${cur?'rgba(255,255,255,.15)':'var(--bg2)'};color:${cur?'#fff':statusColor};border-radius:99px;padding:1px 6px;flex-shrink:0;font-weight:600">${status}</span>
+      </div>
       <div style="font-size:11px;color:${cur?'rgba(255,255,255,.65)':'var(--text2)'};margin-top:2px">${p.major} · ${p.degree}</div>
       <div style="font-size:10px;color:${cur?'rgba(255,255,255,.45)':'var(--text3)'};margin-top:1px">${p.counselDate||''}</div>
     </div>`;
@@ -3337,6 +3369,12 @@ function renderPlanEditor(p){
         <div class="fg"><label>이름</label><input type="text" value="${p.clientName||''}" placeholder="홍길동" onchange="upP('clientName',this.value)"></div>
         <div class="fg"><label>연락처</label><input type="text" value="${p.phone||''}" placeholder="010-0000-0000" onchange="upP('phone',this.value)"></div>
         <div class="fg"><label>상담일</label><input type="date" value="${p.counselDate||''}" onchange="upP('counselDate',this.value)"></div>
+        <div class="fg"><label>상태</label>
+          <select onchange="upP('status',this.value);renderPlanList()">
+            <option ${(p.status||'가망')==='가망'?'selected':''}>가망</option>
+            <option ${p.status==='결제완료'?'selected':''}>결제완료</option>
+          </select>
+        </div>
         <div class="fg"><label>목표 학위</label>
           <select onchange="upP('degree',this.value);renderPlanEditor(plans[curPid])">
             ${Object.keys(DEG_REQ).map(d=>`<option ${p.degree===d?'selected':''}>${d}</option>`).join('')}
