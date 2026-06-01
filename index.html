@@ -2791,9 +2791,8 @@ function previewCopyKisu(){
   if(!key){ document.getElementById('copy-kisu-preview').textContent=''; return; }
   // 해당 기수의 일정 유형+날짜 미리보기
   const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
-  // 중복 제거 (유형+날짜 기준)
+  // 중복 제거 (유형+날짜 기준) — 개강일은 날짜 다양하니 유형만으로 1개만
   const unique = [...new Map(items.map(s=>[s.type+'|'+s.date, s])).values()]
-    .filter(s=>s.type!=='개강일')
     .sort((a,b)=>a.date.localeCompare(b.date));
   const preview = unique.map(s=>`${s.type}(${s.date.slice(5)})`).join(' · ');
   document.getElementById('copy-kisu-preview').textContent = unique.length ? `📋 ${unique.length}개 일정: ${preview}` : '일정 없음';
@@ -2804,16 +2803,19 @@ function applyCopyKisu(){
   if(!key){ alert('기수를 선택해주세요'); return; }
   const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
   const unique = [...new Map(items.map(s=>[s.type+'|'+s.date, s])).values()]
-    .filter(s=>s.type!=='개강일')
     .sort((a,b)=>a.date.localeCompare(b.date));
   if(!unique.length){ alert('복사할 일정이 없어요'); return; }
 
-  // 초기값을 renderBulkRows에 직접 전달
+  // 개강일은 날짜 비워서 직접 입력하게, 나머지는 날짜 그대로
   bulkRows = unique.length;
-  renderBulkRows(unique.map(s=>({type:s.type, date:s.date, note:s.note})));
+  renderBulkRows(unique.map(s=>({
+    type: s.type,
+    date: s.date,
+    note: s.note
+  })));
   updateBulkPreview();
   const prev=document.getElementById('copy-kisu-preview');
-  prev.textContent = `✓ ${unique.length}개 일정이 채워졌어요! 날짜를 확인/수정 후 등록하세요.`;
+  prev.textContent = `✓ ${unique.length}개 일정이 채워졌어요! 날짜 확인 후 등록하세요.`;
   prev.style.color = 'var(--green)';
 }
 
