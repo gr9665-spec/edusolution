@@ -94,9 +94,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   .fg2{grid-template-columns:1fr}
   .panel{padding:14px}
   .plan-layout{grid-template-columns:1fr !important}
-  .plan-layout > div:first-child{border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:4px}
+  #plan-list-sidebar{display:none}
+  #plan-list-sidebar.mobile-open{display:block !important;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:12px}
+  #plan-list-toggle-bar{display:block !important}
   .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
   #plan-body table{min-width:560px}
+  /* 기수 칸 줄바꿈 방지 */
+  td{word-break:keep-all}
 }
 </style>
 
@@ -715,8 +719,15 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 </div>
 <!-- 플랜표 -->
 <div id="panel-plan" class="panel">
+  <!-- 모바일에서 플랜 목록 토글 버튼 -->
+  <div id="plan-list-toggle-bar" style="display:none;margin-bottom:10px">
+    <button class="btn btn-sm" style="width:100%;font-size:13px" onclick="togglePlanListMobile()">
+      <i class="ti ti-list" id="plan-toggle-icon"></i>
+      <span id="plan-toggle-label">플랜 목록 보기</span>
+    </button>
+  </div>
   <div class="plan-layout" style="display:grid;grid-template-columns:210px 1fr;gap:14px;min-height:500px">
-    <div>
+    <div id="plan-list-sidebar">
       <button class="btn btn-primary" style="width:100%;margin-bottom:10px;font-size:13px" onclick="newPlan()">
         <i class="ti ti-plus"></i> 새 플랜 작성
       </button>
@@ -2181,7 +2192,7 @@ function renderLearners(){
       <td><strong>${l.name}</strong>${l.images&&l.images.length?`<span style="font-size:10px;background:#e8f4fd;color:#1a5fa8;border-radius:3px;padding:0 4px;margin-left:4px"><i class="ti ti-photo" style="font-size:10px"></i> ${l.images.length}</span>`:''}<span style="font-size:12px;color:var(--text3);margin-left:6px">${l.id?'/ '+l.id:''}</span><br><span style="font-size:11px;color:var(--text2)">${l.phone||''}</span></td>
       <td>${l.edu||''}</td>
       <td style="font-size:11px;color:var(--text2);white-space:nowrap">${lyear}년 ${l.month}월</td>
-      <td style="font-size:12px">${l.kisu||''}</td>
+      <td style="font-size:12px;white-space:nowrap">${(l.kisu||'').replace(/\s+/g,' ')}</td>
       <td><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type||''}</span></td>
       <td>${l.credit||0}학점</td><td>${(l.unitprice||0).toLocaleString()}원</td>
       <td><strong>${(l.total||0).toLocaleString()}원</strong></td>
@@ -3223,6 +3234,16 @@ function blankPlan(){
 }
 
 let _planFilter='all';
+function togglePlanListMobile(){
+  const sb=document.getElementById('plan-list-sidebar');
+  const label=document.getElementById('plan-toggle-label');
+  const icon=document.getElementById('plan-toggle-icon');
+  if(!sb) return;
+  const open=sb.classList.toggle('mobile-open');
+  label.textContent=open?'플랜 목록 닫기':'플랜 목록 보기';
+  icon.className=open?'ti ti-x':'ti ti-list';
+}
+
 function setPlanFilter(f){
   _planFilter=f;
   ['all','가망','결제완료'].forEach(k=>{
@@ -3552,6 +3573,15 @@ function selectPlan(id){
   curPid=id;
   renderPlanList();
   renderPlanEditor(plans[id]);
+  // 모바일에서 목록 자동 닫기
+  const sb=document.getElementById('plan-list-sidebar');
+  if(sb&&sb.classList.contains('mobile-open')){
+    sb.classList.remove('mobile-open');
+    const label=document.getElementById('plan-toggle-label');
+    const icon=document.getElementById('plan-toggle-icon');
+    if(label) label.textContent='플랜 목록 보기';
+    if(icon) icon.className='ti ti-list';
+  }
 }
 function addPlanVersion(){
   const p=plans[curPid]; if(!p) return;
