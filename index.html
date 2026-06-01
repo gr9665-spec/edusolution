@@ -88,7 +88,16 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy)}
 .export-box{background:var(--bg2);border-radius:var(--r);padding:14px;margin-bottom:12px}
 .export-box h4{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:10px;font-size:11px;font-family:monospace;overflow-x:auto;white-space:pre;line-height:1.6;max-height:240px;overflow-y:auto}
-@media(max-width:600px){.tabs{overflow-x:auto}.mkt-grid{grid-template-columns:1fr}.fg2{grid-template-columns:1fr}.panel{padding:14px}}
+@media(max-width:600px){
+  .tabs{overflow-x:auto}
+  .mkt-grid{grid-template-columns:1fr}
+  .fg2{grid-template-columns:1fr}
+  .panel{padding:14px}
+  .plan-layout{grid-template-columns:1fr !important}
+  .plan-layout > div:first-child{border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:4px}
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #plan-body table{min-width:560px}
+}
 </style>
 
   <!-- Firebase SDK -->
@@ -515,8 +524,24 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       </select>
     </div>
     <button class="btn btn-primary" onclick="openMemoEditModal()"><i class="ti ti-plus"></i> 멘트 추가</button>
+    <button class="btn btn-sm" onclick="openMemoCatManager()" title="카테고리 관리"><i class="ti ti-tag"></i> 카테고리</button>
   </div>
   <div id="memo-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
+</div>
+
+<!-- 카테고리 관리 모달 -->
+<div class="overlay" id="modal-memo-cat">
+<div class="modal" style="max-width:360px">
+  <div class="modal-head">
+    <h2><i class="ti ti-tag"></i> 카테고리 관리</h2>
+    <button class="btn btn-icon" onclick="closeModal('modal-memo-cat')"><i class="ti ti-x"></i></button>
+  </div>
+  <div id="memo-cat-list" style="margin-bottom:12px;max-height:300px;overflow-y:auto"></div>
+  <div style="display:flex;gap:6px">
+    <input type="text" id="new-cat-input" placeholder="새 카테고리명" style="flex:1;font-size:13px" onkeydown="if(event.key==='Enter')addMemoCategory()">
+    <button class="btn btn-primary btn-sm" onclick="addMemoCategory()"><i class="ti ti-plus"></i> 추가</button>
+  </div>
+</div>
 </div>
 
 <!-- 멘트 편집 모달 -->
@@ -530,16 +555,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <label>카테고리</label>
     <div style="display:flex;gap:6px">
       <select id="memo-edit-cat" style="flex:1;font-size:13px" onchange="toggleMemoEditCat()">
-        <option>블로그키워드</option><option>수강신청멘트</option><option>수강신청 유도멘트</option>
-        <option>학생관리</option><option>등록 후 개강 안내</option><option>학점은행제 설명</option>
-        <option>독학사 설명</option><option>학과별설명</option><option>타전공 멘트</option>
-        <option>매경테스트/테셋</option><option>공지</option><option>성수기 멘트</option>
-        <option>성수기 플랜안내</option><option>성수기 등록멘트</option><option>메일 개강안내</option>
-        <option>플랜설명</option><option>재연락 멘트</option><option>초기상담</option>
-        <option>쪽지/토론/과제/시험</option><option>법용증명서발급</option><option>성적증명서</option>
-        <option>직접입력</option>
+        <option value="__new__">+ 새 카테고리 추가</option>
       </select>
-      <input type="text" id="memo-edit-cat-custom" placeholder="카테고리명" style="display:none;flex:1;font-size:13px">
+      <input type="text" id="memo-edit-cat-custom" placeholder="카테고리명 입력" style="display:none;flex:1;font-size:13px">
     </div>
   </div>
   <div class="fg" style="margin-bottom:10px">
@@ -697,7 +715,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 </div>
 <!-- 플랜표 -->
 <div id="panel-plan" class="panel">
-  <div style="display:grid;grid-template-columns:210px 1fr;gap:14px;min-height:500px">
+  <div class="plan-layout" style="display:grid;grid-template-columns:210px 1fr;gap:14px;min-height:500px">
     <div>
       <button class="btn btn-primary" style="width:100%;margin-bottom:10px;font-size:13px" onclick="newPlan()">
         <i class="ti ti-plus"></i> 새 플랜 작성
@@ -1314,6 +1332,8 @@ async function loadUserData(){
       if(d.todos)  todos=d.todos;
       if(d.memos)  memos=d.memos;
       else { const lm=LS.get('hk_memos'); if(lm) memos=lm; }
+      if(d.memoCategories) memoCategories=d.memoCategories;
+      else { const lc=LS.get('hk_memo_cats'); if(lc) memoCategories=lc; }
       if(d.plans)  plans=d.plans;
     } else {
       // 첫 로그인 — 직급 기본값 적용
@@ -1432,17 +1452,20 @@ function copyMemo(id){
 function openMemoEditModal(id){
   _memoEditId=id||null;
   document.getElementById('memo-edit-title').innerHTML=`<i class="ti ti-notebook"></i> ${id?'멘트 수정':'멘트 추가'}`;
+  const cats=getMemoCategories();
   const catSel=document.getElementById('memo-edit-cat');
+  catSel.innerHTML=cats.map(c=>`<option value="${c}">${c}</option>`).join('')
+    +'<option value="__new__">+ 새 카테고리 추가</option>';
   const catCustom=document.getElementById('memo-edit-cat-custom');
+  catCustom.style.display='none';
   if(id){
     const m=memos.find(x=>x.id===id); if(!m) return;
-    const opts=[...catSel.options].map(o=>o.value);
-    if(opts.includes(m.cat)){ catSel.value=m.cat; catCustom.style.display='none'; }
-    else { catSel.value='직접입력'; catCustom.value=m.cat||''; catCustom.style.display='block'; }
+    if(cats.includes(m.cat)){ catSel.value=m.cat; }
+    else { catSel.value='__new__'; catCustom.value=m.cat||''; catCustom.style.display='block'; }
     document.getElementById('memo-edit-name').value=m.name||'';
     document.getElementById('memo-edit-content').value=m.content||'';
   } else {
-    catSel.value='수강신청멘트';
+    catSel.value=cats[0]||'__new__';
     catCustom.style.display='none'; catCustom.value='';
     document.getElementById('memo-edit-name').value='';
     document.getElementById('memo-edit-content').value='';
@@ -1452,9 +1475,12 @@ function openMemoEditModal(id){
 
 function saveMemoItem(){
   const catSel=document.getElementById('memo-edit-cat');
-  const cat=catSel.value==='직접입력'
+  const cat=catSel.value==='__new__'
     ? document.getElementById('memo-edit-cat-custom').value.trim()||'기타'
     : catSel.value;
+  if(cat!=='기타'&&!getMemoCategories().includes(cat)){
+    memoCategories=[...getMemoCategories(),cat]; saveMemoCategories();
+  }
   const name=document.getElementById('memo-edit-name').value.trim();
   const content=document.getElementById('memo-edit-content').value.trim();
   if(!content){ alert('내용을 입력해주세요'); return; }
@@ -1464,9 +1490,7 @@ function saveMemoItem(){
   } else {
     memos.unshift({id:'m'+Date.now(),cat,name,content,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
   }
-  saveMemos();
-  closeModal('modal-memo-edit');
-  renderMemoList();
+  saveMemos(); closeModal('modal-memo-edit'); renderMemoList();
 }
 
 function deleteMemo(id){
@@ -1478,7 +1502,7 @@ function deleteMemo(id){
 
 function toggleMemoEditCat(){
   const v=document.getElementById('memo-edit-cat').value;
-  document.getElementById('memo-edit-cat-custom').style.display=v==='직접입력'?'block':'none';
+  document.getElementById('memo-edit-cat-custom').style.display=v==='__new__'?'block':'none';
 }
 
 function addTodo(){
@@ -1935,20 +1959,59 @@ async function uploadPendingImgs(learnerName){
   if(status) status.textContent='';
 }
 
+// 카테고리 목록 — Firebase 개인 저장
+let memoCategories = [];
+
+function getMemoCategories(){
+  const fromMemos=[...new Set(memos.map(m=>m.cat||'').filter(Boolean))];
+  const saved=memoCategories.length?memoCategories:[];
+  return [...new Set([...saved,...fromMemos])].filter(Boolean);
+}
+function saveMemoCategories(){
+  memoCategories=[...getMemoCategories()];
+  if(currentUser&&fbDb) fbDb.collection('userData').doc(currentUser.uid).set({memoCategories},{merge:true});
+  LS.set('hk_memo_cats',memoCategories);
+}
+function openMemoCatManager(){
+  renderMemoCatList();
+  openModal('modal-memo-cat');
+}
+function renderMemoCatList(){
+  const cats=getMemoCategories();
+  document.getElementById('memo-cat-list').innerHTML=cats.length
+    ? cats.map(c=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 4px;border-bottom:1px solid var(--border)">
+        <span style="font-size:13px">${c}</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text3)">${memos.filter(m=>m.cat===c).length}개</span>
+          <button class="btn btn-icon" style="width:22px;height:22px;color:var(--red)" onclick="deleteMemoCategory('${c.replace(/'/g,'\\\'').replace(/"/g,'&quot;')}')"><i class="ti ti-x"></i></button>
+        </div>
+      </div>`).join('')
+    : '<div style="font-size:12px;color:var(--text2);text-align:center;padding:16px">카테고리가 없어요<br>아래에서 추가해주세요</div>';
+}
+function addMemoCategory(){
+  const input=document.getElementById('new-cat-input');
+  const name=(input.value||'').trim();
+  if(!name){alert('카테고리명을 입력해주세요');return;}
+  const cats=getMemoCategories();
+  if(cats.includes(name)){alert('이미 있는 카테고리예요');return;}
+  memoCategories=[...cats,name];
+  saveMemoCategories(); input.value='';
+  renderMemoCatList(); renderMemoList();
+}
+function deleteMemoCategory(cat){
+  const cnt=memos.filter(m=>m.cat===cat).length;
+  if(cnt>0&&!confirm(`"${cat}" 카테고리를 삭제하면 ${cnt}개 멘트의 카테고리가 '기타'로 변경돼요. 계속할까요?`)) return;
+  memos=memos.map(m=>m.cat===cat?{...m,cat:'기타'}:m);
+  memoCategories=getMemoCategories().filter(c=>c!==cat);
+  saveMemos(); saveMemoCategories();
+  renderMemoCatList(); renderMemoList();
+}
+
+// ── 플랜 연결 수정: 이미 연결됐어도 항상 재선택 가능 ──────────────
 function linkLearnerToPlan(idx){
   const l=learners[idx]; if(!l) return;
   const planList=Object.values(plans);
-
-  // 이미 연결된 플랜 있으면 바로 이동
-  const existing=planList.find(p=>p.linkedLearner===l.name||(p.clientName&&p.clientName===l.name));
-  if(existing){
-    closeModal('modal-learner');
-    switchTab('plan',document.querySelectorAll('.tab')[3]);
-    setTimeout(()=>{curPid=existing.id;renderPlanList();renderPlanEditor(existing);},200);
-    return;
-  }
-
-  // 플랜 없으면 새로 만들기
   if(!planList.length){
     if(confirm(`"${l.name}" 학습자의 플랜이 없어요.\n새 플랜을 만들까요?`)){
       switchTab('plan',document.querySelectorAll('.tab')[3]);
@@ -1956,27 +2019,26 @@ function linkLearnerToPlan(idx){
     }
     return;
   }
-
-  // 플랜은 있는데 연결 안 됨 → 선택 모달
-  const opts=planList.map(p=>`<option value="${p.id}">${p.clientName||'(미입력)'} — ${p.degree} ${p.major}</option>`).join('');
+  // 항상 선택 모달 표시 (이미 연결돼 있어도 재선택 가능)
+  const existing=planList.find(p=>p.linkedLearner===l.name||(p.clientName&&p.clientName===l.name));
+  const opts=planList.map(p=>`<option value="${p.id}" ${existing&&p.id===existing.id?'selected':''}>${p.clientName||'(미입력)'} — ${p.degree} ${p.major} (${p.counselDate||''})</option>`).join('');
   document.getElementById('plan-link-name').textContent=l.name;
-  document.getElementById('plan-link-select').innerHTML=`<option value="">-- 선택 안 함 --</option>`+opts;
-  document.getElementById('plan-link-select').value='';
+  document.getElementById('plan-link-select').innerHTML=`<option value="">-- 연결 안 함 --</option>`+opts;
+  document.getElementById('plan-link-select').value=existing?existing.id:'';
   _linkLearnerIdx=idx;
   openModal('modal-plan-link');
 }
-
-let _linkLearnerIdx=-1;
 
 function confirmPlanLink(){
   const l=learners[_linkLearnerIdx]; if(!l) return;
   const selPid=document.getElementById('plan-link-select').value;
   closeModal('modal-plan-link');
   if(selPid&&plans[selPid]){
+    // 기존 연결 해제
+    Object.values(plans).forEach(p=>{ if(p.linkedLearner===l.name) p.linkedLearner=''; });
     plans[selPid].linkedLearner=l.name;
     plans[selPid].clientName=l.name;
     LS.set('hk_plans',plans); saveToFirebase();
-    // 연결 즉시 플랜 탭으로 이동
     switchTab('plan',document.querySelectorAll('.tab')[3]);
     setTimeout(()=>{curPid=selPid;renderPlanList();renderPlanEditor(plans[selPid]);},200);
   }
@@ -3644,8 +3706,8 @@ function renderPlanEditor(p){
       </div>
     </div>
 
-    ${buildOwnedTableUI(p,t)}
-    ${buildPlanTableUI(p,t)}
+    <div class="tw">${buildOwnedTableUI(p,t)}</div>
+    <div class="tw">${buildPlanTableUI(p,t)}</div>
 
     <div class="card">
       <div class="card-head"><h3><i class="ti ti-notes"></i>비고</h3></div>
