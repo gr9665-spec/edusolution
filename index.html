@@ -177,6 +177,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab" onclick="switchTab('marketing',this)"><i class="ti ti-speakerphone"></i>마케팅</div>
   <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
   <div class="tab" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
+  <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>멘트 메모장</div>
   <div class="tab" onclick="switchTab('settings',this)"><i class="ti ti-settings"></i>수당 세팅</div>
 </div>
 
@@ -502,6 +503,58 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="card-head"><h3><i class="ti ti-list"></i>마케팅 활동 기록</h3></div>
     <div id="mkt-activity-list"><div class="empty"><i class="ti ti-writing"></i>기록된 활동이 없어요</div></div>
   </div>
+</div>
+
+<!-- 멘트 메모장 -->
+<div id="panel-memo" class="panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;gap:8px;align-items:center;flex:1;flex-wrap:wrap">
+      <input type="text" id="memo-search" placeholder="🔍 멘트 검색..." style="flex:1;min-width:180px;padding:8px 12px;font-size:13px" oninput="renderMemoList()">
+      <select id="memo-cat-filter" onchange="renderMemoList()" style="width:130px;font-size:13px">
+        <option value="">전체 카테고리</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="openMemoEditModal()"><i class="ti ti-plus"></i> 멘트 추가</button>
+  </div>
+  <div id="memo-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
+</div>
+
+<!-- 멘트 편집 모달 -->
+<div class="overlay" id="modal-memo-edit">
+<div class="modal" style="max-width:480px">
+  <div class="modal-head">
+    <h2 id="memo-edit-title"><i class="ti ti-notebook"></i> 멘트 추가</h2>
+    <button class="btn btn-icon" onclick="closeModal('modal-memo-edit')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="fg" style="margin-bottom:10px">
+    <label>카테고리</label>
+    <div style="display:flex;gap:6px">
+      <select id="memo-edit-cat" style="flex:1;font-size:13px" onchange="toggleMemoEditCat()">
+        <option>블로그키워드</option><option>수강신청멘트</option><option>수강신청 유도멘트</option>
+        <option>학생관리</option><option>등록 후 개강 안내</option><option>학점은행제 설명</option>
+        <option>독학사 설명</option><option>학과별설명</option><option>타전공 멘트</option>
+        <option>매경테스트/테셋</option><option>공지</option><option>성수기 멘트</option>
+        <option>성수기 플랜안내</option><option>성수기 등록멘트</option><option>메일 개강안내</option>
+        <option>플랜설명</option><option>재연락 멘트</option><option>초기상담</option>
+        <option>쪽지/토론/과제/시험</option><option>법용증명서발급</option><option>성적증명서</option>
+        <option>직접입력</option>
+      </select>
+      <input type="text" id="memo-edit-cat-custom" placeholder="카테고리명" style="display:none;flex:1;font-size:13px">
+    </div>
+  </div>
+  <div class="fg" style="margin-bottom:10px">
+    <label>제목 <span style="font-size:11px;color:var(--text2)">(선택)</span></label>
+    <input type="text" id="memo-edit-name" placeholder="예: 개강일 안내 문자">
+  </div>
+  <div class="fg" style="margin-bottom:14px">
+    <label>내용 <span style="font-size:11px;color:var(--text2)">(클릭하면 바로 복사돼요)</span></label>
+    <textarea id="memo-edit-content" style="height:140px;resize:none;font-size:13px;line-height:1.7" placeholder="멘트 내용을 입력하세요..."></textarea>
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn" onclick="closeModal('modal-memo-edit')">취소</button>
+    <button class="btn btn-primary" onclick="saveMemoItem()">저장</button>
+  </div>
+</div>
 </div>
 
 <!-- 수당 세팅 -->
@@ -1250,6 +1303,7 @@ async function loadUserData(){
       // 수당 테이블: 커스텀 저장값 있으면 사용, 없으면 직급 기본값
       rewardTable = d.rewardTable || Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
       if(d.todos)  todos=d.todos;
+      if(d.memos)  memos=d.memos;
       if(d.plans)  plans=d.plans;
     } else {
       // 첫 로그인 — 직급 기본값 적용
@@ -1291,6 +1345,131 @@ function copyTodoList(){
       alert('✓ 복사됐어요!\n카톡에 붙여넣기(길게 누르기→붙여넣기) 하세요');
     }).catch(()=>{ prompt('복사하세요 (Ctrl+A → Ctrl+C)', text); });
   } else { prompt('복사하세요 (Ctrl+A → Ctrl+C)', text); }
+}
+
+// ── 멘트 메모장 ────────────────────────────────────────────────────
+let memos = LS.get('hk_memos')||[];
+let _memoEditId = null;
+
+function saveMemos(){
+  LS.set('hk_memos', memos);
+  if(currentUser && fbDb){
+    fbDb.collection('userData').doc(currentUser.uid).set({memos}, {merge:true});
+  }
+}
+
+function initMemoTab(){
+  renderMemoList();
+}
+
+function renderMemoList(){
+  const q=(document.getElementById('memo-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('memo-cat-filter')?.value||'';
+
+  // 카테고리 드롭다운 업데이트
+  const catSel=document.getElementById('memo-cat-filter');
+  if(catSel){
+    const cur=catSel.value;
+    const cats=[...new Set(memos.map(m=>m.cat||'기타'))].sort();
+    catSel.innerHTML='<option value="">전체 카테고리</option>'+cats.map(c=>`<option ${c===cur?'selected':''}>${c}</option>`).join('');
+  }
+
+  const filtered=memos.filter(m=>{
+    const mCat=!cat||(m.cat||'')=== cat;
+    const mQ=!q||(m.name||'').toLowerCase().includes(q)||(m.content||'').toLowerCase().includes(q)||(m.cat||'').toLowerCase().includes(q);
+    return mCat&&mQ;
+  }).sort((a,b)=>(a.cat||'').localeCompare(b.cat||'')||((b.updatedAt||'').localeCompare(a.updatedAt||'')));
+
+  const el=document.getElementById('memo-list');
+  if(!el) return;
+  if(!filtered.length){
+    el.innerHTML=`<div class="empty" style="grid-column:1/-1"><i class="ti ti-notebook" style="font-size:32px;display:block;margin-bottom:8px;opacity:.25"></i>${q||cat?'검색 결과가 없어요':'멘트를 추가해보세요'}</div>`;
+    return;
+  }
+  // 카테고리별 그룹핑
+  const groups={};
+  filtered.forEach(m=>{ const c=m.cat||'기타'; if(!groups[c])groups[c]=[]; groups[c].push(m); });
+
+  el.innerHTML=Object.entries(groups).map(([c,items])=>`
+    <div style="grid-column:1/-1">
+      <div style="font-size:11px;font-weight:700;color:var(--navy);padding:4px 0;margin-bottom:6px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em">${c} <span style="font-weight:400;color:var(--text3)">(${items.length})</span></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">
+        ${items.map(m=>`
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:all .15s;position:relative"
+            onclick="copyMemo('${m.id}')"
+            onmouseenter="this.style.borderColor='var(--navy)';this.style.background='var(--bg2)'"
+            onmouseleave="this.style.borderColor='';this.style.background='var(--bg)'">
+            ${m.name?`<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:5px;padding-right:40px">${m.name}</div>`:''}
+            <div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden;text-overflow:ellipsis">${m.content||''}</div>
+            <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px">
+              <button class="btn btn-icon" style="width:22px;height:22px;padding:0;font-size:11px" onclick="event.stopPropagation();openMemoEditModal('${m.id}')"><i class="ti ti-edit"></i></button>
+              <button class="btn btn-icon" style="width:22px;height:22px;padding:0;font-size:11px;color:var(--red)" onclick="event.stopPropagation();deleteMemo('${m.id}')"><i class="ti ti-trash"></i></button>
+            </div>
+            <div id="memo-copied-${m.id}" style="display:none;position:absolute;inset:0;background:rgba(30,58,95,.85);border-radius:var(--r);align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700">✓ 복사됐어요!</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function copyMemo(id){
+  const m=memos.find(x=>x.id===id); if(!m) return;
+  navigator.clipboard.writeText(m.content||'').then(()=>{
+    const el=document.getElementById('memo-copied-'+id);
+    if(el){ el.style.display='flex'; setTimeout(()=>el.style.display='none',1200); }
+  }).catch(()=>{ prompt('복사하세요 (Ctrl+A→Ctrl+C)', m.content); });
+}
+
+function openMemoEditModal(id){
+  _memoEditId=id||null;
+  document.getElementById('memo-edit-title').innerHTML=`<i class="ti ti-notebook"></i> ${id?'멘트 수정':'멘트 추가'}`;
+  const catSel=document.getElementById('memo-edit-cat');
+  const catCustom=document.getElementById('memo-edit-cat-custom');
+  if(id){
+    const m=memos.find(x=>x.id===id); if(!m) return;
+    const opts=[...catSel.options].map(o=>o.value);
+    if(opts.includes(m.cat)){ catSel.value=m.cat; catCustom.style.display='none'; }
+    else { catSel.value='직접입력'; catCustom.value=m.cat||''; catCustom.style.display='block'; }
+    document.getElementById('memo-edit-name').value=m.name||'';
+    document.getElementById('memo-edit-content').value=m.content||'';
+  } else {
+    catSel.value='수강신청멘트';
+    catCustom.style.display='none'; catCustom.value='';
+    document.getElementById('memo-edit-name').value='';
+    document.getElementById('memo-edit-content').value='';
+  }
+  openModal('modal-memo-edit');
+}
+
+function saveMemoItem(){
+  const catSel=document.getElementById('memo-edit-cat');
+  const cat=catSel.value==='직접입력'
+    ? document.getElementById('memo-edit-cat-custom').value.trim()||'기타'
+    : catSel.value;
+  const name=document.getElementById('memo-edit-name').value.trim();
+  const content=document.getElementById('memo-edit-content').value.trim();
+  if(!content){ alert('내용을 입력해주세요'); return; }
+  if(_memoEditId){
+    const m=memos.find(x=>x.id===_memoEditId);
+    if(m){ Object.assign(m,{cat,name,content,updatedAt:new Date().toISOString()}); }
+  } else {
+    memos.unshift({id:'m'+Date.now(),cat,name,content,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+  }
+  saveMemos();
+  closeModal('modal-memo-edit');
+  renderMemoList();
+}
+
+function deleteMemo(id){
+  showDeleteModal('이 멘트를 삭제할까요?',()=>{
+    memos=memos.filter(m=>m.id!==id);
+    saveMemos(); renderMemoList();
+  });
+}
+
+function toggleMemoEditCat(){
+  const v=document.getElementById('memo-edit-cat').value;
+  document.getElementById('memo-edit-cat-custom').style.display=v==='직접입력'?'block':'none';
 }
 
 function addTodo(){
@@ -1612,6 +1791,7 @@ function switchTab(name,el){
   if(name==='dashboard') renderDashboard();
   if(name==='learners') renderLearners();
   if(name==='schedule') renderSchedule();
+  if(name==='memo') initMemoTab();
   if(name==='sales'){renderSales();calcReward();}
   if(name==='export') renderExport();
   if(name==='marketing') renderMarketing();
