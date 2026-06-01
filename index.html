@@ -1140,6 +1140,7 @@ let fbApp, fbAuth, fbDb;
 let currentUser = null;
 let isAdmin = false;
 let currentUserRank = '주임';
+let memos = LS.get('hk_memos')||[];
 let DEFAULT_REWARDS_CURRENT = null;
 let allMembersData = {}; // {uid: {name, email, learners, schedules, ...}}
 
@@ -1348,7 +1349,6 @@ function copyTodoList(){
 }
 
 // ── 멘트 메모장 ────────────────────────────────────────────────────
-let memos = LS.get('hk_memos')||[];
 let _memoEditId = null;
 
 function saveMemos(){
