@@ -1575,22 +1575,14 @@ function saveBlogData(){
 function openBlogAddModal(id){
   _blogEditId = id||null;
   document.getElementById('blog-modal-title').innerHTML=`<i class="ti ti-pencil"></i> ${id?'키워드 수정':'키워드 추가'}`;
-  // 담당자 목록 — 팀원 이름
-  const ownerSel=document.getElementById('blog-owner');
-  const names=[...new Set(Object.values(allMembersData||{}).map(m=>m.name).filter(Boolean))];
-  const myName=window._currentUserName||'';
-  ownerSel.innerHTML='<option value="">선택</option>'+names.map(n=>`<option value="${n}" ${n===myName?'selected':''}>${n}</option>`).join('');
   if(id){
     const b=blogKeywords.find(x=>x.id===id); if(!b) return;
     document.getElementById('blog-date').value=b.date||'';
     document.getElementById('blog-title').value=b.title||'';
-    ownerSel.value=b.owner||'';
   } else {
-    // 기본값: 오늘(KST)
     const kst=new Date(Date.now()+9*3600000);
     document.getElementById('blog-date').value=kst.toISOString().slice(0,10);
     document.getElementById('blog-title').value='';
-    ownerSel.value=myName||'';
   }
   openModal('modal-blog');
 }
@@ -1598,16 +1590,16 @@ function openBlogAddModal(id){
 function saveBlogKeyword(){
   const date=document.getElementById('blog-date').value;
   const title=document.getElementById('blog-title').value.trim();
-  const owner=document.getElementById('blog-owner').value;
   if(!title){alert('키워드를 입력해주세요');return;}
   if(_blogEditId){
     const b=blogKeywords.find(x=>x.id===_blogEditId);
-    if(b) Object.assign(b,{date,title,owner,updatedAt:new Date().toISOString()});
+    if(b) Object.assign(b,{date,title,updatedAt:new Date().toISOString()});
   } else {
-    blogKeywords.unshift({id:'b'+Date.now(),date,title,owner,imgDone:false,drafDone:false,createdAt:new Date().toISOString()});
+    blogKeywords.unshift({id:'b'+Date.now(),date,title,imgDone:false,drafDone:false,createdAt:new Date().toISOString()});
   }
   saveBlogData(); closeModal('modal-blog'); renderBlogKeywords();
 }
+
 
 function toggleBlogCheck(id, field){
   const b=blogKeywords.find(x=>x.id===id); if(!b) return;
@@ -2626,19 +2618,10 @@ function renderDashboard(){
       </div>`).join('')
     :'<div class="empty"><i class="ti ti-calendar"></i>내일 예정 없음</div>';
 
-  // 교육원별 현황 (선택 기간 기준)
-  const eduMap={};filtered.forEach(l=>{eduMap[l.edu]=(eduMap[l.edu]||0)+1;});
-  const keys=Object.keys(eduMap).sort((a,b)=>eduMap[b]-eduMap[a]).slice(0,5);
-  const max=keys.length?Math.max(...keys.map(k=>eduMap[k])):1;
-  document.getElementById('edu-chart').innerHTML=keys.length
-    ?keys.map(k=>`<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>${k}</span><span style="color:var(--text2)">${eduMap[k]}명</span></div><div class="progress-bar"><div class="progress-fill" style="width:${Math.round(eduMap[k]/max*100)}%"></div></div></div>`).join('')
-    :'<div class="empty" style="font-size:12px">없음</div>';
-
-  const recent=[...learners].sort((a,b)=>(b.addedAt||'').localeCompare(a.addedAt||'')).slice(0,6);
-  document.getElementById('recent-learners').innerHTML=recent.length
-    ?recent.map(l=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)"><div><strong style="font-size:13px">${l.name}</strong> <span style="font-size:11px;color:var(--text2)">${l.edu}·${l.year||''}년 ${l.month}월</span></div><div style="display:flex;align-items:center;gap:8px"><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type}</span><span style="font-size:12px;color:var(--green);font-weight:600">${calcRewardForLearner(l).toLocaleString()}원</span></div></div>`).join('')
-    :'<div class="empty"><i class="ti ti-users"></i>없음</div>';
+  // 블로그 키워드
+  renderBlogKeywords();
 }
+
 
 // ── 투두리스트 ─────────────────────────────────────────────────────────
 let todos = LS.get('hk_todos')||[];
