@@ -266,16 +266,50 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-    <div class="card">
-      <div class="card-head"><h3><i class="ti ti-chart-pie"></i>교육원별 현황</h3></div>
-      <div id="edu-chart"></div>
+  <!-- 블로그 키워드 관리 -->
+  <div class="card" style="margin-top:0">
+    <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <h3><i class="ti ti-pencil"></i>블로그 키워드</h3>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="blog-search" placeholder="검색..." style="width:120px;font-size:12px;padding:4px 8px" oninput="renderBlogKeywords()">
+        <select id="blog-filter-user" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:90px">
+          <option value="">전체</option>
+          <option value="me">내 것만</option>
+        </select>
+        <select id="blog-filter-month" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:80px">
+          <option value="">전체월</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="openBlogAddModal()"><i class="ti ti-plus"></i> 추가</button>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-head"><h3><i class="ti ti-clock"></i>최근 등록 학습자</h3></div>
-      <div id="recent-learners"></div>
+    <div id="blog-keyword-list"></div>
+  </div>
+</div>
+
+<!-- 블로그 키워드 추가/수정 모달 -->
+<div class="overlay" id="modal-blog">
+<div class="modal" style="max-width:420px">
+  <div class="modal-head">
+    <h2 id="blog-modal-title"><i class="ti ti-pencil"></i> 키워드 추가</h2>
+    <button class="btn btn-icon" onclick="closeModal('modal-blog')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="fg2" style="margin-bottom:10px">
+    <div class="fg"><label>날짜</label><input type="date" id="blog-date"></div>
+    <div class="fg"><label>담당자</label>
+      <select id="blog-owner" style="font-size:13px">
+        <option value="">선택</option>
+      </select>
     </div>
   </div>
+  <div class="fg" style="margin-bottom:14px">
+    <label>키워드/제목</label>
+    <input type="text" id="blog-title" placeholder="예: 충북대학교 편입">
+  </div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="btn" onclick="closeModal('modal-blog')">취소</button>
+    <button class="btn btn-primary" onclick="saveBlogKeyword()">저장</button>
+  </div>
+</div>
 </div>
 
 <!-- 학습자 관리 -->
@@ -1346,6 +1380,8 @@ async function loadUserData(){
       else { const lm=LS.get('hk_memos'); if(lm) memos=lm; }
       if(d.memoCategories) memoCategories=d.memoCategories;
       else { const lc=LS.get('hk_memo_cats'); if(lc) memoCategories=lc; }
+      if(d.blogKeywords) blogKeywords=d.blogKeywords;
+      else { const lb=LS.get('hk_blog'); if(lb) blogKeywords=lb; }
       if(d.plans)  plans=d.plans;
     } else {
       // 첫 로그인 — 직급 기본값 적용
@@ -1535,6 +1571,135 @@ function deleteMemo(id){
 function toggleMemoEditCat(){
   const v=document.getElementById('memo-edit-cat').value;
   document.getElementById('memo-edit-cat-custom').style.display=v==='__new__'?'block':'none';
+}
+
+// ── 블로그 키워드 관리 ────────────────────────────────────────────
+let blogKeywords = LS.get('hk_blog')||[];
+let _blogEditId = null;
+
+function saveBlogData(){
+  LS.set('hk_blog', blogKeywords);
+  if(currentUser&&fbDb) fbDb.collection('userData').doc(currentUser.uid).set({blogKeywords},{merge:true});
+}
+
+function openBlogAddModal(id){
+  _blogEditId = id||null;
+  document.getElementById('blog-modal-title').innerHTML=`<i class="ti ti-pencil"></i> ${id?'키워드 수정':'키워드 추가'}`;
+  // 담당자 목록 — 팀원 이름
+  const ownerSel=document.getElementById('blog-owner');
+  const names=[...new Set(Object.values(allMembersData||{}).map(m=>m.name).filter(Boolean))];
+  const myName=window._currentUserName||'';
+  ownerSel.innerHTML='<option value="">선택</option>'+names.map(n=>`<option value="${n}" ${n===myName?'selected':''}>${n}</option>`).join('');
+  if(id){
+    const b=blogKeywords.find(x=>x.id===id); if(!b) return;
+    document.getElementById('blog-date').value=b.date||'';
+    document.getElementById('blog-title').value=b.title||'';
+    ownerSel.value=b.owner||'';
+  } else {
+    // 기본값: 오늘(KST)
+    const kst=new Date(Date.now()+9*3600000);
+    document.getElementById('blog-date').value=kst.toISOString().slice(0,10);
+    document.getElementById('blog-title').value='';
+    ownerSel.value=myName||'';
+  }
+  openModal('modal-blog');
+}
+
+function saveBlogKeyword(){
+  const date=document.getElementById('blog-date').value;
+  const title=document.getElementById('blog-title').value.trim();
+  const owner=document.getElementById('blog-owner').value;
+  if(!title){alert('키워드를 입력해주세요');return;}
+  if(_blogEditId){
+    const b=blogKeywords.find(x=>x.id===_blogEditId);
+    if(b) Object.assign(b,{date,title,owner,updatedAt:new Date().toISOString()});
+  } else {
+    blogKeywords.unshift({id:'b'+Date.now(),date,title,owner,imgDone:false,drafDone:false,createdAt:new Date().toISOString()});
+  }
+  saveBlogData(); closeModal('modal-blog'); renderBlogKeywords();
+}
+
+function toggleBlogCheck(id, field){
+  const b=blogKeywords.find(x=>x.id===id); if(!b) return;
+  b[field]=!b[field];
+  saveBlogData(); renderBlogKeywords();
+}
+
+function deleteBlogKeyword(id){
+  showDeleteModal('이 키워드를 삭제할까요?',()=>{
+    blogKeywords=blogKeywords.filter(x=>x.id!==id);
+    saveBlogData(); renderBlogKeywords();
+  });
+}
+
+function renderBlogKeywords(){
+  const el=document.getElementById('blog-keyword-list'); if(!el) return;
+  const q=(document.getElementById('blog-search')?.value||'').toLowerCase();
+  const filterUser=document.getElementById('blog-filter-user')?.value||'';
+  const filterMonth=document.getElementById('blog-filter-month')?.value||'';
+  const myName=window._currentUserName||'';
+
+  // 월 필터 드롭다운 채우기
+  const monthSel=document.getElementById('blog-filter-month');
+  if(monthSel){
+    const cur=monthSel.value;
+    const months=[...new Set(blogKeywords.map(b=>(b.date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+    monthSel.innerHTML='<option value="">전체월</option>'+months.map(m=>`<option value="${m}" ${m===cur?'selected':''}>${m}</option>`).join('');
+  }
+
+  let filtered=blogKeywords.filter(b=>{
+    const mQ=!q||b.title.toLowerCase().includes(q)||(b.owner||'').toLowerCase().includes(q);
+    const mU=!filterUser||(filterUser==='me'&&b.owner===myName);
+    const mM=!filterMonth||(b.date||'').startsWith(filterMonth);
+    return mQ&&mU&&mM;
+  });
+
+  if(!filtered.length){
+    el.innerHTML='<div class="empty" style="padding:20px"><i class="ti ti-pencil"></i> 키워드가 없어요</div>';
+    return;
+  }
+
+  // 날짜별 그룹핑
+  const groups={};
+  filtered.forEach(b=>{
+    const d=b.date||'날짜없음';
+    if(!groups[d]) groups[d]=[];
+    groups[d].push(b);
+  });
+
+  el.innerHTML=Object.entries(groups)
+    .sort((a,b)=>b[0].localeCompare(a[0]))
+    .map(([date,items])=>{
+      const d=date!=='날짜없음'?new Date(date):null;
+      const dateLabel=d?`${d.getMonth()+1}/${d.getDate()}`:date;
+      const dayNames=['일','월','화','수','목','금','토'];
+      const dayLabel=d?`(${dayNames[d.getDay()]})`:'';
+      return `
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);padding:5px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+          📅 ${dateLabel} ${dayLabel}
+        </div>
+        ${items.map(b=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:var(--r);border:1px solid var(--border);margin-bottom:5px;background:${b.imgDone&&b.drafDone?'var(--bg2)':'var(--bg)'}">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:${b.imgDone&&b.drafDone?'400':'600'};color:${b.imgDone&&b.drafDone?'var(--text3)':'var(--text)'};text-decoration:${b.imgDone&&b.drafDone?'line-through':'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.title}</div>
+              ${b.owner?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${b.owner}</div>`:''}
+            </div>
+            <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
+              <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:${b.imgDone?'var(--green)':'var(--text2)'}">
+                <input type="checkbox" ${b.imgDone?'checked':''} onchange="toggleBlogCheck('${b.id}','imgDone')" style="width:14px;height:14px;cursor:pointer;accent-color:var(--green)">
+                이미지
+              </label>
+              <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:${b.drafDone?'var(--green)':'var(--text2)'}">
+                <input type="checkbox" ${b.drafDone?'checked':''} onchange="toggleBlogCheck('${b.id}','drafDone')" style="width:14px;height:14px;cursor:pointer;accent-color:var(--green)">
+                원고
+              </label>
+              <button class="btn btn-icon btn-sm" onclick="openBlogAddModal('${b.id}')" style="padding:2px"><i class="ti ti-edit" style="font-size:12px"></i></button>
+              <button class="btn btn-icon btn-sm" onclick="deleteBlogKeyword('${b.id}')" style="padding:2px;color:var(--red)"><i class="ti ti-trash" style="font-size:12px"></i></button>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    }).join('');
 }
 
 function addTodo(){
@@ -2723,6 +2888,8 @@ function clearAllSchedules(){
 function markSent(id){
   const s=schedules.find(x=>x.id===id);
   if(s){ s.sent='true'; save(); renderSchedule(); renderDashboard(); }
+  // 블로그 키워드
+  renderBlogKeywords();
 }
 
 function renderSchedule(){
