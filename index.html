@@ -88,6 +88,9 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy)}
 .export-box{background:var(--bg2);border-radius:var(--r);padding:14px;margin-bottom:12px}
 .export-box h4{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px}
 pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:10px;font-size:11px;font-family:monospace;overflow-x:auto;white-space:pre;line-height:1.6;max-height:240px;overflow-y:auto}
+@media(max-width:700px){
+  .dash-3col{grid-template-columns:1fr !important}
+}
 @media(max-width:600px){
   .tabs{overflow-x:auto}
   .mkt-grid{grid-template-columns:1fr}
@@ -232,8 +235,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     </div>
   </div>
 
-  <!-- 투두 + 내일 학사일정 -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+  <!-- 투두 + 내일 학사일정 + 블로그 -->
+  <div class="dash-3col" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">
 
     <!-- 투두리스트 -->
     <div class="card">
@@ -264,27 +267,25 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       </div>
       <div id="today-schedule"></div>
     </div>
-  </div>
 
-  <!-- 블로그 키워드 관리 -->
-  <div class="card" style="margin-top:0">
-    <div class="card-head" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <h3><i class="ti ti-pencil"></i>블로그 키워드</h3>
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <input type="text" id="blog-search" placeholder="검색..." style="width:120px;font-size:12px;padding:4px 8px" oninput="renderBlogKeywords()">
-
-        <select id="blog-filter-blog" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:80px">
+    <!-- 블로그 키워드 -->
+    <div class="card" style="min-height:0">
+      <div class="card-head" style="flex-wrap:wrap;gap:6px">
+        <h3><i class="ti ti-pencil"></i>블로그 키워드</h3>
+        <button class="btn btn-primary btn-sm" onclick="openBlogAddModal()"><i class="ti ti-plus"></i></button>
+      </div>
+      <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+        <input type="text" id="blog-search" placeholder="검색..." style="flex:1;min-width:60px;font-size:11px;padding:3px 7px" oninput="renderBlogKeywords()">
+        <select id="blog-filter-blog" onchange="renderBlogKeywords()" style="font-size:11px;padding:3px 6px;flex:1;min-width:60px">
           <option value="">전체</option><option>양세마리</option><option>뭉치</option><option>세제</option><option>기쁨</option><option>반대머리</option><option>교육의미</option><option>또치</option><option>두드림</option>
         </select>
-        <select id="blog-filter-month" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:80px">
+        <select id="blog-filter-month" onchange="renderBlogKeywords()" style="font-size:11px;padding:3px 6px;flex:1;min-width:60px">
           <option value="">전체월</option>
         </select>
-        <button class="btn btn-primary btn-sm" onclick="openBlogAddModal()"><i class="ti ti-plus"></i> 추가</button>
       </div>
+      <div id="blog-keyword-list" style="max-height:400px;overflow-y:auto"></div>
     </div>
-    <div id="blog-keyword-list"></div>
   </div>
-</div>
 
 <!-- 블로그 키워드 추가/수정 모달 -->
 <div class="overlay" id="modal-blog">
