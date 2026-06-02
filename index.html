@@ -273,6 +273,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <input type="text" id="blog-search" placeholder="검색..." style="width:120px;font-size:12px;padding:4px 8px" oninput="renderBlogKeywords()">
 
+        <select id="blog-filter-blog" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:80px">
+          <option value="">전체</option><option>양세마리</option><option>뭉치</option><option>세제</option><option>기쁨</option><option>반대머리</option><option>교육의미</option><option>또치</option><option>두드림</option>
+        </select>
         <select id="blog-filter-month" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:80px">
           <option value="">전체월</option>
         </select>
@@ -290,7 +293,14 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <h2 id="blog-modal-title"><i class="ti ti-pencil"></i> 키워드 추가</h2>
     <button class="btn btn-icon" onclick="closeModal('modal-blog')"><i class="ti ti-x"></i></button>
   </div>
-  <div class="fg" style="margin-bottom:10px"><label>날짜</label><input type="date" id="blog-date"></div>
+  <div class="fg2" style="margin-bottom:10px">
+    <div class="fg"><label>날짜</label><input type="date" id="blog-date"></div>
+    <div class="fg"><label>블로그</label>
+      <select id="blog-name" style="font-size:13px">
+        <option value="">선택</option><option>양세마리</option><option>뭉치</option><option>세제</option><option>기쁨</option><option>반대머리</option><option>교육의미</option><option>또치</option><option>두드림</option>
+      </select>
+    </div>
+  </div>
   <div class="fg" style="margin-bottom:14px">
     <label>키워드/제목</label>
     <input type="text" id="blog-title" placeholder="키워드를 입력하세요">
@@ -1578,10 +1588,12 @@ function openBlogAddModal(id){
   if(id){
     const b=blogKeywords.find(x=>x.id===id); if(!b) return;
     document.getElementById('blog-date').value=b.date||'';
+    document.getElementById('blog-name').value=b.blogName||'';
     document.getElementById('blog-title').value=b.title||'';
   } else {
     const kst=new Date(Date.now()+9*3600000);
     document.getElementById('blog-date').value=kst.toISOString().slice(0,10);
+    document.getElementById('blog-name').value='';
     document.getElementById('blog-title').value='';
   }
   openModal('modal-blog');
@@ -1589,13 +1601,14 @@ function openBlogAddModal(id){
 
 function saveBlogKeyword(){
   const date=document.getElementById('blog-date').value;
+  const blogName=document.getElementById('blog-name').value;
   const title=document.getElementById('blog-title').value.trim();
   if(!title){alert('키워드를 입력해주세요');return;}
   if(_blogEditId){
     const b=blogKeywords.find(x=>x.id===_blogEditId);
-    if(b) Object.assign(b,{date,title,updatedAt:new Date().toISOString()});
+    if(b) Object.assign(b,{date,blogName,title,updatedAt:new Date().toISOString()});
   } else {
-    blogKeywords.unshift({id:'b'+Date.now(),date,title,imgDone:false,drafDone:false,createdAt:new Date().toISOString()});
+    blogKeywords.unshift({id:'b'+Date.now(),date,blogName,title,imgDone:false,drafDone:false,createdAt:new Date().toISOString()});
   }
   saveBlogData(); closeModal('modal-blog'); renderBlogKeywords();
 }
@@ -1618,6 +1631,7 @@ function renderBlogKeywords(){
   const el=document.getElementById('blog-keyword-list'); if(!el) return;
   const q=(document.getElementById('blog-search')?.value||'').toLowerCase();
 
+  const filterBlog=document.getElementById('blog-filter-blog')?.value||'';
   const filterMonth=document.getElementById('blog-filter-month')?.value||'';
   const myName=window._currentUserName||'';
 
@@ -1630,10 +1644,11 @@ function renderBlogKeywords(){
   }
 
   let filtered=blogKeywords.filter(b=>{
-    const mQ=!q||b.title.toLowerCase().includes(q)||(b.owner||'').toLowerCase().includes(q);
+    const mQ=!q||b.title.toLowerCase().includes(q)||(b.blogName||'').toLowerCase().includes(q);
 
     const mM=!filterMonth||(b.date||'').startsWith(filterMonth);
-    return mQ&&mM;
+    const mB=!filterBlog||(b.blogName||'')===filterBlog;
+    return mQ&&mM&&mB;
   });
 
   if(!filtered.length){
@@ -1665,7 +1680,7 @@ function renderBlogKeywords(){
           <div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:var(--r);border:1px solid var(--border);margin-bottom:5px;background:${b.imgDone&&b.drafDone?'var(--bg2)':'var(--bg)'}">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:${b.imgDone&&b.drafDone?'400':'600'};color:${b.imgDone&&b.drafDone?'var(--text3)':'var(--text)'};text-decoration:${b.imgDone&&b.drafDone?'line-through':'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.title}</div>
-              ${b.owner?`<div style="font-size:11px;color:var(--text3);margin-top:1px">${b.owner}</div>`:''}
+              ${b.blogName?`<span style="font-size:10px;background:var(--navy);color:#fff;border-radius:3px;padding:1px 6px;margin-top:2px;display:inline-block">${b.blogName}</span>`:''}
             </div>
             <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
               <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:${b.imgDone?'var(--green)':'var(--text2)'}">
