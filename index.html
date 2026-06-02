@@ -1614,6 +1614,12 @@ function saveBlogKeyword(){
 }
 
 
+function toggleBlogDate(date){
+  if(!window._blogDateCollapsed) window._blogDateCollapsed={};
+  window._blogDateCollapsed[date]=!window._blogDateCollapsed[date];
+  renderBlogKeywords();
+}
+
 function toggleBlogCheck(id, field){
   const b=blogKeywords.find(x=>x.id===id); if(!b) return;
   b[field]=!b[field];
@@ -1664,40 +1670,59 @@ function renderBlogKeywords(){
     groups[d].push(b);
   });
 
+  // 접힘 상태 — 날짜별
+  if(!window._blogDateCollapsed) window._blogDateCollapsed={};
+
   el.innerHTML=Object.entries(groups)
-    .sort((a,b)=>b[0].localeCompare(a[0]))
+    .sort((a,b)=>a[0].localeCompare(b[0])) // 가까운 날짜 위
     .map(([date,items])=>{
       const d=date!=='날짜없음'?new Date(date):null;
       const dateLabel=d?`${d.getMonth()+1}/${d.getDate()}`:date;
       const dayNames=['일','월','화','수','목','금','토'];
-      const dayLabel=d?`(${dayNames[d.getDay()]})`:'';
+      const dayLabel=d?` (${dayNames[d.getDay()]})`:'';
+      const collapsed=!!window._blogDateCollapsed[date];
+      const doneCount=items.filter(b=>b.imgDone&&b.drafDone).length;
       return `
-      <div style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:700;color:var(--navy);padding:5px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
-          📅 ${dateLabel} ${dayLabel}
+      <div style="margin-bottom:10px">
+        <div onclick="toggleBlogDate('${date}')"
+          style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:${collapsed?'var(--r)':'var(--r) var(--r) 0 0'};cursor:pointer;border:1px solid var(--border);user-select:none">
+          <i class="ti ti-chevron-${collapsed?'right':'down'}" style="font-size:12px;color:var(--text2)"></i>
+          <span style="font-size:14px;font-weight:700;color:var(--navy);flex:1">📅 ${dateLabel}${dayLabel}</span>
+          <span style="font-size:11px;color:var(--text3)">${doneCount}/${items.length} 완료</span>
         </div>
-        ${items.map(b=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:7px 6px;border-radius:var(--r);border:1px solid var(--border);margin-bottom:5px;background:${b.imgDone&&b.drafDone?'var(--bg2)':'var(--bg)'}">
+        ${collapsed?'':`<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r) var(--r);overflow:hidden">
+          ${items.map((b,bi)=>`
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:${b.imgDone&&b.drafDone?'var(--bg2)':'var(--bg)'};${bi>0?'border-top:1px solid var(--border)':''}">
             <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:${b.imgDone&&b.drafDone?'400':'600'};color:${b.imgDone&&b.drafDone?'var(--text3)':'var(--text)'};text-decoration:${b.imgDone&&b.drafDone?'line-through':'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.title}</div>
-              ${b.blogName?`<span style="font-size:10px;background:var(--navy);color:#fff;border-radius:3px;padding:1px 6px;margin-top:2px;display:inline-block">${b.blogName}</span>`:''}
+              <div style="font-size:15px;font-weight:700;color:${b.imgDone&&b.drafDone?'var(--text3)':'var(--navy)'};text-decoration:${b.imgDone&&b.drafDone?'line-through':'none'};margin-bottom:3px">
+                ${b.blogName||''}
+              </div>
+              <div style="font-size:13px;color:${b.imgDone&&b.drafDone?'var(--text3)':'var(--text)'};text-decoration:${b.imgDone&&b.drafDone?'line-through':'none'};word-break:break-all;line-height:1.4">
+                ${b.title}
+              </div>
             </div>
-            <div style="display:flex;gap:5px;flex-shrink:0;align-items:center">
-              <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:${b.imgDone?'var(--green)':'var(--text2)'}">
-                <input type="checkbox" ${b.imgDone?'checked':''} onchange="toggleBlogCheck('${b.id}','imgDone')" style="width:14px;height:14px;cursor:pointer;accent-color:var(--green)">
-                이미지
-              </label>
-              <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:${b.drafDone?'var(--green)':'var(--text2)'}">
-                <input type="checkbox" ${b.drafDone?'checked':''} onchange="toggleBlogCheck('${b.id}','drafDone')" style="width:14px;height:14px;cursor:pointer;accent-color:var(--green)">
-                원고
-              </label>
-              <button class="btn btn-icon btn-sm" onclick="openBlogAddModal('${b.id}')" style="padding:2px"><i class="ti ti-edit" style="font-size:12px"></i></button>
-              <button class="btn btn-icon btn-sm" onclick="deleteBlogKeyword('${b.id}')" style="padding:2px;color:var(--red)"><i class="ti ti-trash" style="font-size:12px"></i></button>
+            <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0;align-items:flex-end">
+              <div style="display:flex;gap:8px">
+                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:12px;color:${b.imgDone?'var(--green)':'var(--text2)'}">
+                  <input type="checkbox" ${b.imgDone?'checked':''} onchange="toggleBlogCheck('${b.id}','imgDone')" style="width:15px;height:15px;cursor:pointer;accent-color:var(--green)">
+                  이미지
+                </label>
+                <label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:12px;color:${b.drafDone?'var(--green)':'var(--text2)'}">
+                  <input type="checkbox" ${b.drafDone?'checked':''} onchange="toggleBlogCheck('${b.id}','drafDone')" style="width:15px;height:15px;cursor:pointer;accent-color:var(--green)">
+                  원고
+                </label>
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-icon btn-sm" onclick="openBlogAddModal('${b.id}')" style="padding:2px"><i class="ti ti-edit" style="font-size:12px"></i></button>
+                <button class="btn btn-icon btn-sm" onclick="deleteBlogKeyword('${b.id}')" style="padding:2px;color:var(--red)"><i class="ti ti-trash" style="font-size:12px"></i></button>
+              </div>
             </div>
           </div>`).join('')}
+        </div>`}
       </div>`;
     }).join('');
 }
+
 
 function addTodo(){
   const input=document.getElementById('todo-input');
