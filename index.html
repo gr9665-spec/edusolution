@@ -272,10 +272,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <h3><i class="ti ti-pencil"></i>블로그 키워드</h3>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
         <input type="text" id="blog-search" placeholder="검색..." style="width:120px;font-size:12px;padding:4px 8px" oninput="renderBlogKeywords()">
-        <select id="blog-filter-user" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:90px">
-          <option value="">전체</option>
-          <option value="me">내 것만</option>
-        </select>
+
         <select id="blog-filter-month" onchange="renderBlogKeywords()" style="font-size:12px;padding:4px 8px;width:80px">
           <option value="">전체월</option>
         </select>
@@ -293,17 +290,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <h2 id="blog-modal-title"><i class="ti ti-pencil"></i> 키워드 추가</h2>
     <button class="btn btn-icon" onclick="closeModal('modal-blog')"><i class="ti ti-x"></i></button>
   </div>
-  <div class="fg2" style="margin-bottom:10px">
-    <div class="fg"><label>날짜</label><input type="date" id="blog-date"></div>
-    <div class="fg"><label>담당자</label>
-      <select id="blog-owner" style="font-size:13px">
-        <option value="">선택</option>
-      </select>
-    </div>
-  </div>
+  <div class="fg" style="margin-bottom:10px"><label>날짜</label><input type="date" id="blog-date"></div>
   <div class="fg" style="margin-bottom:14px">
     <label>키워드/제목</label>
-    <input type="text" id="blog-title" placeholder="예: 충북대학교 편입">
+    <input type="text" id="blog-title" placeholder="키워드를 입력하세요">
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end">
     <button class="btn" onclick="closeModal('modal-blog')">취소</button>
@@ -1635,7 +1625,7 @@ function deleteBlogKeyword(id){
 function renderBlogKeywords(){
   const el=document.getElementById('blog-keyword-list'); if(!el) return;
   const q=(document.getElementById('blog-search')?.value||'').toLowerCase();
-  const filterUser=document.getElementById('blog-filter-user')?.value||'';
+
   const filterMonth=document.getElementById('blog-filter-month')?.value||'';
   const myName=window._currentUserName||'';
 
@@ -1649,9 +1639,9 @@ function renderBlogKeywords(){
 
   let filtered=blogKeywords.filter(b=>{
     const mQ=!q||b.title.toLowerCase().includes(q)||(b.owner||'').toLowerCase().includes(q);
-    const mU=!filterUser||(filterUser==='me'&&b.owner===myName);
+
     const mM=!filterMonth||(b.date||'').startsWith(filterMonth);
-    return mQ&&mU&&mM;
+    return mQ&&mM;
   });
 
   if(!filtered.length){
