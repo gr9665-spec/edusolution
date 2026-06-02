@@ -1431,8 +1431,12 @@ function renderMemoList(){
   const groups={};
   filtered.forEach(m=>{ const c=m.cat||'기타'; if(!groups[c])groups[c]=[]; groups[c].push(m); });
 
-  // 카테고리별 접힘 상태 저장
+  // 카테고리별 접힘 상태 — 기본값 접힘
   if(!window._memoCatCollapsed) window._memoCatCollapsed={};
+  // 새로 생긴 카테고리는 기본 접힘으로
+  Object.keys(groups).forEach(c=>{
+    if(window._memoCatCollapsed[c]===undefined) window._memoCatCollapsed[c]=true;
+  });
 
   el.innerHTML=Object.entries(groups).map(([c,items])=>{
     const collapsed=window._memoCatCollapsed[c];
@@ -2377,7 +2381,10 @@ function getYearsFromData(){
 }
 function populateYearSelects(){
   const years = getYearsFromData();
-  const now = new Date(); const thisYear = now.getFullYear(); const thisMon = now.getMonth()+1;
+  // 한국 시간 기준
+  const kst = new Date(new Date().getTime() + 9*60*60*1000);
+  const thisYear = kst.getUTCFullYear();
+  const thisMon = kst.getUTCMonth()+1;
   ['dash-year','filter-year','sales-year','export-year'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
@@ -2387,6 +2394,12 @@ function populateYearSelects(){
     if(prev && [...el.options].some(o=>o.value===prev)) el.value=prev;
     else el.value=String(thisYear);
   });
+  // 학습자 관리 월 필터 — 처음 로드 시 이번 달로 설정
+  const filterMonth=document.getElementById('filter-month');
+  if(filterMonth&&!filterMonth.dataset.init){
+    filterMonth.value=String(thisMon);
+    filterMonth.dataset.init='1';
+  }
   // 매출/내보내기 월 셀렉트를 현재 월로 자동 설정 (처음 로드 시만)
   ['sales-month','export-month'].forEach(id=>{
     const el=document.getElementById(id);
