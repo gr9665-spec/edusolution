@@ -622,8 +622,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <h2><i class="ti ti-clipboard-list"></i> 플랜 연결</h2>
     <button class="btn btn-icon" onclick="closeModal('modal-plan-link')"><i class="ti ti-x"></i></button>
   </div>
-  <p style="font-size:13px;color:var(--text2);margin-bottom:12px"><strong id="plan-link-name"></strong> 학습자와 연결할 플랜을 선택해주세요</p>
-  <select id="plan-link-select" style="width:100%;margin-bottom:16px;padding:9px 12px;font-size:13px"></select>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:8px"><strong id="plan-link-name"></strong> 학습자와 연결할 플랜을 선택해주세요</p>
+  <input type="text" id="plan-link-search" placeholder="이름 검색..." style="width:100%;margin-bottom:8px;font-size:13px" oninput="filterPlanLinkList()">
+  <select id="plan-link-select" style="width:100%;margin-bottom:16px;padding:9px 12px;font-size:13px" size="6"></select>
   <div style="display:flex;gap:8px;justify-content:flex-end">
     <button class="btn" onclick="closeModal('modal-plan-link')">취소</button>
     <button class="btn btn-primary" onclick="confirmPlanLink()">연결</button>
@@ -2047,6 +2048,29 @@ function deleteMemoCategory(cat){
 }
 
 // ── 플랜 연결 수정: 이미 연결됐어도 항상 재선택 가능 ──────────────
+let _planLinkAllOpts = []; // 전체 플랜 옵션 캐시
+
+function filterPlanLinkList(){
+  const q=(document.getElementById('plan-link-search')?.value||'').toLowerCase();
+  const sel=document.getElementById('plan-link-select'); if(!sel) return;
+  sel.innerHTML=_planLinkAllOpts
+    .filter(o=>!q||o.text.toLowerCase().includes(q))
+    .map(o=>`<option value="${o.value}" ${o.selected?'selected':''}>${o.text}</option>`).join('');
+}
+
+function filterPlanLearnerSelect(q, pid){
+  const sel=document.getElementById('plan-learner-select'); if(!sel) return;
+  const p=plans[pid]; if(!p) return;
+  const seenSet=new Set();
+  const uniL=learners.filter(l=>{
+    const k=(l.name||'')+'|'+(l.phone||'');
+    if(seenSet.has(k)) return false; seenSet.add(k); return true;
+  });
+  const filtered=uniL.filter(l=>!q||(l.name||'').toLowerCase().includes(q.toLowerCase())||(l.phone||'').includes(q));
+  sel.innerHTML=`<option value="">연결 안 함</option>`
+    +filtered.map(l=>`<option value="${l.name}" ${p.linkedLearner===l.name?'selected':''}>${l.name}${l.phone?' / '+l.phone:''}</option>`).join('');
+}
+
 function linkLearnerToPlan(idx){
   const l=learners[idx]; if(!l) return;
   const planList=Object.values(plans);
@@ -2057,12 +2081,20 @@ function linkLearnerToPlan(idx){
     }
     return;
   }
-  // 항상 선택 모달 표시 (이미 연결돼 있어도 재선택 가능)
+  // 항상 선택 모달 표시 (이미 연결됐어도 재선택 가능)
   const existing=planList.find(p=>p.linkedLearner===l.name||(p.clientName&&p.clientName===l.name));
-  const opts=planList.map(p=>`<option value="${p.id}" ${existing&&p.id===existing.id?'selected':''}>${p.clientName||'(미입력)'} — ${p.degree} ${p.major} (${p.counselDate||''})</option>`).join('');
+  _planLinkAllOpts=[{value:'',text:'-- 연결 안 함 --',selected:false},
+    ...planList.map(p=>({
+      value:p.id,
+      text:`${p.clientName||'(미입력)'} — ${p.degree} ${p.major} (${p.counselDate||''}) ${(p.status||'가망')==='결제완료'?'✓':''}`,
+      selected:!!(existing&&p.id===existing.id)
+    }))
+  ];
   document.getElementById('plan-link-name').textContent=l.name;
-  document.getElementById('plan-link-select').innerHTML=`<option value="">-- 연결 안 함 --</option>`+opts;
-  document.getElementById('plan-link-select').value=existing?existing.id:'';
+  const searchEl=document.getElementById('plan-link-search');
+  if(searchEl) searchEl.value='';
+  document.getElementById('plan-link-select').innerHTML=_planLinkAllOpts
+    .map(o=>`<option value="${o.value}" ${o.selected?'selected':''}>${o.text}</option>`).join('');
   _linkLearnerIdx=idx;
   openModal('modal-plan-link');
 }
@@ -2202,21 +2234,51 @@ function renderLearners(){
     const mE=!edu||(l.edu||'')===edu;
     return mQ&&mY&&mM&&mT&&mE;
   });
+  // 이름+번호 동일한 중복 학습자 그룹핑
+  const dupToggleShow = window._dupToggleShow || new Set();
+  window._dupToggleShow = dupToggleShow;
+  const groupMap = new Map(); // key → [learner, ...]
+  filtered.forEach(l => {
+    const key = (l.name||'') + '|' + (l.phone||'');
+    if(!groupMap.has(key)) groupMap.set(key,[]);
+    groupMap.get(key).push(l);
+  });
+
   const tbody=document.getElementById('learner-tbody');
   const empty=document.getElementById('learner-empty');
   if(!filtered.length){tbody.innerHTML='';empty.style.display='block';updateLearnerSelCount();return;}
   empty.style.display='none';
-  tbody.innerHTML=filtered.map(l=>{
+
+  let rows='';
+  groupMap.forEach((group, key) => {
+    const l=group[0]; // 대표 행
     const origIdx=learners.indexOf(l);
+    const isDup = group.length > 1;
+    const isExpanded = dupToggleShow.has(key);
     const reward=calcRewardForLearner(l);
     const lbl=rewardLabel(l);
     const badge=lbl?`<br><span style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:3px;padding:0 4px">${lbl}</span>`:'';
     const lyear=l.year||new Date().getFullYear();
-    return `<tr data-idx="${origIdx}">
+
+    // 중복이면 교육원/기수 묶어서 표시
+    const eduKisuBadge = isDup
+      ? group.map(g=>`<span style="font-size:10px;background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;margin-right:2px">${g.edu||''} ${g.kisu||''}</span>`).join('')
+      : '';
+
+    rows+=`<tr data-idx="${origIdx}" ${isDup?'style="background:var(--bg2)"':''}>
       <td style="text-align:center">
         <input type="checkbox" class="learner-chk" data-idx="${origIdx}" style="width:auto;cursor:pointer" onchange="updateLearnerSelCount()">
       </td>
-      <td><strong>${l.name}</strong>${l.images&&l.images.length?`<span style="font-size:10px;background:#e8f4fd;color:#1a5fa8;border-radius:3px;padding:0 4px;margin-left:4px"><i class="ti ti-photo" style="font-size:10px"></i> ${l.images.length}</span>`:''}<span style="font-size:12px;color:var(--text3);margin-left:6px">${l.id?'/ '+l.id:''}</span><br><span style="font-size:11px;color:var(--text2)">${l.phone||''}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <strong>${l.name}</strong>
+          ${l.images&&l.images.length?`<span style="font-size:10px;background:#e8f4fd;color:#1a5fa8;border-radius:3px;padding:0 4px"><i class="ti ti-photo" style="font-size:10px"></i> ${l.images.length}</span>`:''}
+          <span style="font-size:12px;color:var(--text3)">${l.id?'/ '+l.id:''}</span>
+          ${isDup?`<button class="btn btn-sm" style="font-size:10px;padding:1px 5px;color:var(--navy)" onclick="toggleDupGroup('${key.replace(/'/g,'\\\'')}')">+${group.length-1} ${isExpanded?'접기':'더보기'}</button>`:''}
+        </div>
+        ${isDup&&!isExpanded?`<div style="margin-top:3px">${eduKisuBadge}</div>`:''}
+        <span style="font-size:11px;color:var(--text2)">${l.phone||''}</span>
+      </td>
       <td>${l.edu||''}</td>
       <td style="font-size:11px;color:var(--text2);white-space:nowrap">${lyear}년 ${l.month}월</td>
       <td style="font-size:12px;white-space:nowrap">${(l.kisu||'').replace(/\s+/g,' ')}</td>
@@ -2229,13 +2291,43 @@ function renderLearners(){
         <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'플랜 바로가기':'플랜 연결'}" style="color:${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'var(--green)':'var(--navy)'}"><i class="ti ti-clipboard-list"></i></button>
         <button class="btn btn-icon btn-sm" onclick="deleteLearner(${origIdx})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
       </td></tr>`;
-  }).join('');
-  updateLearnerSelCount();
+
+    // 펼쳐진 상태면 나머지 행들도 표시
+    if(isDup && isExpanded){
+      group.slice(1).forEach(g2=>{
+        const gi=learners.indexOf(g2);
+        const r2=calcRewardForLearner(g2);
+        const ly2=g2.year||new Date().getFullYear();
+        rows+=`<tr data-idx="${gi}" style="background:#f0f5ff">
+          <td style="text-align:center"><input type="checkbox" class="learner-chk" data-idx="${gi}" style="width:auto;cursor:pointer" onchange="updateLearnerSelCount()"></td>
+          <td><span style="font-size:11px;color:var(--text2);padding-left:8px">↳ ${g2.edu||''} ${g2.kisu||''}</span></td>
+          <td>${g2.edu||''}</td>
+          <td style="font-size:11px;white-space:nowrap">${ly2}년 ${g2.month}월</td>
+          <td style="font-size:12px;white-space:nowrap">${(g2.kisu||'').replace(/\s+/g,' ')}</td>
+          <td><span class="pill ${g2.type==='신규'?'pill-blue':'pill-gray'}">${g2.type||''}</span></td>
+          <td>${g2.credit||0}학점</td><td>${(g2.unitprice||0).toLocaleString()}원</td>
+          <td><strong>${(g2.total||0).toLocaleString()}원</strong></td>
+          <td style="color:var(--green);font-weight:600">${r2.toLocaleString()}원</td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${gi})" title="수정"><i class="ti ti-edit"></i></button>
+            <button class="btn btn-icon btn-sm" onclick="deleteLearner(${gi})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
+          </td></tr>`;
+      });
+    }
+  });
+  tbody.innerHTML=rows;
 }
 
 function toggleAllLearners(checked){
   document.querySelectorAll('.learner-chk').forEach(c=>c.checked=checked);
   updateLearnerSelCount();
+}
+
+function toggleDupGroup(key){
+  if(!window._dupToggleShow) window._dupToggleShow=new Set();
+  if(window._dupToggleShow.has(key)) window._dupToggleShow.delete(key);
+  else window._dupToggleShow.add(key);
+  renderLearners();
 }
 
 function updateLearnerSelCount(){
@@ -3711,7 +3803,14 @@ function renderPlanEditor(p){
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const majors=['경영','사회복지','보육·아동','심리','상담','청소년','한국어교원','평생교육사','기타'];
-  const learnerOpts=learners.map(l=>`<option value="${l.name}" ${p.linkedLearner===l.name?'selected':''}>${l.name}</option>`).join('');
+  // 중복 학습자 제거 (이름+전화번호 동일하면 하나만 표시)
+  const seenLearners=new Set();
+  const uniqueLearners=learners.filter(l=>{
+    const key=(l.name||'')+'|'+(l.phone||'');
+    if(seenLearners.has(key)) return false;
+    seenLearners.add(key); return true;
+  });
+  const learnerOpts=uniqueLearners.map(l=>`<option value="${l.name}" ${p.linkedLearner===l.name?'selected':''}>${l.name}${l.phone?' / '+l.phone:''}</option>`).join('');
 
   document.getElementById('plan-body').innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
@@ -3754,7 +3853,8 @@ function renderPlanEditor(p){
           </div>
         </div>
         <div class="fg"><label>학습자 연결</label>
-          <select onchange="upP('linkedLearner',this.value)">
+          <input type="text" id="plan-learner-search" placeholder="이름 검색..." style="margin-bottom:4px;font-size:12px" oninput="filterPlanLearnerSelect(this.value,'${p.id}')">
+          <select id="plan-learner-select" onchange="upP('linkedLearner',this.value)" size="4" style="height:auto">
             <option value="">연결 안 함</option>${learnerOpts}
           </select></div>
       </div>
