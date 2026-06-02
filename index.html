@@ -2662,7 +2662,7 @@ function renderDashboard(){
           <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
         </div>
         ${s.sent==='true'
-          ?'<span class="pill pill-green" style="font-size:10px">완료</span>'
+          ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
           :`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="markSent('${s.id}')">연락완료</button>`}
       </div>`).join('')
     :'<div class="empty"><i class="ti ti-calendar"></i>내일 예정 없음</div>';
@@ -2909,9 +2909,10 @@ function clearAllSchedules(){
 }
 function markSent(id){
   const s=schedules.find(x=>x.id===id);
-  if(s){ s.sent='true'; save(); renderSchedule(); renderDashboard(); }
-  // 블로그 키워드
-  renderBlogKeywords();
+  if(s){
+    s.sent = s.sent==='true' ? 'false' : 'true';
+    save(); renderSchedule(); renderDashboard();
+  }
 }
 
 function renderSchedule(){
@@ -2974,7 +2975,7 @@ function renderSchedule(){
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
               ${s.sent==='true'
-                ?'<span class="pill pill-green" style="font-size:10px">완료</span>'
+                ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
                 :`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="markSent('${s.id}')">발송</button>`}
               <button class="btn btn-icon" style="width:22px;height:22px;color:var(--text3);padding:0" onclick="deleteSchedule('${s.id}')"><i class="ti ti-trash" style="font-size:11px"></i></button>
             </div>
