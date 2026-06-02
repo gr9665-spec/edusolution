@@ -190,7 +190,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab" onclick="switchTab('marketing',this)"><i class="ti ti-speakerphone"></i>마케팅</div>
   <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
   <div class="tab" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
-  <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>멘트 메모장</div>
+  <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>메모</div>
   <div class="tab" onclick="switchTab('settings',this)"><i class="ti ti-settings"></i>수당 세팅</div>
 </div>
 
@@ -1430,17 +1430,27 @@ function renderMemoList(){
   const groups={};
   filtered.forEach(m=>{ const c=m.cat||'기타'; if(!groups[c])groups[c]=[]; groups[c].push(m); });
 
-  el.innerHTML=Object.entries(groups).map(([c,items])=>`
-    <div style="grid-column:1/-1">
-      <div style="font-size:11px;font-weight:700;color:var(--navy);padding:4px 0;margin-bottom:6px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.05em">${c} <span style="font-weight:400;color:var(--text3)">(${items.length})</span></div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px">
+  // 카테고리별 접힘 상태 저장
+  if(!window._memoCatCollapsed) window._memoCatCollapsed={};
+
+  el.innerHTML=Object.entries(groups).map(([c,items])=>{
+    const collapsed=window._memoCatCollapsed[c];
+    return `
+    <div style="grid-column:1/-1;margin-bottom:8px">
+      <div onclick="toggleMemoCat('${c.replace(/'/g,'\\\'')}');event.stopPropagation()"
+        style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg2);border-radius:var(--r);cursor:pointer;user-select:none;border:1px solid var(--border)">
+        <i class="ti ti-${collapsed?'chevron-right':'chevron-down'}" style="font-size:13px;color:var(--text2);transition:all .2s"></i>
+        <span style="font-size:14px;font-weight:700;color:var(--navy);flex:1">${c}</span>
+        <span style="font-size:12px;color:var(--text3);background:var(--bg);border-radius:99px;padding:1px 8px;border:1px solid var(--border)">${items.length}개</span>
+      </div>
+      <div id="memo-cat-body-${c.replace(/[^a-zA-Z0-9가-힣]/g,'_')}" style="display:${collapsed?'none':'grid'};grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:8px;padding:0 4px">
         ${items.map(m=>`
           <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:all .15s;position:relative"
             onclick="copyMemo('${m.id}')"
             onmouseenter="this.style.borderColor='var(--navy)';this.style.background='var(--bg2)'"
             onmouseleave="this.style.borderColor='';this.style.background='var(--bg)'">
             ${m.name?`<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:5px;padding-right:40px">${m.name}</div>`:''}
-            <div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden;text-overflow:ellipsis">${m.content||''}</div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden">${m.content||''}</div>
             <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px">
               <button class="btn btn-icon" style="width:22px;height:22px;padding:0;font-size:11px" onclick="event.stopPropagation();openMemoEditModal('${m.id}')"><i class="ti ti-edit"></i></button>
               <button class="btn btn-icon" style="width:22px;height:22px;padding:0;font-size:11px;color:var(--red)" onclick="event.stopPropagation();deleteMemo('${m.id}')"><i class="ti ti-trash"></i></button>
@@ -1448,8 +1458,14 @@ function renderMemoList(){
             <div id="memo-copied-${m.id}" style="display:none;position:absolute;inset:0;background:rgba(30,58,95,.85);border-radius:var(--r);align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700">✓ 복사됐어요!</div>
           </div>`).join('')}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+function toggleMemoCat(cat){
+  if(!window._memoCatCollapsed) window._memoCatCollapsed={};
+  window._memoCatCollapsed[cat]=!window._memoCatCollapsed[cat];
+  renderMemoList();
 }
 
 function copyMemo(id){
@@ -1557,20 +1573,31 @@ async function loadAllMembersData(){
   adminEl.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2)"><i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> 팀원 데이터 불러오는 중...</div>';
 
   try {
-    // 모든 유저 목록
+    // users 컬렉션
     const usersSnap=await fbDb.collection('users').get();
     const usersMap={};
     usersSnap.forEach(doc=>{ usersMap[doc.id]={...doc.data(), uid:doc.id}; });
 
-    // 모든 유저 데이터
+    // userData 컬렉션 기준으로 병합 (userData에만 있어도 표시)
     const dataSnap=await fbDb.collection('userData').get();
     allMembersData={};
     dataSnap.forEach(doc=>{
       const uid=doc.id;
+      const data=doc.data();
       allMembersData[uid]={
+        uid,
+        name: data.name || (usersMap[uid]?.name) || '(이름없음)',
+        email: data.email || (usersMap[uid]?.email) || '',
+        rank: data.rank || (usersMap[uid]?.rank) || '',
+        approved: data.approved,
+        createdAt: data.createdAt || (usersMap[uid]?.createdAt) || '',
         ...usersMap[uid],
-        ...doc.data()
+        ...data,
       };
+    });
+    // users에만 있고 userData에 없는 경우도 추가
+    Object.keys(usersMap).forEach(uid=>{
+      if(!allMembersData[uid]) allMembersData[uid]={...usersMap[uid],uid};
     });
 
     renderAdminMembers();
