@@ -810,6 +810,20 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div style="font-size:12px;color:var(--text2);margin-bottom:10px" id="psm-desc"></div>
 
+  <!-- 자격증 프리셋 (자격증 모달일 때만 표시) -->
+  <div id="psm-cert-presets" style="display:none;margin-bottom:10px">
+    <div style="font-size:11px;color:var(--text2);margin-bottom:5px;font-weight:600">빠른 입력</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">
+      <button class="btn btn-sm" style="font-size:11px" onclick="addCertPreset(18,'매경테스트 우수')">18 매경테스트 우수</button>
+      <button class="btn btn-sm" style="font-size:11px" onclick="addCertPreset(14,'컴퓨터활용능력 1급')">14 컴활1급</button>
+      <button class="btn btn-sm" style="font-size:11px" onclick="addCertPreset(14,'ADsP')">14 ADsP</button>
+      <button class="btn btn-sm" style="font-size:11px" onclick="addCertPreset(14,'네트워크관리사2급')">14 네트워크관리사2급</button>
+      <button class="btn btn-sm" style="font-size:11px" onclick="addCertPreset(10,'SMAT 1급')">10 SMAT 1급</button>
+      <button class="btn btn-sm" style="font-size:11px" onclick="addCertPreset(6,'CS리더스관리사')">6 CS리더스관리사</button>
+      <button class="btn btn-sm" style="font-size:11px;color:var(--navy)" onclick="addCertPreset(0,'')">기타 직접입력</button>
+    </div>
+  </div>
+
   <!-- 엑셀 스타일 그리드 -->
   <div style="border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;margin-bottom:8px">
     <table style="width:100%;border-collapse:collapse;font-size:13px" id="psm-table">
@@ -3527,7 +3541,7 @@ renderDashboard();calcReward();
 // ── 플랜표 ───────────────────────────────────────────────────────────
 const DEG_REQ = {
   '학사':           {total:140, req:60,  elec:0,  gen:35, lib:30, major:60,  note:'전공60 · 교양30 · 총140학점'},
-  '전문학사':       {total:80,  req:45,  elec:0,  gen:15, lib:10, major:45,  note:'전공45 · 총80학점'},
+  '전문학사':       {total:80,  req:45,  elec:0,  gen:15, lib:15, major:45,  note:'전공45 · 교양15 · 총80학점'},
   '타전공 전문학사':{total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:36,  note:'전공36학점 (복수전공)'},
   '타전공 학사':    {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:48,  note:'전공48학점 (복수전공)'},
 };
@@ -3953,6 +3967,24 @@ function renamePlanVersion(vi){
   renderPlanEditor(p);
 }
 
+function copyPlan(){
+  const p=plans[curPid]; if(!p) return;
+  const newId='p'+Date.now();
+  const copy=JSON.parse(JSON.stringify(p));
+  copy.id=newId;
+  copy.clientName=(copy.clientName||'')+'_복사';
+  copy.counselDate=new Date().toISOString().split('T')[0];
+  copy.linkedLearner='';
+  copy.status='가망';
+  delete copy.versions; // 버전은 초기화
+  plans[newId]=copy;
+  LS.set('hk_plans',plans); saveToFirebase();
+  curPid=newId;
+  renderPlanList();
+  renderPlanEditor(copy);
+  alert(`✓ "${p.clientName}" 플랜이 복사됐어요!\n이름을 수정해서 사용하세요.`);
+}
+
 function deleteCurPlan(){
   if(!curPid) return;
   showDeleteModal(`플랜 <strong>${plans[curPid].clientName||'(미입력)'}</strong>을 삭제할까요?`,()=>{
@@ -4030,6 +4062,7 @@ function renderPlanEditor(p){
       <button class="btn btn-sm" style="font-size:11px;padding:2px 6px;color:var(--navy)" onclick="addPlanVersion()" title="버전 추가">+</button>
       <div style="flex:1"></div>
       <button class="btn btn-sm" style="color:var(--red)" onclick="deleteCurPlan()"><i class="ti ti-trash"></i>삭제</button>
+      <button class="btn btn-sm" onclick="copyPlan()" title="이 플랜 복사"><i class="ti ti-copy"></i>복사</button>
     </div>
 
     <div class="card" style="margin-bottom:10px">
@@ -4441,8 +4474,7 @@ function addSemester(){
   const semSeq=['26-2','27-1','27-2','28-1','28-2','29-1','29-2','30-1','30-2'];
   const n=p.semesters.length; // 0-based index
   const semName=semSeq[n]?semSeq[n]+'학기':`${26+Math.floor((n+2)/2)}-${(n%2===0)?2:1}학기`;
-  const defaultReq=[{credit:'3',subject:''}];
-  p.semesters.push({name:semName,edu:'',kisu:'',date:'',req:defaultReq,elec:[],gen:[],lib:[]});
+  p.semesters.push({name:semName,edu:'',kisu:'',date:'',req:[],elec:[],gen:[],lib:[]});
   LS.set('hk_plans',plans);
   saveToFirebase();
   renderPlanEditor(p);
@@ -4532,16 +4564,20 @@ function openSubjModal(type, section, idx){
   subjCtx.rows=[...rows];
   document.getElementById('psm-title').textContent=title;
   document.getElementById('psm-desc').textContent=desc;
+  // 자격증 모달이면 프리셋 표시
+  const presets=document.getElementById('psm-cert-presets');
+  if(presets) presets.style.display=(type==='spec'||type==='ownedSpec')?'block':'none';
   renderSubjRows(subjCtx.rows);
   openModal('modal-plan-subj');
 }
 function renderSubjRows(rows){
-  if(!rows.length) rows.push({credit:'',subject:''});
+  const isSem=subjCtx.type==='sem'; // 학기 과목만 기본값 3
+  if(!rows.length) rows.push({credit:isSem?'3':'',subject:''});
   const tbody=document.getElementById('psm-tbody');
   tbody.innerHTML=rows.map((r,i)=>`
     <tr id="psm-row-${i}" style="border-bottom:1px solid var(--border)">
       <td style="padding:2px 4px;text-align:center">
-        <input type="number" value="${r.credit||''}" placeholder="3" min="1" max="10"
+        <input type="number" value="${r.credit||''}" placeholder="${isSem?'3':''}" min="1" max="10"
           style="width:58px;padding:5px 6px;font-size:13px;text-align:center;border:1px solid transparent;border-radius:4px;background:transparent"
           onfocus="this.style.border='1px solid var(--navy)';this.style.background='var(--bg)'"
           onblur="this.style.border='1px solid transparent';this.style.background='transparent';subjCtx.rows[${i}]={...subjCtx.rows[${i}],credit:this.value}"
@@ -4620,9 +4656,29 @@ function flushSubjInputs(){
   });
 }
 
+function addCertPreset(credit, subject){
+  flushSubjInputs();
+  // 빈 행 있으면 거기에 채우고, 없으면 새 행 추가
+  const empty=subjCtx.rows.findIndex(r=>!r.credit&&!r.subject);
+  if(empty>=0){
+    subjCtx.rows[empty]={credit:credit?String(credit):'',subject:subject||''};
+  } else {
+    subjCtx.rows.push({credit:credit?String(credit):'',subject:subject||''});
+  }
+  renderSubjRows(subjCtx.rows);
+  // 기타 직접입력이면 마지막 행 포커스
+  if(!subject){
+    setTimeout(()=>{
+      const inputs=document.querySelectorAll('#psm-tbody input');
+      if(inputs.length) inputs[inputs.length-1].focus();
+    },50);
+  }
+}
+
 function addSubjRow(){
   flushSubjInputs();
-  subjCtx.rows.push({credit:'',subject:''});
+  const isSem=subjCtx.type==='sem';
+  subjCtx.rows.push({credit:isSem?'3':'',subject:''});
   renderSubjRows(subjCtx.rows);
 }
 
