@@ -667,7 +667,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <p style="font-size:13px;color:var(--text2);margin-bottom:8px"><strong id="plan-link-name"></strong> 학습자와 연결할 플랜을 선택해주세요</p>
   <input type="text" id="plan-link-search" placeholder="이름 검색..." style="width:100%;margin-bottom:8px;font-size:13px" oninput="filterPlanLinkList()">
-  <select id="plan-link-select" style="width:100%;margin-bottom:16px;padding:9px 12px;font-size:13px" size="6"></select>
+  <select id="plan-link-select" style="width:100%;margin-bottom:16px;padding:9px 12px;font-size:13px"></select>
   <div style="display:flex;gap:8px;justify-content:flex-end">
     <button class="btn" onclick="closeModal('modal-plan-link')">취소</button>
     <button class="btn btn-primary" onclick="confirmPlanLink()">연결</button>
@@ -4090,7 +4090,7 @@ function renderPlanEditor(p){
         </div>
         <div class="fg"><label>학습자 연결</label>
           <input type="text" id="plan-learner-search" placeholder="이름 검색..." style="margin-bottom:4px;font-size:12px" oninput="filterPlanLearnerSelect(this.value,'${p.id}')">
-          <select id="plan-learner-select" onchange="upP('linkedLearner',this.value)" size="4" style="height:auto">
+          <select id="plan-learner-select" onchange="upP('linkedLearner',this.value)" style="width:100%">
             <option value="">연결 안 함</option>${learnerOpts}
           </select></div>
       </div>
