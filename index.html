@@ -2448,6 +2448,15 @@ function renderLearners(){
     const mE=!edu||(l.edu||'')===edu;
     return mQ&&mY&&mM&&mT&&mE;
   });
+  // 입금일 오름차순 정렬
+  filtered.sort((a,b)=>{
+    const da=a.paydate||'';
+    const db=b.paydate||'';
+    if(!da&&!db) return 0;
+    if(!da) return 1;
+    if(!db) return -1;
+    return da.localeCompare(db);
+  });
   // 이름+번호 동일한 중복 학습자 그룹핑
   const dupToggleShow = window._dupToggleShow || new Set();
   window._dupToggleShow = dupToggleShow;
@@ -3400,20 +3409,30 @@ function applyCopyKisu(){
   const key = document.getElementById('copy-kisu-sel').value;
   if(!key){ alert('기수를 선택해주세요'); return; }
   const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
-  const unique = [...new Map(items.map(s=>[s.type+'|'+s.date, s])).values()]
-    .sort((a,b)=>a.date.localeCompare(b.date));
-  if(!unique.length){ alert('복사할 일정이 없어요'); return; }
+  const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
 
-  // 개강일은 날짜 비워서 직접 입력하게, 나머지는 날짜 그대로
-  bulkRows = unique.length;
-  renderBulkRows(unique.map(s=>({
-    type: s.type,
-    date: s.date,
-    note: s.note
-  })));
+  // 마감 제외한 시작 일정만
+  const startItems=[...new Map(items
+    .filter(s=>!s.type.includes('마감'))
+    .map(s=>[s.type+'|'+s.date, s])).values()]
+    .sort((a,b)=>a.date.localeCompare(b.date));
+
+  if(!startItems.length){ alert('복사할 일정이 없어요'); return; }
+
+  // 마감일 매핑
+  bulkRows = startItems.length;
+  renderBulkRows(startItems.map(s=>{
+    let endDate='';
+    if(HAS_END_TYPES.includes(s.type)){
+      const endItem=items.find(x=>x.type===s.type+'마감');
+      if(endItem) endDate=endItem.date;
+    }
+    return {type:s.type, date:s.date, endDate, note:s.note};
+  }));
+
   updateBulkPreview();
   const prev=document.getElementById('copy-kisu-preview');
-  prev.textContent = `✓ ${unique.length}개 일정이 채워졌어요! 날짜 확인 후 등록하세요.`;
+  prev.textContent = `✓ ${startItems.length}개 일정 복사됨! 날짜 확인 후 등록하세요.`;
   prev.style.color = 'var(--green)';
 }
 
@@ -3449,26 +3468,48 @@ function selectAllBulk(checked){
 }
 
 function renderBulkRows(initVals=[]){
-  const types = ['개강일','쪽지시험','쪽지시험마감','토론','토론마감','과제','과제마감','중간고사','중간고사마감','기말고사','기말고사마감','기타'];
+  // 마감이 있는 유형
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const ALL_TYPES=['개강일','쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const container = document.getElementById('bulk-schedule-rows');
   container.innerHTML = Array.from({length:bulkRows},(_,i)=>{
     const init=initVals[i]||{};
+    const hasEnd=HAS_END.includes(init.type||'쪽지시험');
     return `
-    <div class="bulk-row" id="brow-${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center">
+    <div class="bulk-row" id="brow-${i}" style="margin-bottom:8px">
       <input type="hidden" class="bulk-note" value="${(init.note||'').replace(/"/g,'&quot;')}">
-      <div class="fg">
-        ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">일정 유형</label>':''}
-        <select class="bulk-type">
-          ${types.map(t=>`<option ${init.type===t?'selected':''}>${t}</option>`).join('')}
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center">
+        <div class="fg">
+          ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">일정 유형</label>':''}
+          <select class="bulk-type" onchange="onBulkTypeChange(${i})">
+            ${ALL_TYPES.map(t=>`<option ${(init.type||'쪽지시험')===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fg">
+          ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">시작일</label>':''}
+          <input type="date" class="bulk-date" value="${init.date||''}">
+        </div>
+        <div class="fg bulk-end-wrap" style="display:${hasEnd?'block':'none'}">
+          ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">마감일</label>':''}
+          <input type="date" class="bulk-end" value="${init.endDate||''}">
+        </div>
+        <div style="display:block" class="bulk-end-wrap-empty" style="display:${hasEnd?'none':'block'}">
+          ${i===0?'<label style="font-size:11px;color:transparent;font-weight:600">-</label>':''}
+          <div></div>
+        </div>
+        <button class="btn btn-icon" style="color:var(--red);margin-top:${i===0?'16px':'0'}" onclick="removeBulkRow(${i})" ${bulkRows<=1?'disabled':''}><i class="ti ti-trash"></i></button>
       </div>
-      <div class="fg">
-        ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">마감일</label>':''}
-        <input type="date" class="bulk-date" value="${init.date||''}">
-      </div>
-      <button class="btn btn-icon" style="color:var(--red);margin-top:${i===0?'16px':'0'}" onclick="removeBulkRow(${i})" ${bulkRows<=1?'disabled':''}><i class="ti ti-trash"></i></button>
     </div>`;
   }).join('');
+}
+
+function onBulkTypeChange(i){
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const row=document.getElementById(`brow-${i}`);
+  if(!row) return;
+  const type=row.querySelector('.bulk-type').value;
+  const endWrap=row.querySelector('.bulk-end-wrap');
+  if(endWrap) endWrap.style.display=HAS_END.includes(type)?'block':'none';
 }
 
 function addBulkRow(){
@@ -3497,12 +3538,14 @@ function saveBulkSchedule(){
   const checked = [...document.querySelectorAll('.bulk-chk:checked')];
   if(!checked.length){ alert('학습자를 1명 이상 선택해주세요'); return; }
   const rows = [...document.querySelectorAll('.bulk-row')];
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
   const scheduleItems = rows.map(r=>({
     type: r.querySelector('.bulk-type').value,
     date: r.querySelector('.bulk-date').value,
+    endDate: r.querySelector('.bulk-end')?.value||'',
     origNote: r.querySelector('.bulk-note')?.value||''
   })).filter(s=>s.date);
-  if(!scheduleItems.length){ alert('마감일을 하나 이상 입력해주세요'); return; }
+  if(!scheduleItems.length){ alert('시작일을 하나 이상 입력해주세요'); return; }
 
   let count = 0;
   checked.forEach(chk=>{
@@ -3510,28 +3553,30 @@ function saveBulkSchedule(){
     if(!learner) return;
     const noteBase = [learner.edu, learner.kisu].filter(Boolean).join(' ');
     scheduleItems.forEach(s=>{
-      // 중복 체크 (같은 학습자+유형+날짜)
-      const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date);
-      if(dup) return;
-      // note: 원본 기수 note에서 날짜 범위 부분만 재활용, 교육원+기수는 이 학습자 기준으로
       const origNoteParts = s.origNote.split('|');
       const dateRange = origNoteParts.length > 1 ? origNoteParts.slice(1).join('|').trim() : '';
       const note = dateRange ? `${noteBase} | ${dateRange}` : noteBase;
-      schedules.push({
-        id: Date.now()+'-'+Math.random().toString(36).slice(2),
-        learnerName: learner.name,
-        type: s.type,
-        date: s.date,
-        sent: 'false',
-        note
-      });
-      count++;
+
+      // 시작 일정 등록
+      const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date);
+      if(!dup){
+        schedules.push({id:Date.now()+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,type:s.type,date:s.date,sent:'false',note});
+        count++;
+      }
+      // 마감일 자동 등록
+      if(HAS_END.includes(s.type)&&s.endDate){
+        const endType=s.type+'마감';
+        const dupEnd=schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate);
+        if(!dupEnd){
+          schedules.push({id:Date.now()+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,type:endType,date:s.endDate,sent:'false',note});
+          count++;
+        }
+      }
     });
   });
   save();
   closeModal('modal-bulk-schedule');
   renderSchedule(); renderDashboard();
-  // 완료 피드백
   const btn = document.querySelector('#modal-bulk-schedule .btn-primary');
   if(btn){ const orig=btn.innerHTML; btn.innerHTML=`<i class="ti ti-check"></i> ${count}건 등록됨!`; setTimeout(()=>btn.innerHTML=orig,2000); }
 }
