@@ -2683,6 +2683,7 @@ function renderDashboard(){
         <div style="flex:1;min-width:0">
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
           <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+          ${s.type==='개강일'?(()=>{const _l=learners.find(x=>x.name===s.learnerName);const _t=_l?.type||'';return _t?`<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`:''})():''}
         </div>
         ${s.sent==='true'
           ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
@@ -2994,6 +2995,7 @@ function renderSchedule(){
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
               <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+              ${s.type==='개강일'?(()=>{const _l=learners.find(x=>x.name===s.learnerName);const _t=_l?.type||'';return _t?`<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`:''})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
