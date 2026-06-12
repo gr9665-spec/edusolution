@@ -1685,6 +1685,16 @@ function renderBlogKeywords(){
     return;
   }
 
+
+  // 접힘 상태 — 날짜별, 완료된 날짜는 기본 접힘
+  if(!window._blogDateCollapsed) window._blogDateCollapsed={};
+
+  // 1주일 필터 상태
+  if(window._blogShowAll===undefined) window._blogShowAll=false;
+  const kst=new Date(Date.now()+9*3600000);
+  const todayStr=kst.toISOString().slice(0,10);
+  const weekAgo=new Date(kst.getTime()-7*24*3600000).toISOString().slice(0,10);
+
   // 날짜별 그룹핑
   const groups={};
   filtered.forEach(b=>{
@@ -1693,10 +1703,19 @@ function renderBlogKeywords(){
     groups[d].push(b);
   });
 
-  // 접힘 상태 — 날짜별
-  if(!window._blogDateCollapsed) window._blogDateCollapsed={};
+  // 1주일 이상 지난 그룹 분리
+  const oldDates=Object.keys(groups).filter(d=>d!=='날짜없음'&&d<weekAgo);
+  const oldCount=oldDates.reduce((a,d)=>a+groups[d].length,0);
+
+  // 완료된 날짜는 자동 접힘 (처음 방문 시)
+  Object.entries(groups).forEach(([date,items])=>{
+    if(window._blogDateCollapsed[date]===undefined){
+      window._blogDateCollapsed[date]=items.every(b=>b.imgDone&&b.drafDone);
+    }
+  });
 
   el.innerHTML=Object.entries(groups)
+    .filter(([date])=>window._blogShowAll||date==='날짜없음'||date>=weekAgo)
     .sort((a,b)=>a[0].localeCompare(b[0])) // 가까운 날짜 위
     .map(([date,items])=>{
       const d=date!=='날짜없음'?new Date(date):null;
@@ -1744,6 +1763,15 @@ function renderBlogKeywords(){
         </div>`}
       </div>`;
     }).join('');
+
+  // 1주일 이상 된 항목 토글 버튼
+  if(oldCount>0){
+    el.innerHTML += `<div style="text-align:center;margin-top:8px">
+      <button class="btn btn-sm" style="font-size:11px;color:var(--text2)" onclick="window._blogShowAll=!window._blogShowAll;renderBlogKeywords()">
+        ${window._blogShowAll?'▲ 이전 항목 숨기기':`▼ ${oldCount}개 이전 항목 보기 (1주일 이상)`}
+      </button>
+    </div>`;
+  }
 }
 
 
