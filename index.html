@@ -598,6 +598,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <h3 style="margin:0;font-size:15px;display:flex;align-items:center;gap:6px"><i class="ti ti-message-circle" style="color:#fee500"></i> 카톡 멘트 자동 생성</h3>
       <button onclick="document.getElementById('kakao-msg-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">&times;</button>
     </div>
+    <div id="kakao-msg-warn" style="display:none;background:#fff3cd;border:1px solid #f0c040;border-radius:6px;padding:8px 12px;font-size:12px;color:#7a5700;margin-bottom:8px"></div>
     <div style="font-size:11px;color:#888;margin-bottom:8px">✏️ 직접 수정 후 복사하세요</div>
     <textarea id="kakao-msg-text" style="width:100%;height:260px;resize:vertical;font-size:13px;line-height:1.9;border:1px solid #ddd;border-radius:8px;padding:12px;box-sizing:border-box;font-family:inherit"></textarea>
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
@@ -4572,11 +4573,22 @@ function generateKakaoMsg(){
   const memo=p.memo||'';
   const memoLines=memo.split('\n');
 
+  const missing=[]; // 누락 항목 수집
+
   // ── 학기 일자 ──
-  const semDates=p.semesters.map(s=>s.date).filter(d=>d&&d.trim());
+  const semDates=p.semesters.map(s=>({name:s.name||'',date:s.date||''}));
   const semLabels=['첫학기','두번째','세번째','네번째','다섯번째'];
   let semLines='';
-  semDates.forEach((d,i)=>{ semLines+=`${semLabels[i]||`${i+1}번째`} ${d}\n`; });
+  let missingDateSems=[];
+  semDates.forEach((s,i)=>{
+    if(s.date.trim()){
+      semLines+=`${semLabels[i]||`${i+1}번째`} ${s.date}\n`;
+    } else {
+      missingDateSems.push(s.name||`${i+1}번째 학기`);
+    }
+  });
+  if(!semDates.length) missing.push('❌ 학기가 없음');
+  if(missingDateSems.length) missing.push(`⚠️ 일자 미입력 학기: ${missingDateSems.join(', ')}`);
 
   // ── 자격증: specials에서 과목명 수집 ──
   const certSpec=(p.specials||[]).filter(s=>s.type==='cert');
@@ -4586,49 +4598,62 @@ function generateKakaoMsg(){
       if(x&&x.subject&&!certSubjects.includes(x.subject)) certSubjects.push(x.subject);
     });
   });
-  const certNames=certSubjects.length?certSubjects.join('+'):'';
+  const certNames=certSubjects.length?certSubjects.join(', '):'';
+  if(certSpec.length&&!certSubjects.length) missing.push('⚠️ 자격증 행 있지만 과목명 미입력');
 
-  // ── 자격증 마감일: 비고에서 파싱 ──
+  // ── 자격증 마감일: 비고에서 파싱 (XX년 XX월까지) ──
   let certDeadline='';
   for(const ln of memoLines){
-    // "27년 10월까지" 또는 "10월까지" 패턴
     const m=ln.match(/(\d{2}년\s*\d+월)까지/);
     if(m){certDeadline=m[1];break;}
   }
   if(!certDeadline){
-    // fallback: "27년 10월" 단독
     for(const ln of memoLines){
       const m=ln.match(/(\d{2}년\s*\d+월)/);
       if(m){certDeadline=m[1];break;}
     }
   }
-  if(!certDeadline) certDeadline='27년 10월';
+  if(certNames&&!certDeadline) missing.push('⚠️ 자격증 마감일 미입력 (비고에 "XX년 XX월까지" 형식 추가 필요)');
+  if(!certDeadline) certDeadline='__년 __월';
 
-  // ── 독학사 유무 및 시험 일정 ──
-  const hasDohak1=memo.includes('독학사 1단계')||memo.includes('독학사1단계');
-  const hasDohak2=memo.includes('독학사 2단계')||memo.includes('독학사2단계');
+  // ── 독학사: specials 데이터 기준 ──
+  const dohakSpec=(p.specials||[]).filter(s=>s.type==='dohak');
+  const hasDohakInPlan=dohakSpec.length>0;
+  // 비고에서도 체크 (specials 없어도 비고에 입력한 경우)
+  const hasDohakInMemo=memo.includes('독학사 1단계')||memo.includes('독학사1단계')||
+                        memo.includes('독학사 2단계')||memo.includes('독학사2단계');
+  const hasDohak=hasDohakInPlan||hasDohakInMemo;
+
+  // 독학사 단계: specials 개수 기준
+  const hasDohak1=hasDohakInPlan?(dohakSpec.length>=1):
+                  (memo.includes('독학사 1단계')||memo.includes('독학사1단계'));
+  const hasDohak2=hasDohakInPlan?(dohakSpec.length>=2):
+                  (memo.includes('독학사 2단계')||memo.includes('독학사2단계'));
+
+  // 독학사 시험 일정: 비고에서 파싱
   let d1year='27년', d1month='2월', d2year='27년', d2month='5월';
+  let d1found=false, d2found=false;
   for(const ln of memoLines){
     if(ln.includes('1단계')&&ln.includes('시험')){
       const my=ln.match(/(\d{2}년)/); if(my) d1year=my[1];
       const mm=ln.match(/(\d+월)\s*시험/); if(mm) d1month=mm[1];
+      d1found=true;
     }
     if(ln.includes('2단계')&&ln.includes('시험')){
       const my=ln.match(/(\d{2}년)/); if(my) d2year=my[1];
       const mm=ln.match(/(\d+월)\s*시험/); if(mm) d2month=mm[1];
+      d2found=true;
     }
   }
+  if(hasDohak1&&!d1found) missing.push('⚠️ 독학사 1단계 시험일정 미입력 (비고 프리셋 추가 필요)');
+  if(hasDohak2&&!d2found) missing.push('⚠️ 독학사 2단계 시험일정 미입력 (비고 프리셋 추가 필요)');
 
-  // ── 독학사 과목수 ──
-  const dohakSpec=(p.specials||[]).filter(s=>s.type==='dohak');
-  const countSubjs=(sp)=>{
-    const all=[...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])];
-    return all.filter(x=>x&&x.subject).length;
-  };
+  // 독학사 과목수
+  const countSubjs=(sp)=>[...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])].filter(x=>x&&x.subject).length;
   const dohak1Count=dohakSpec.length>=1?countSubjs(dohakSpec[0]):0;
   const dohak2Count=dohakSpec.length>=2?countSubjs(dohakSpec[1]):0;
 
-  // ── 플랜 특성 ──
+  // ── 학사편입, 경영 패턴 ──
   const hasTransfer=memo.includes('편입');
   const isMedical=major.includes('경영');
 
@@ -4656,7 +4681,7 @@ function generateKakaoMsg(){
     msg+=`\n학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.\n`;
   }
 
-  if(hasDohak1||hasDohak2){
+  if(hasDohak){
     msg+=`*독학사는 대학전공 난이도이지만 교양과목이라 마찬가지로 독학 2주로 합격 가능한 난이도 입니다.\n`;
     if(hasDohak1){
       msg+=`1단계 ${d1year} ${d1month} 시험`;
@@ -4670,10 +4695,19 @@ function generateKakaoMsg(){
     }
   }
 
+  // ── 누락 항목 경고 표시 ──
+  if(missing.length){
+    msg+=`\n───────────────\n⚠️ 멘트 미완성 항목:\n${missing.join('\n')}`;
+  }
+
   // ── 모달 표시 ──
   const modal=document.getElementById('kakao-msg-modal');
   if(modal){
     document.getElementById('kakao-msg-text').value=msg.trim();
+    // 누락 있으면 경고 배너 표시
+    const warn=document.getElementById('kakao-msg-warn');
+    if(warn) warn.style.display=missing.length?'block':'none';
+    if(warn&&missing.length) warn.innerHTML='<i class="ti ti-alert-triangle"></i> 아래 내용을 확인하고 직접 수정 후 복사하세요';
     modal.style.display='flex';
   } else {
     navigator.clipboard.writeText(msg.trim()).then(()=>{ showToast('카톡 멘트가 클립보드에 복사됐어요!'); });
