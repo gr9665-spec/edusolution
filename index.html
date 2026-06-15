@@ -605,8 +605,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <div style="font-size:11px;color:#888">학점은행제로 학위 취득 자체가 목표인 경우</div>
       </button>
       <button class="goal-btn" onclick="generateKakaoMsg('편입')" style="text-align:left;padding:12px 14px;border:1.5px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;transition:all .15s">
-        <div style="font-weight:700;margin-bottom:2px">🏫 학사편입 / 전문대편입</div>
-        <div style="font-size:11px;color:#888">대학 편입을 위한 학점 취득이 목표인 경우</div>
+        <div style="font-weight:700;margin-bottom:2px">🏫 편입 (학사편입 / 일반편입)</div>
+        <div style="font-size:11px;color:#888">학사과정 → 학사편입 · 전문학사과정 → 일반편입 자동 구분</div>
       </button>
       <button class="goal-btn" onclick="generateKakaoMsg('대졸자전형')" style="text-align:left;padding:12px 14px;border:1.5px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;transition:all .15s">
         <div style="font-weight:700;margin-bottom:2px">📋 대졸자전형 지원자격</div>
@@ -4709,19 +4709,15 @@ function generateKakaoMsg(goal){
     if(degreeDate) parts.push(degreeDate);
 
   } else if(goal==='편입'){
-    // 편입 종류 감지 (비고에서)
-    let transferType='학사편입';
-    if(memo.includes('수의대')||memo.includes('메디컬')) transferType='수의대 학사편입';
-    else if(memo.includes('전문대')) transferType='전문대편입';
-    else if(memo.includes('학사편입')) transferType='학사편입';
+    // 편입 종류: degree 기준 자동 결정 + 비고에 수의대/메디컬 있으면 접두어 추가
+    const isMedical2=memo.includes('수의대')||memo.includes('메디컬');
+    let transferType=degree.includes('전문학사')?'일반편입':'학사편입';
+    if(isMedical2) transferType='수의대 '+transferType;
 
     parts.push(`${name}님이 진행하실 ${major} ${degree} (${transferType}) 플랜입니다`);
-    if(major.includes('경영')){
-      parts.push(`학점은행제로 가장 빠른졸업 가능하고 성적 높게 얻기 용이한 전공은 ${major}이라 대부분 메디컬편입 학생들은 ${major}플랜으로 진행하듯 동일하게 설계해드렸습니다.!`);
-    }
     if(semLines) parts.push(buildSemBlock());
-    if(certNames) parts.push(buildCertBlock(`학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니,`));
-    else parts.push('학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.');
+    if(certNames) parts.push(buildCertBlock(`${transferType}으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니,`));
+    else parts.push(`${transferType}으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.`);
     if(hasDohak) parts.push(buildDohakBlock());
 
   } else if(goal==='대졸자전형'){
