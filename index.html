@@ -4182,14 +4182,22 @@ function renderPlanEditor(p){
       <!-- 자주쓰는 비고 프리셋 -->
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
         ${[
-          '학사: 전공60 이상, 교양30 이상 이수 필수',
-          '전문학사: 전공45 이상, 교양15 이상 이수 필수',
-          '학사 일반학점 최대 50학점까지만 인정 가능',
-          '전문학사 일반학점 최대 20학점까지만 인정 가능',
-          '12/15-1/15 학위신청, 27년 2월 학위수여',
-          '27년 6/15-7/15 학위신청, 27년 8월 학위수여',
-          '독학사 3단계 6/30-7/7 접수 8/9 시험',
-        ].map(t=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPreset('${t.replace(/'/g,"\\'")}')"><i class="ti ti-plus" style="font-size:10px"></i> ${t.length>20?t.slice(0,20)+'…':t}</button>`).join('')}
+          {l:'학사필수', t:'학사: 전공60 이상, 교양30 이상 이수 필수'},
+          {l:'전문학사필수', t:'전문학사: 전공45 이상, 교양15 이상 이수 필수'},
+          {l:'학사일반한도', t:'학사 일반학점 최대 50학점까지만 인정 가능'},
+          {l:'전문학사일반한도', t:'전문학사 일반학점 최대 20학점까지만 인정 가능'},
+          {l:'학위신청 27.12→2월', t:'12/15-1/15 학위신청, 27년 2월 학위수여'},
+          {l:'학위신청 27.6→8월', t:'27년 6/15-7/15 학위신청, 27년 8월 학위수여'},
+          {l:'독학사3단계', t:'독학사 3단계 6/30-7/7 접수 8/9 시험'},
+        ].map(x=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPreset('${x.t.replace(/'/g,"\\'")}')" title="${x.t}"><i class="ti ti-plus" style="font-size:10px"></i> ${x.l}</button>`).join('')}
+        <div style="width:100%;border-top:1px dashed #ddd;margin:5px 0 3px;font-size:10px;color:#999;letter-spacing:1px">── 자격증 / 독학사 일정 ──</div>
+        ${[
+          {l:'매경/텔레/ADsP ~27.10', t:'자격증(매경테스트 우수, 텔레마케팅관리사, ADsP) 27년 10월까지 취득'},
+          {l:'독학사1단계 27.1접수/2시험', t:'독학사 1단계: 27년 1월 접수 / 2월 시험 (60점 이상 통과)'},
+          {l:'독학사2단계 27.4접수/5시험', t:'독학사 2단계: 27년 4월 접수 / 5월 시험 (60점 이상 통과)'},
+          {l:'학위신청→28.2수여', t:'학위신청 27년 12/15-1/15 → 학위수여 28년 2월'},
+          {l:'27하반기 학사편입가능', t:'27년 하반기 학사편입 지원 가능'},
+        ].map(x=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#fffbe6;border-color:#f0c040;color:#7a5700" onclick="appendMemoPreset('${x.t.replace(/'/g,"\\'")}')" title="${x.t}"><i class="ti ti-plus" style="font-size:10px"></i> ${x.l}</button>`).join('')}
       </div>
       <textarea id="plan-memo-1"
         style="width:100%;height:90px;resize:none;font-size:12px;text-align:center;line-height:1.8"
