@@ -591,6 +591,27 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 </div>
 </div>
 
+<!-- 카톡 멘트 모달 -->
+<div id="kakao-msg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:560px;box-shadow:0 8px 40px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="margin:0;font-size:15px;display:flex;align-items:center;gap:6px"><i class="ti ti-message-circle" style="color:#fee500"></i> 카톡 멘트 자동 생성</h3>
+      <button onclick="document.getElementById('kakao-msg-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">&times;</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:8px">✏️ 직접 수정 후 복사하세요</div>
+    <textarea id="kakao-msg-text" style="width:100%;height:260px;resize:vertical;font-size:13px;line-height:1.9;border:1px solid #ddd;border-radius:8px;padding:12px;box-sizing:border-box;font-family:inherit"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button class="btn" onclick="document.getElementById('kakao-msg-modal').style.display='none'">닫기</button>
+      <button class="btn btn-primary" onclick="
+        navigator.clipboard.writeText(document.getElementById('kakao-msg-text').value).then(()=>{
+          showToast('클립보드에 복사됐어요!');
+          document.getElementById('kakao-msg-modal').style.display='none';
+        });
+      "><i class="ti ti-copy"></i> 복사하기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 멘트 편집 모달 -->
 <div class="overlay" id="modal-memo-edit">
 <div class="modal" style="max-width:480px">
@@ -4178,7 +4199,12 @@ function renderPlanEditor(p){
     <div class="tw">${buildPlanTableUI(p,t)}</div>
 
     <div class="card">
-      <div class="card-head"><h3><i class="ti ti-notes"></i>비고</h3></div>
+      <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+        <h3><i class="ti ti-notes"></i>비고</h3>
+        <button class="btn btn-primary btn-sm" style="font-size:11px;gap:4px" onclick="generateKakaoMsg()">
+          <i class="ti ti-message-circle"></i> 카톡 멘트 자동 생성
+        </button>
+      </div>
       <!-- 자주쓰는 비고 프리셋 -->
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
         ${[
@@ -4537,6 +4563,126 @@ function buildDegreeChecker(p,t,dr){
     </div>
   </div>`;
 }
+function generateKakaoMsg(){
+  if(!curPid) return;
+  const p=plans[curPid];
+  const name=p.clientName||'고객';
+  const major=p.major==='기타'&&p.majorCustom?p.majorCustom:p.major;
+  const degree=p.degree||'학사';
+  const memo=p.memo||'';
+  const memoLines=memo.split('\n');
+
+  // 학기별 일자 추출
+  const semDates=p.semesters.map(s=>s.date).filter(d=>d&&d.trim());
+
+  // 비고에서 자격증 마감일 파싱 (줄 단위로)
+  let certDeadline='27년 10월';
+  for(const ln of memoLines){
+    const m=ln.match(/자격증[^가-힣]*?(\d{2}년\s*\d+월)/);
+    if(m){certDeadline=m[1];break;}
+  }
+
+  // 독학사 단계 유무
+  const hasDohak1=memo.includes('독학사 1단계')||memo.includes('독학사1단계');
+  const hasDohak2=memo.includes('독학사 2단계')||memo.includes('독학사2단계');
+
+  // 독학사 1단계 시험월 파싱
+  let d1month='2월', d1year='27년';
+  for(const ln of memoLines){
+    if((ln.includes('독학사 1단계')||ln.includes('독학사1단계'))&&ln.includes('시험')){
+      const my=ln.match(/(\d{2}년)/); if(my) d1year=my[1];
+      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d1month=mm[1];
+      break;
+    }
+  }
+  // 독학사 2단계 시험월 파싱
+  let d2month='5월', d2year='27년';
+  for(const ln of memoLines){
+    if((ln.includes('독학사 2단계')||ln.includes('독학사2단계'))&&ln.includes('시험')){
+      const my=ln.match(/(\d{2}년)/); if(my) d2year=my[1];
+      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d2month=mm[1];
+      break;
+    }
+  }
+
+  // 학사편입 여부
+  const hasTransfer=memo.includes('편입');
+  const isMedical=major.includes('경영');
+
+  // 자격증 목록
+  let certNames='';
+  if(memo.includes('매경테스트')&&memo.includes('텔레마케팅')&&memo.includes('ADsP')){
+    certNames='매경테스트+텔레마케팅관리사+ADsP';
+  } else {
+    const certs=(p.specials||[]).filter(s=>s.type==='cert').map(s=>s.label||'자격증');
+    certNames=certs.length?certs.join('+'):'';
+  }
+
+  // 학기 일자 문장 생성
+  const semLabels=['첫학기','두번째','세번째','네번째','다섯번째'];
+  let semLines='';
+  semDates.forEach((d,i)=>{ semLines+=`${semLabels[i]||`${i+1}번째`} ${d}\n`; });
+
+  // 독학사 과목수 (specials에서)
+  const dohakSpec=(p.specials||[]).filter(s=>s.type==='dohak');
+  let dohak1Count=0, dohak2Count=0;
+  if(dohakSpec.length>=1){
+    const all1=[...(dohakSpec[0].req||[]),...(dohakSpec[0].elec||[]),...(dohakSpec[0].gen||[]),...(dohakSpec[0].lib||[])];
+    dohak1Count=all1.filter(x=>x&&x.subject).length;
+  }
+  if(dohakSpec.length>=2){
+    const all2=[...(dohakSpec[1].req||[]),...(dohakSpec[1].elec||[]),...(dohakSpec[1].gen||[]),...(dohakSpec[1].lib||[])];
+    dohak2Count=all2.filter(x=>x&&x.subject).length;
+  }
+
+  // 멘트 생성
+  let msg='';
+  msg+=`${name}님이 진행하실 ${major} ${degree}`;
+  if(hasTransfer) msg+=` (${isMedical?'수의대 학사편입':'학사편입'})`;
+  msg+=` 플랜입니다\n`;
+
+  if(isMedical){
+    msg+=`학점은행제로 가장 빠른졸업 가능하고 성적 높게 얻기 용이한 전공은 ${major}이라 대부분 메디컬편입 학생들은 ${major}플랜으로 진행하듯 동일하게 설계해드렸습니다.!\n`;
+  }
+
+  if(semLines){
+    msg+=`온라인강의 학습기간은\n${semLines}`;
+  }
+
+  if(hasTransfer){
+    msg+=`학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, `;
+  }
+
+  if(certNames){
+    const certCount=certNames.split('+').length;
+    msg+=`자격증 ${certCount}개(${certNames})는 ${certDeadline}까지 취득해주시면 됩니다.\n`;
+    msg+=`자격증 난이도는 보통 독학 2주로 암기해서 치루는 과목이고 제가 공부자료 보내드리고 교재도 전부 알려드리니 수월하게 준비하실 수 있을거예요~\n`;
+  }
+
+  if(hasDohak1||hasDohak2){
+    msg+=`*독학사는 대학전공 난이도이지만 교양과목이라 마찬가지로 독학 2주로 합격 가능한 난이도 입니다.\n`;
+    if(hasDohak1){
+      msg+=`1단계 ${d1year} ${d1month} 시험`;
+      if(dohak1Count) msg+=` ${dohak1Count}과목`;
+      msg+=`\n`;
+    }
+    if(hasDohak2){
+      msg+=`2단계 ${d2year} ${d2month} 시험`;
+      if(dohak2Count) msg+=` ${dohak2Count}과목`;
+      msg+=`\n`;
+    }
+  }
+
+  // 모달로 표시
+  const modal=document.getElementById('kakao-msg-modal');
+  if(modal){
+    document.getElementById('kakao-msg-text').value=msg.trim();
+    modal.style.display='flex';
+  } else {
+    navigator.clipboard.writeText(msg.trim()).then(()=>{ showToast('카톡 멘트가 클립보드에 복사됐어요!'); });
+  }
+}
+
 function appendMemoPreset(text){
   if(!curPid) return;
   const p=plans[curPid];
