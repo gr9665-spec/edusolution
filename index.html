@@ -4572,70 +4572,67 @@ function generateKakaoMsg(){
   const memo=p.memo||'';
   const memoLines=memo.split('\n');
 
-  // 학기별 일자 추출
+  // ── 학기 일자 ──
   const semDates=p.semesters.map(s=>s.date).filter(d=>d&&d.trim());
-
-  // 비고에서 자격증 마감일 파싱 (줄 단위로)
-  let certDeadline='27년 10월';
-  for(const ln of memoLines){
-    const m=ln.match(/자격증[^가-힣]*?(\d{2}년\s*\d+월)/);
-    if(m){certDeadline=m[1];break;}
-  }
-
-  // 독학사 단계 유무
-  const hasDohak1=memo.includes('독학사 1단계')||memo.includes('독학사1단계');
-  const hasDohak2=memo.includes('독학사 2단계')||memo.includes('독학사2단계');
-
-  // 독학사 1단계 시험월 파싱
-  let d1month='2월', d1year='27년';
-  for(const ln of memoLines){
-    if((ln.includes('독학사 1단계')||ln.includes('독학사1단계'))&&ln.includes('시험')){
-      const my=ln.match(/(\d{2}년)/); if(my) d1year=my[1];
-      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d1month=mm[1];
-      break;
-    }
-  }
-  // 독학사 2단계 시험월 파싱
-  let d2month='5월', d2year='27년';
-  for(const ln of memoLines){
-    if((ln.includes('독학사 2단계')||ln.includes('독학사2단계'))&&ln.includes('시험')){
-      const my=ln.match(/(\d{2}년)/); if(my) d2year=my[1];
-      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d2month=mm[1];
-      break;
-    }
-  }
-
-  // 학사편입 여부
-  const hasTransfer=memo.includes('편입');
-  const isMedical=major.includes('경영');
-
-  // 자격증 목록
-  let certNames='';
-  if(memo.includes('매경테스트')&&memo.includes('텔레마케팅')&&memo.includes('ADsP')){
-    certNames='매경테스트+텔레마케팅관리사+ADsP';
-  } else {
-    const certs=(p.specials||[]).filter(s=>s.type==='cert').map(s=>s.label||'자격증');
-    certNames=certs.length?certs.join('+'):'';
-  }
-
-  // 학기 일자 문장 생성
   const semLabels=['첫학기','두번째','세번째','네번째','다섯번째'];
   let semLines='';
   semDates.forEach((d,i)=>{ semLines+=`${semLabels[i]||`${i+1}번째`} ${d}\n`; });
 
-  // 독학사 과목수 (specials에서)
-  const dohakSpec=(p.specials||[]).filter(s=>s.type==='dohak');
-  let dohak1Count=0, dohak2Count=0;
-  if(dohakSpec.length>=1){
-    const all1=[...(dohakSpec[0].req||[]),...(dohakSpec[0].elec||[]),...(dohakSpec[0].gen||[]),...(dohakSpec[0].lib||[])];
-    dohak1Count=all1.filter(x=>x&&x.subject).length;
+  // ── 자격증: specials에서 과목명 수집 ──
+  const certSpec=(p.specials||[]).filter(s=>s.type==='cert');
+  const certSubjects=[];
+  certSpec.forEach(sp=>{
+    [...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])].forEach(x=>{
+      if(x&&x.subject&&!certSubjects.includes(x.subject)) certSubjects.push(x.subject);
+    });
+  });
+  const certNames=certSubjects.length?certSubjects.join('+'):'';
+
+  // ── 자격증 마감일: 비고에서 파싱 ──
+  let certDeadline='';
+  for(const ln of memoLines){
+    // "27년 10월까지" 또는 "10월까지" 패턴
+    const m=ln.match(/(\d{2}년\s*\d+월)까지/);
+    if(m){certDeadline=m[1];break;}
   }
-  if(dohakSpec.length>=2){
-    const all2=[...(dohakSpec[1].req||[]),...(dohakSpec[1].elec||[]),...(dohakSpec[1].gen||[]),...(dohakSpec[1].lib||[])];
-    dohak2Count=all2.filter(x=>x&&x.subject).length;
+  if(!certDeadline){
+    // fallback: "27년 10월" 단독
+    for(const ln of memoLines){
+      const m=ln.match(/(\d{2}년\s*\d+월)/);
+      if(m){certDeadline=m[1];break;}
+    }
+  }
+  if(!certDeadline) certDeadline='27년 10월';
+
+  // ── 독학사 유무 및 시험 일정 ──
+  const hasDohak1=memo.includes('독학사 1단계')||memo.includes('독학사1단계');
+  const hasDohak2=memo.includes('독학사 2단계')||memo.includes('독학사2단계');
+  let d1year='27년', d1month='2월', d2year='27년', d2month='5월';
+  for(const ln of memoLines){
+    if(ln.includes('1단계')&&ln.includes('시험')){
+      const my=ln.match(/(\d{2}년)/); if(my) d1year=my[1];
+      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d1month=mm[1];
+    }
+    if(ln.includes('2단계')&&ln.includes('시험')){
+      const my=ln.match(/(\d{2}년)/); if(my) d2year=my[1];
+      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d2month=mm[1];
+    }
   }
 
-  // 멘트 생성
+  // ── 독학사 과목수 ──
+  const dohakSpec=(p.specials||[]).filter(s=>s.type==='dohak');
+  const countSubjs=(sp)=>{
+    const all=[...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])];
+    return all.filter(x=>x&&x.subject).length;
+  };
+  const dohak1Count=dohakSpec.length>=1?countSubjs(dohakSpec[0]):0;
+  const dohak2Count=dohakSpec.length>=2?countSubjs(dohakSpec[1]):0;
+
+  // ── 플랜 특성 ──
+  const hasTransfer=memo.includes('편입');
+  const isMedical=major.includes('경영');
+
+  // ── 멘트 조합 ──
   let msg='';
   msg+=`${name}님이 진행하실 ${major} ${degree}`;
   if(hasTransfer) msg+=` (${isMedical?'수의대 학사편입':'학사편입'})`;
@@ -4646,17 +4643,17 @@ function generateKakaoMsg(){
   }
 
   if(semLines){
-    msg+=`온라인강의 학습기간은\n${semLines}`;
-  }
-
-  if(hasTransfer){
-    msg+=`학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, `;
+    msg+=`\n온라인강의 학습기간은\n${semLines}`;
   }
 
   if(certNames){
-    const certCount=certNames.split('+').length;
+    const certCount=certSubjects.length;
+    if(hasTransfer) msg+=`\n학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, `;
+    else msg+=`\n`;
     msg+=`자격증 ${certCount}개(${certNames})는 ${certDeadline}까지 취득해주시면 됩니다.\n`;
     msg+=`자격증 난이도는 보통 독학 2주로 암기해서 치루는 과목이고 제가 공부자료 보내드리고 교재도 전부 알려드리니 수월하게 준비하실 수 있을거예요~\n`;
+  } else if(hasTransfer){
+    msg+=`\n학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.\n`;
   }
 
   if(hasDohak1||hasDohak2){
@@ -4673,7 +4670,7 @@ function generateKakaoMsg(){
     }
   }
 
-  // 모달로 표시
+  // ── 모달 표시 ──
   const modal=document.getElementById('kakao-msg-modal');
   if(modal){
     document.getElementById('kakao-msg-text').value=msg.trim();
