@@ -591,6 +591,38 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 </div>
 </div>
 
+<!-- 목표 선택 모달 -->
+<div id="kakao-goal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,.18)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <h3 style="margin:0;font-size:15px;display:flex;align-items:center;gap:6px"><i class="ti ti-target" style="color:#2563b0"></i> 목표 유형 선택</h3>
+      <button onclick="document.getElementById('kakao-goal-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">&times;</button>
+    </div>
+    <div style="font-size:11px;color:#999;margin-bottom:14px">학습자의 목표에 맞는 멘트가 자동으로 생성됩니다</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="goal-btn" onclick="generateKakaoMsg('학위취득')" style="text-align:left;padding:12px 14px;border:1.5px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;transition:all .15s">
+        <div style="font-weight:700;margin-bottom:2px">🎓 단순 학위취득</div>
+        <div style="font-size:11px;color:#888">학점은행제로 학위 취득 자체가 목표인 경우</div>
+      </button>
+      <button class="goal-btn" onclick="generateKakaoMsg('편입')" style="text-align:left;padding:12px 14px;border:1.5px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;transition:all .15s">
+        <div style="font-weight:700;margin-bottom:2px">🏫 학사편입 / 전문대편입</div>
+        <div style="font-size:11px;color:#888">대학 편입을 위한 학점 취득이 목표인 경우</div>
+      </button>
+      <button class="goal-btn" onclick="generateKakaoMsg('대졸자전형')" style="text-align:left;padding:12px 14px;border:1.5px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;transition:all .15s">
+        <div style="font-weight:700;margin-bottom:2px">📋 대졸자전형 지원자격</div>
+        <div style="font-size:11px;color:#888">대졸자전형 지원을 위한 학위 취득이 목표인 경우</div>
+      </button>
+      <button class="goal-btn" onclick="generateKakaoMsg('자격증응시')" style="text-align:left;padding:12px 14px;border:1.5px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;transition:all .15s">
+        <div style="font-weight:700;margin-bottom:2px">📝 자격증 응시자격 취득</div>
+        <div style="font-size:11px;color:#888">특정 자격증 응시를 위한 학점/학위가 목표인 경우</div>
+      </button>
+    </div>
+  </div>
+</div>
+<style>
+.goal-btn:hover{border-color:#2563b0 !important;background:#f0f5ff !important;}
+</style>
+
 <!-- 카톡 멘트 모달 -->
 <div id="kakao-msg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:560px;box-shadow:0 8px 40px rgba(0,0,0,.18)">
@@ -4202,7 +4234,7 @@ function renderPlanEditor(p){
     <div class="card">
       <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
         <h3><i class="ti ti-notes"></i>비고</h3>
-        <button class="btn btn-primary btn-sm" style="font-size:11px;gap:4px" onclick="generateKakaoMsg()">
+        <button class="btn btn-primary btn-sm" style="font-size:11px;gap:4px" onclick="document.getElementById('kakao-goal-modal').style.display='flex'">
           <i class="ti ti-message-circle"></i> 카톡 멘트 자동 생성
         </button>
       </div>
@@ -4564,7 +4596,10 @@ function buildDegreeChecker(p,t,dr){
     </div>
   </div>`;
 }
-function generateKakaoMsg(){
+function generateKakaoMsg(goal){
+  // 목표 선택 모달 닫기
+  document.getElementById('kakao-goal-modal').style.display='none';
+
   if(!curPid) return;
   const p=plans[curPid];
   const name=p.clientName||'고객';
@@ -4572,25 +4607,21 @@ function generateKakaoMsg(){
   const degree=p.degree||'학사';
   const memo=p.memo||'';
   const memoLines=memo.split('\n');
-
-  const missing=[]; // 누락 항목 수집
+  const missing=[];
 
   // ── 학기 일자 ──
   const semDates=p.semesters.map(s=>({name:s.name||'',date:s.date||''}));
   const semLabels=['첫학기','두번째','세번째','네번째','다섯번째'];
   let semLines='';
-  let missingDateSems=[];
+  const missingDateSems=[];
   semDates.forEach((s,i)=>{
-    if(s.date.trim()){
-      semLines+=`${semLabels[i]||`${i+1}번째`} ${s.date}\n`;
-    } else {
-      missingDateSems.push(s.name||`${i+1}번째 학기`);
-    }
+    if(s.date.trim()) semLines+=`${semLabels[i]||`${i+1}번째`} ${s.date}\n`;
+    else missingDateSems.push(s.name||`${i+1}번째 학기`);
   });
   if(!semDates.length) missing.push('❌ 학기가 없음');
   if(missingDateSems.length) missing.push(`⚠️ 일자 미입력 학기: ${missingDateSems.join(', ')}`);
 
-  // ── 자격증: specials에서 과목명 수집 ──
+  // ── 자격증 과목명 (specials) ──
   const certSpec=(p.specials||[]).filter(s=>s.type==='cert');
   const certSubjects=[];
   certSpec.forEach(sp=>{
@@ -4598,10 +4629,10 @@ function generateKakaoMsg(){
       if(x&&x.subject&&!certSubjects.includes(x.subject)) certSubjects.push(x.subject);
     });
   });
-  const certNames=certSubjects.length?certSubjects.join(', '):'';
+  const certNames=certSubjects.join(', ');
   if(certSpec.length&&!certSubjects.length) missing.push('⚠️ 자격증 행 있지만 과목명 미입력');
 
-  // ── 자격증 마감일: 비고에서 파싱 (XX년 XX월까지) ──
+  // ── 자격증 마감일 (비고) ──
   let certDeadline='';
   for(const ln of memoLines){
     const m=ln.match(/(\d{2}년\s*\d+월)까지/);
@@ -4613,104 +4644,118 @@ function generateKakaoMsg(){
       if(m){certDeadline=m[1];break;}
     }
   }
-  if(certNames&&!certDeadline) missing.push('⚠️ 자격증 마감일 미입력 (비고에 "XX년 XX월까지" 형식 추가 필요)');
+  if(certNames&&!certDeadline) missing.push('⚠️ 자격증 마감일 미입력 (비고에 "XX년 XX월까지" 필요)');
   if(!certDeadline) certDeadline='__년 __월';
 
-  // ── 독학사: specials 데이터 기준 ──
+  // ── 독학사 (specials 기준, 없으면 비고 기준) ──
   const dohakSpec=(p.specials||[]).filter(s=>s.type==='dohak');
   const hasDohakInPlan=dohakSpec.length>0;
-  // 비고에서도 체크 (specials 없어도 비고에 입력한 경우)
-  const hasDohakInMemo=memo.includes('독학사 1단계')||memo.includes('독학사1단계')||
-                        memo.includes('독학사 2단계')||memo.includes('독학사2단계');
-  const hasDohak=hasDohakInPlan||hasDohakInMemo;
+  const hasDohak1=hasDohakInPlan?dohakSpec.length>=1:(memo.includes('독학사 1단계')||memo.includes('독학사1단계'));
+  const hasDohak2=hasDohakInPlan?dohakSpec.length>=2:(memo.includes('독학사 2단계')||memo.includes('독학사2단계'));
+  const hasDohak=hasDohak1||hasDohak2;
 
-  // 독학사 단계: specials 개수 기준
-  const hasDohak1=hasDohakInPlan?(dohakSpec.length>=1):
-                  (memo.includes('독학사 1단계')||memo.includes('독학사1단계'));
-  const hasDohak2=hasDohakInPlan?(dohakSpec.length>=2):
-                  (memo.includes('독학사 2단계')||memo.includes('독학사2단계'));
-
-  // 독학사 시험 일정: 비고에서 파싱
-  let d1year='27년', d1month='2월', d2year='27년', d2month='5월';
-  let d1found=false, d2found=false;
+  let d1year='27년',d1month='2월',d2year='27년',d2month='5월';
+  let d1found=false,d2found=false;
   for(const ln of memoLines){
     if(ln.includes('1단계')&&ln.includes('시험')){
-      const my=ln.match(/(\d{2}년)/); if(my) d1year=my[1];
-      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d1month=mm[1];
+      const my=ln.match(/(\d{2}년)/);if(my)d1year=my[1];
+      const mm=ln.match(/(\d+월)\s*시험/);if(mm)d1month=mm[1];
       d1found=true;
     }
     if(ln.includes('2단계')&&ln.includes('시험')){
-      const my=ln.match(/(\d{2}년)/); if(my) d2year=my[1];
-      const mm=ln.match(/(\d+월)\s*시험/); if(mm) d2month=mm[1];
+      const my=ln.match(/(\d{2}년)/);if(my)d2year=my[1];
+      const mm=ln.match(/(\d+월)\s*시험/);if(mm)d2month=mm[1];
       d2found=true;
     }
   }
   if(hasDohak1&&!d1found) missing.push('⚠️ 독학사 1단계 시험일정 미입력 (비고 프리셋 추가 필요)');
   if(hasDohak2&&!d2found) missing.push('⚠️ 독학사 2단계 시험일정 미입력 (비고 프리셋 추가 필요)');
 
-  // 독학사 과목수
   const countSubjs=(sp)=>[...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])].filter(x=>x&&x.subject).length;
   const dohak1Count=dohakSpec.length>=1?countSubjs(dohakSpec[0]):0;
   const dohak2Count=dohakSpec.length>=2?countSubjs(dohakSpec[1]):0;
 
-  // ── 학사편입, 경영 패턴 ──
-  const hasTransfer=memo.includes('편입');
-  const isMedical=major.includes('경영');
-
-  // ── 멘트 조합 ──
-  let msg='';
-  msg+=`${name}님이 진행하실 ${major} ${degree}`;
-  if(hasTransfer) msg+=` (${isMedical?'수의대 학사편입':'학사편입'})`;
-  msg+=` 플랜입니다\n`;
-
-  if(isMedical){
-    msg+=`학점은행제로 가장 빠른졸업 가능하고 성적 높게 얻기 용이한 전공은 ${major}이라 대부분 메디컬편입 학생들은 ${major}플랜으로 진행하듯 동일하게 설계해드렸습니다.!\n`;
+  // ── 학위신청/수여일 (비고) ──
+  let degreeDate='';
+  for(const ln of memoLines){
+    if(ln.includes('학위신청')||ln.includes('학위수여')){degreeDate=ln.trim();break;}
   }
 
-  if(semLines){
-    msg+=`\n온라인강의 학습기간은\n${semLines}`;
-  }
+  // ── 공통 블록 빌더 ──
+  const buildSemBlock=()=>semLines?`온라인강의 학습기간은\n${semLines}`:'';
+  const buildCertBlock=(prefix='')=>{
+    if(!certNames) return '';
+    let s=prefix?prefix+'\n':'';
+    s+=`자격증 ${certSubjects.length}개(${certNames})는 ${certDeadline}까지 취득해주시면 됩니다.\n`;
+    s+=`자격증 난이도는 보통 독학 2주로 암기해서 치루는 과목이고 제가 공부자료 보내드리고 교재도 전부 알려드리니 수월하게 준비하실 수 있을거예요~`;
+    return s;
+  };
+  const buildDohakBlock=()=>{
+    if(!hasDohak) return '';
+    let s='*독학사는 대학전공 난이도이지만 교양과목이라 마찬가지로 독학 2주로 합격 가능한 난이도 입니다.\n';
+    if(hasDohak1){s+=`1단계 ${d1year} ${d1month} 시험`;if(dohak1Count)s+=` ${dohak1Count}과목`;s+='\n';}
+    if(hasDohak2){s+=`2단계 ${d2year} ${d2month} 시험`;if(dohak2Count)s+=` ${dohak2Count}과목`;s+='\n';}
+    return s.trim();
+  };
 
-  if(certNames){
-    const certCount=certSubjects.length;
-    if(hasTransfer) msg+=`\n학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, `;
-    else msg+=`\n`;
-    msg+=`자격증 ${certCount}개(${certNames})는 ${certDeadline}까지 취득해주시면 됩니다.\n`;
-    msg+=`자격증 난이도는 보통 독학 2주로 암기해서 치루는 과목이고 제가 공부자료 보내드리고 교재도 전부 알려드리니 수월하게 준비하실 수 있을거예요~\n`;
-  } else if(hasTransfer){
-    msg+=`\n학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.\n`;
-  }
+  // ── 목표별 멘트 템플릿 ──
+  let parts=[];
 
-  if(hasDohak){
-    msg+=`*독학사는 대학전공 난이도이지만 교양과목이라 마찬가지로 독학 2주로 합격 가능한 난이도 입니다.\n`;
-    if(hasDohak1){
-      msg+=`1단계 ${d1year} ${d1month} 시험`;
-      if(dohak1Count) msg+=` ${dohak1Count}과목`;
-      msg+=`\n`;
+  if(goal==='학위취득'){
+    parts.push(`${name}님이 진행하실 ${major} ${degree} 플랜입니다`);
+    if(semLines) parts.push(buildSemBlock());
+    if(certNames) parts.push(buildCertBlock());
+    if(hasDohak) parts.push(buildDohakBlock());
+    if(degreeDate) parts.push(degreeDate);
+
+  } else if(goal==='편입'){
+    // 편입 종류 감지 (비고에서)
+    let transferType='학사편입';
+    if(memo.includes('수의대')||memo.includes('메디컬')) transferType='수의대 학사편입';
+    else if(memo.includes('전문대')) transferType='전문대편입';
+    else if(memo.includes('학사편입')) transferType='학사편입';
+
+    parts.push(`${name}님이 진행하실 ${major} ${degree} (${transferType}) 플랜입니다`);
+    if(major.includes('경영')){
+      parts.push(`학점은행제로 가장 빠른졸업 가능하고 성적 높게 얻기 용이한 전공은 ${major}이라 대부분 메디컬편입 학생들은 ${major}플랜으로 진행하듯 동일하게 설계해드렸습니다.!`);
     }
-    if(hasDohak2){
-      msg+=`2단계 ${d2year} ${d2month} 시험`;
-      if(dohak2Count) msg+=` ${dohak2Count}과목`;
-      msg+=`\n`;
-    }
+    if(semLines) parts.push(buildSemBlock());
+    if(certNames) parts.push(buildCertBlock(`학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니,`));
+    else parts.push('학사편입으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.');
+    if(hasDohak) parts.push(buildDohakBlock());
+
+  } else if(goal==='대졸자전형'){
+    parts.push(`${name}님이 진행하실 ${major} ${degree} 플랜입니다`);
+    parts.push(`대졸자전형 지원자격 취득을 목표로 설계해드렸습니다.`);
+    if(semLines) parts.push(buildSemBlock());
+    if(certNames) parts.push(buildCertBlock());
+    if(hasDohak) parts.push(buildDohakBlock());
+    if(degreeDate) parts.push(degreeDate);
+
+  } else if(goal==='자격증응시'){
+    parts.push(`${name}님이 진행하실 ${major} ${degree} 플랜입니다`);
+    parts.push(`자격증 응시자격 취득을 목표로 설계해드렸습니다.`);
+    if(semLines) parts.push(buildSemBlock());
+    if(certNames) parts.push(buildCertBlock());
+    if(hasDohak) parts.push(buildDohakBlock());
+    if(degreeDate) parts.push(degreeDate);
   }
 
-  // ── 누락 항목 경고 표시 ──
-  if(missing.length){
-    msg+=`\n───────────────\n⚠️ 멘트 미완성 항목:\n${missing.join('\n')}`;
-  }
+  // 누락 항목
+  if(missing.length) parts.push(`───────────────\n⚠️ 멘트 미완성 항목:\n${missing.join('\n')}`);
+
+  const msg=parts.filter(Boolean).join('\n\n');
 
   // ── 모달 표시 ──
   const modal=document.getElementById('kakao-msg-modal');
   if(modal){
     document.getElementById('kakao-msg-text').value=msg.trim();
-    // 누락 있으면 경고 배너 표시
     const warn=document.getElementById('kakao-msg-warn');
-    if(warn) warn.style.display=missing.length?'block':'none';
-    if(warn&&missing.length) warn.innerHTML='<i class="ti ti-alert-triangle"></i> 아래 내용을 확인하고 직접 수정 후 복사하세요';
+    if(warn){
+      warn.style.display=missing.length?'block':'none';
+      if(missing.length) warn.innerHTML='<i class="ti ti-alert-triangle"></i> 아래 내용을 확인하고 직접 수정 후 복사하세요';
+    }
     modal.style.display='flex';
-  } else {
-    navigator.clipboard.writeText(msg.trim()).then(()=>{ showToast('카톡 멘트가 클립보드에 복사됐어요!'); });
   }
 }
 
