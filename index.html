@@ -2785,7 +2785,13 @@ function renderDashboard(){
     '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
     '중간고사':'#c0392b','중간고사마감':'#9b1515','기말고사':'#c0392b','기말고사마감':'#9b1515','기타':'#555'
   };
-  const tomorrowSchedules=schedules.filter(s=>s.date===tomorrowStr).sort((a,b)=>a.learnerName.localeCompare(b.learnerName));
+  const TYPE_ORDER_DASH={'개강일':0,'쪽지시험':1,'쪽지시험 1차':1,'쪽지시험 2차':1,'과제':2,'과제 1차':2,'과제 2차':2,'토론':3,'토론 1차':3,'토론 2차':3,'중간고사':4,'중간고사 1차':4,'기말고사':5,'기말고사 1차':5,'기말고사 2차':5,'기타':6};
+  const typeOrderDash=(t)=>{
+    if(TYPE_ORDER_DASH[t]!==undefined) return TYPE_ORDER_DASH[t];
+    for(const [k,v] of Object.entries(TYPE_ORDER_DASH)){if(t.startsWith(k.replace(/ \d차$/,'')))return v;}
+    return 9;
+  };
+  const tomorrowSchedules=schedules.filter(s=>s.date===tomorrowStr).sort((a,b)=>typeOrderDash(a.type)-typeOrderDash(b.type)||a.learnerName.localeCompare(b.learnerName));
   document.getElementById('today-schedule').innerHTML=tomorrowSchedules.length
     ?tomorrowSchedules.map(s=>`
       <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[s.type]||'#999'}">
