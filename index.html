@@ -385,8 +385,15 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <button class="btn btn-sm" style="color:var(--red);flex-shrink:0" onclick="deleteScheduleByName()"><i class="ti ti-trash"></i> 삭제</button>
   </div>
   <div class="card">
-    <div class="card-head"><h3><i class="ti ti-calendar-event"></i>다가오는 일정</h3></div>
+    <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
+      <h3><i class="ti ti-calendar-event"></i>다가오는 일정</h3>
+      <button class="btn btn-sm" id="past-toggle-btn" onclick="togglePastSchedule()"><i class="ti ti-history"></i> 지난 일정 보기</button>
+    </div>
     <div id="upcoming-schedule"><div class="empty"><i class="ti ti-calendar"></i>등록된 일정이 없어요</div></div>
+  </div>
+  <div class="card" id="past-schedule-card" style="display:none;margin-top:14px">
+    <div class="card-head"><h3><i class="ti ti-history"></i>지난 일정 (최근 30일)</h3></div>
+    <div id="past-schedule"><div class="empty"><i class="ti ti-calendar"></i>지난 일정이 없어요</div></div>
   </div>
 </div>
 
@@ -1080,6 +1087,28 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <!-- 업로드된 이미지 미리보기 -->
     <div id="img-preview-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
     <div id="img-upload-status" style="font-size:11px;color:var(--text2);margin-top:4px"></div>
+  </div>
+
+  <!-- 학사일정 동시 등록 -->
+  <div style="margin-top:10px;border:1px solid var(--border);border-radius:var(--r);padding:12px;background:var(--bg2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+        <i class="ti ti-calendar-plus" style="font-size:14px"></i> 학사일정 같이 등록하기
+        <span style="font-size:11px;font-weight:400;color:var(--text2)">(선택, 저장 시 학사일정 탭에도 자동 등록)</span>
+      </div>
+      <button type="button" class="btn btn-sm" onclick="addLearnerSchedRow()"><i class="ti ti-plus"></i> 일정 직접 추가</button>
+    </div>
+    <!-- 기존 기수 일정 불러오기 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r)">
+      <i class="ti ti-copy" style="font-size:14px;color:var(--navy)"></i>
+      <span style="font-size:12px;color:var(--text2);flex-shrink:0">기존 기수 일정 불러오기:</span>
+      <select id="learner-copy-kisu-sel" style="flex:1;font-size:12px">
+        <option value="">-- 기수 선택 --</option>
+      </select>
+      <button type="button" class="btn btn-sm btn-primary" style="font-size:11px;flex-shrink:0" onclick="applyLearnerCopyKisu()"><i class="ti ti-check"></i> 불러오기</button>
+    </div>
+    <div id="learner-copy-kisu-preview" style="font-size:11px;color:var(--text2);margin-bottom:8px"></div>
+    <div id="learner-sched-rows" style="display:flex;flex-direction:column;gap:6px"></div>
   </div>
 
   <div class="fa">
@@ -2441,11 +2470,103 @@ function toggleEduCustom(){
   custom.style.display=sel.value==='기타'?'block':'none';
   if(sel.value!=='기타') custom.value='';
 }
+function populateLearnerKisuOptions(){
+  const sel=document.getElementById('learner-copy-kisu-sel');
+  if(!sel) return;
+  const kisuGroups={};
+  schedules.forEach(s=>{
+    const note=s.note||'';
+    const key=note.split('|')[0].trim();
+    if(!key) return;
+    if(!kisuGroups[key]) kisuGroups[key]=[];
+    kisuGroups[key].push(s);
+  });
+  const opts=Object.entries(kisuGroups)
+    .sort((a,b)=>b[1].length-a[1].length)
+    .map(([k,v])=>`<option value="${k}">${k} (${v.length}건)</option>`).join('');
+  sel.innerHTML='<option value="">-- 기수 선택 --</option>'+opts;
+  const prev=document.getElementById('learner-copy-kisu-preview');
+  if(prev) prev.textContent='';
+}
+function applyLearnerCopyKisu(){
+  const key=document.getElementById('learner-copy-kisu-sel').value;
+  const prev=document.getElementById('learner-copy-kisu-preview');
+  if(!key){ if(prev){prev.textContent='기수를 선택해주세요';prev.style.color='var(--red)';} return; }
+  const items=schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
+  // 마감 포함 전체 유형+날짜 유니크 (학습자는 개별 일정이므로 마감도 그대로 행으로 추가)
+  const unique=[...new Map(items.map(s=>[s.type+'|'+s.date, s])).values()]
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  if(!unique.length){ if(prev){prev.textContent='해당 기수에 등록된 일정이 없어요';prev.style.color='var(--red)';} return; }
+
+  const wrap=document.getElementById('learner-sched-rows');
+  wrap.innerHTML='';
+  unique.forEach(s=>addLearnerSchedRow(s.type, s.date));
+
+  if(prev){
+    const preview=unique.map(s=>`${s.type}(${s.date.slice(5)})`).join(' · ');
+    prev.innerHTML=`✓ ${unique.length}개 일정 불러왔어요: ${preview}<br><span style="color:var(--text2)">날짜는 학습자 시작일에 맞게 직접 조정해주세요</span>`;
+    prev.style.color='var(--green)';
+  }
+}
+function addLearnerSchedRow(presetType,presetDate){
+  const wrap=document.getElementById('learner-sched-rows');
+  const rowId='sr'+Date.now()+Math.floor(Math.random()*1000);
+  const row=document.createElement('div');
+  row.id=rowId;
+  row.style.cssText='display:flex;gap:6px;align-items:center';
+  row.innerHTML=`
+    <select class="ls-type" style="flex:1;font-size:12px;padding:5px 7px">
+      <option${presetType==='개강일'?' selected':''}>개강일</option>
+      <option${presetType==='쪽지시험'?' selected':''}>쪽지시험</option>
+      <option${presetType==='쪽지시험마감'?' selected':''}>쪽지시험마감</option>
+      <option${presetType==='토론'?' selected':''}>토론</option>
+      <option${presetType==='토론마감'?' selected':''}>토론마감</option>
+      <option${presetType==='과제'?' selected':''}>과제</option>
+      <option${presetType==='과제마감'?' selected':''}>과제마감</option>
+      <option${presetType==='중간고사'?' selected':''}>중간고사</option>
+      <option${presetType==='중간고사마감'?' selected':''}>중간고사마감</option>
+      <option${presetType==='기말고사'?' selected':''}>기말고사</option>
+      <option${presetType==='기말고사마감'?' selected':''}>기말고사마감</option>
+      <option${presetType==='기타'?' selected':''}>기타</option>
+    </select>
+    <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;font-size:12px;padding:5px 7px">
+    <button type="button" class="btn btn-icon" style="width:26px;height:26px;color:var(--red)" onclick="document.getElementById('${rowId}').remove()"><i class="ti ti-x" style="font-size:12px"></i></button>
+  `;
+  wrap.appendChild(row);
+}
+function collectLearnerSchedRows(){
+  const rows=document.querySelectorAll('#learner-sched-rows > div');
+  const result=[];
+  rows.forEach(r=>{
+    const type=r.querySelector('.ls-type').value;
+    const date=r.querySelector('.ls-date').value;
+    if(date) result.push({type,date});
+  });
+  return result;
+}
+function showToast(msg){
+  let t=document.getElementById('app-toast');
+  if(!t){
+    t=document.createElement('div');
+    t.id='app-toast';
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,.25);opacity:0;transition:opacity .25s';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';
+  clearTimeout(t._hideTimer);
+  t._hideTimer=setTimeout(()=>{t.style.opacity='0';},2200);
+}
 function openLearnerModal(idx){
   editIdx=idx!==undefined?idx:-1;
   document.getElementById('learner-modal-title').textContent=editIdx>=0?'학습자 수정':'학습자 추가';
   // 이미지 초기화
   _pendingImgs=[];
+  // 일정 입력 행 초기화 (신규일 때만 빈 행 1개 기본 제공)
+  const schedWrap=document.getElementById('learner-sched-rows');
+  if(schedWrap) schedWrap.innerHTML='';
+  if(editIdx<0 && schedWrap) addLearnerSchedRow('개강일');
+  populateLearnerKisuOptions();
   if(editIdx>=0){
     const l=learners[editIdx];
     ['name','id','phone','email','kisu','start','year','month','paydate','code','approve','credit','unitprice','type','course','note']
@@ -2517,7 +2638,17 @@ async function saveLearner(){
   await uploadPendingImgs(name);
   l.images=_pendingImgs.filter(i=>i.downloadUrl).map(i=>({id:i.id,url:i.downloadUrl,path:i.storagePath}));
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
-  save();closeModal('modal-learner');renderLearners();renderDashboard();
+
+  // 학사일정 동시 등록
+  const schedRows=collectLearnerSchedRows();
+  let schedAddedCount=0;
+  schedRows.forEach(sr=>{
+    schedules.push({id:Date.now()+''+Math.floor(Math.random()*1000),learnerName:name,type:sr.type,date:sr.date,sent:'false',note:''});
+    schedAddedCount++;
+  });
+
+  save();closeModal('modal-learner');renderLearners();renderDashboard();renderSchedule();
+  if(schedAddedCount) showToast(`학습자 저장 + 학사일정 ${schedAddedCount}건 등록 완료!`);
 }
 
 let pendingDeleteCb=null;
@@ -3054,62 +3185,42 @@ function markSent(id){
   }
 }
 
-function renderSchedule(){
-  const now=new Date(); const todayStr=now.toISOString().split('T')[0];
-
-  const TYPE_ORDER={'개강일':0,'쪽지시험':1,'쪽지시험 1차':1,'쪽지시험 2차':1,'과제':2,'과제 1차':2,'과제 2차':2,'토론':3,'토론 1차':3,'토론 2차':3,'중간고사':4,'중간고사 1차':4,'기말고사':5,'기말고사 1차':5,'기말고사 2차':5,'기타':6};
-  const typeOrder=(t)=>{
-    if(TYPE_ORDER[t]!==undefined) return TYPE_ORDER[t];
-    for(const [k,v] of Object.entries(TYPE_ORDER)){if(t.startsWith(k.replace(/ \d차$/,'')))return v;}
-    return 9;
-  };
-
-  // 날짜별 그룹핑 — 마감 제외, 모든 일정 당일 이후 표시
-  const upcoming=schedules.filter(s=>{
-    if(s.type.includes('마감')) return false;
-    return s.date>=todayStr;
-  }).sort((a,b)=>a.date.localeCompare(b.date)||typeOrder(a.type)-typeOrder(b.type)||a.learnerName.localeCompare(b.learnerName));
-
-  // 날짜별로 묶기
-  const byDate={};
-  upcoming.forEach(s=>{
-    if(!byDate[s.date]) byDate[s.date]=[];
-    byDate[s.date].push(s);
-  });
-
-  const typeColor={
-    '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
-    '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
-    '중간고사':'#c0392b','중간고사마감':'#9b1515','기말고사':'#c0392b','기말고사마감':'#9b1515',
-    '기타':'#555'
-  };
-
-  const formatDate=(d)=>{
-    const dt=new Date(d); const days=['일','월','화','수','목','금','토'];
-    const m=dt.getMonth()+1, dd=dt.getDate(), dw=days[dt.getDay()];
-    const isToday=d===todayStr;
-    const diff=Math.round((new Date(d)-now)/(1000*60*60*24));
-    const badge=isToday?'<span style="background:#c0392b;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">오늘</span>'
-      :diff===1?'<span style="background:#b45309;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">내일</span>':'';
-    return `${m}/${dd}(${dw})${badge}`;
-  };
-
-  const html=Object.entries(byDate).map(([date,items])=>{
+const TYPE_ORDER={'개강일':0,'쪽지시험':1,'쪽지시험 1차':1,'쪽지시험 2차':1,'과제':2,'과제 1차':2,'과제 2차':2,'토론':3,'토론 1차':3,'토론 2차':3,'중간고사':4,'중간고사 1차':4,'기말고사':5,'기말고사 1차':5,'기말고사 2차':5,'기타':6};
+function typeOrder(t){
+  if(TYPE_ORDER[t]!==undefined) return TYPE_ORDER[t];
+  for(const [k,v] of Object.entries(TYPE_ORDER)){if(t.startsWith(k.replace(/ \d차$/,'')))return v;}
+  return 9;
+}
+const SCHED_TYPE_COLOR={
+  '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
+  '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
+  '중간고사':'#c0392b','중간고사마감':'#9b1515','기말고사':'#c0392b','기말고사마감':'#9b1515',
+  '기타':'#555'
+};
+function formatScheduleDate(d, todayStr, now){
+  const dt=new Date(d); const days=['일','월','화','수','목','금','토'];
+  const m=dt.getMonth()+1, dd=dt.getDate(), dw=days[dt.getDay()];
+  const isToday=d===todayStr;
+  const diff=Math.round((new Date(d)-now)/(1000*60*60*24));
+  const badge=isToday?'<span style="background:#c0392b;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">오늘</span>'
+    :diff===1?'<span style="background:#b45309;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">내일</span>':'';
+  return `${m}/${dd}(${dw})${badge}`;
+}
+function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
+  return Object.entries(byDate).map(([date,items])=>{
     const isToday=date===todayStr;
     return `<div style="margin-bottom:12px">
-      <!-- 날짜 헤더 -->
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:5px 10px;background:${isToday?'var(--navy)':'var(--bg2)'};border-radius:var(--r)">
         <i class="ti ti-calendar-event" style="font-size:13px;color:${isToday?'#fff':'var(--text2)'}"></i>
-        <span style="font-size:13px;font-weight:700;color:${isToday?'#fff':'var(--text)'}">${formatDate(date)}</span>
+        <span style="font-size:13px;font-weight:700;color:${isToday?'#fff':'var(--text)'}">${formatScheduleDate(date,todayStr,now)}</span>
         <span style="font-size:11px;color:${isToday?'rgba(255,255,255,.65)':'var(--text3)'}">${items.length}건</span>
       </div>
-      <!-- 해당 날짜 일정들 -->
       <div style="display:flex;flex-direction:column;gap:4px;padding-left:8px">
         ${items.map(s=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${typeColor[s.type]||'#999'}">
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${SCHED_TYPE_COLOR[s.type]||'#999'};${isPast?'opacity:.65':''}">
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
-              <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
               ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note}</div>`:''}
             </div>
@@ -3123,10 +3234,49 @@ function renderSchedule(){
       </div>
     </div>`;
   }).join('');
+}
+function renderSchedule(){
+  const now=new Date(); const todayStr=now.toISOString().split('T')[0];
+
+  // 다가오는 일정 — 마감 제외, 당일 이후
+  const upcoming=schedules.filter(s=>{
+    if(s.type.includes('마감')) return false;
+    return s.date>=todayStr;
+  }).sort((a,b)=>a.date.localeCompare(b.date)||typeOrder(a.type)-typeOrder(b.type)||a.learnerName.localeCompare(b.learnerName));
+
+  const byDate={};
+  upcoming.forEach(s=>{ if(!byDate[s.date]) byDate[s.date]=[]; byDate[s.date].push(s); });
 
   document.getElementById('upcoming-schedule').innerHTML = upcoming.length
-    ? html
+    ? renderScheduleGroupHtml(byDate, todayStr, now, false)
     : '<div class="empty"><i class="ti ti-calendar"></i>다가오는 일정 없음</div>';
+
+  // 지난 일정 (토글 켜져 있을 때만 다시 그림)
+  const pastCard=document.getElementById('past-schedule-card');
+  if(pastCard && pastCard.style.display!=='none') renderPastSchedule(todayStr, now);
+}
+function renderPastSchedule(todayStr, now){
+  todayStr=todayStr||new Date().toISOString().split('T')[0];
+  now=now||new Date();
+  const cutoff=new Date(now.getTime()-30*86400000).toISOString().split('T')[0];
+  const past=schedules.filter(s=>s.date<todayStr && s.date>=cutoff)
+    .sort((a,b)=>b.date.localeCompare(a.date)||typeOrder(a.type)-typeOrder(b.type)||a.learnerName.localeCompare(b.learnerName));
+  const byDate={};
+  past.forEach(s=>{ if(!byDate[s.date]) byDate[s.date]=[]; byDate[s.date].push(s); });
+  const el=document.getElementById('past-schedule');
+  if(!el) return;
+  el.innerHTML = past.length
+    ? renderScheduleGroupHtml(byDate, todayStr, now, true)
+    : '<div class="empty"><i class="ti ti-calendar"></i>지난 일정이 없어요</div>';
+}
+function togglePastSchedule(){
+  const card=document.getElementById('past-schedule-card');
+  const btn=document.getElementById('past-toggle-btn');
+  if(!card) return;
+  const show=card.style.display==='none';
+  card.style.display=show?'block':'none';
+  if(btn) btn.innerHTML=show?'<i class="ti ti-eye-off"></i> 지난 일정 숨기기':'<i class="ti ti-history"></i> 지난 일정 보기';
+  if(show) renderPastSchedule();
 }
 function deleteSchedule(id){
   const s=schedules.find(x=>x.id===id);
