@@ -387,14 +387,21 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="card">
     <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
       <h3><i class="ti ti-calendar-event"></i>다가오는 일정</h3>
-      <button class="btn btn-sm" id="past-toggle-btn" onclick="togglePastSchedule()"><i class="ti ti-history"></i> 지난 일정 보기</button>
+      <button class="btn btn-sm" onclick="togglePastSchedule()"><i class="ti ti-history"></i> 지난 일정 보기</button>
     </div>
     <div id="upcoming-schedule"><div class="empty"><i class="ti ti-calendar"></i>등록된 일정이 없어요</div></div>
   </div>
-  <div class="card" id="past-schedule-card" style="display:none;margin-top:14px">
-    <div class="card-head"><h3><i class="ti ti-history"></i>지난 일정 (최근 30일)</h3></div>
-    <div id="past-schedule"><div class="empty"><i class="ti ti-calendar"></i>지난 일정이 없어요</div></div>
+</div>
+
+<!-- 지난 일정 모달 -->
+<div class="overlay" id="modal-past-schedule">
+<div class="modal" style="max-width:560px">
+  <div class="modal-head">
+    <h2><i class="ti ti-history" style="font-size:16px;vertical-align:-2px"></i> 지난 일정 (최근 30일)</h2>
+    <button class="btn btn-icon" onclick="closeModal('modal-past-schedule')"><i class="ti ti-x"></i></button>
   </div>
+  <div id="past-schedule" style="max-height:60vh;overflow-y:auto"><div class="empty"><i class="ti ti-calendar"></i>지난 일정이 없어요</div></div>
+</div>
 </div>
 
 <!-- 매출 관리 -->
@@ -1548,6 +1555,8 @@ function saveMemos(){
 }
 
 function initMemoTab(){
+  // 탭 진입 시 접힘 상태 초기화 → 항상 펼쳐서 보임 (모바일 대응)
+  window._memoCatCollapsed = {};
   renderMemoList();
 }
 
@@ -1581,9 +1590,9 @@ function renderMemoList(){
 
   // 카테고리별 접힘 상태 — 기본값 접힘
   if(!window._memoCatCollapsed) window._memoCatCollapsed={};
-  // 새로 생긴 카테고리는 기본 접힘으로
+  // 새로 생긴 카테고리는 기본 펼침으로 (모바일에서 텅 빈 것처럼 보이는 문제 방지)
   Object.keys(groups).forEach(c=>{
-    if(window._memoCatCollapsed[c]===undefined) window._memoCatCollapsed[c]=true;
+    if(window._memoCatCollapsed[c]===undefined) window._memoCatCollapsed[c]=false;
   });
 
   el.innerHTML=Object.entries(groups).map(([c,items])=>{
@@ -3251,9 +3260,9 @@ function renderSchedule(){
     ? renderScheduleGroupHtml(byDate, todayStr, now, false)
     : '<div class="empty"><i class="ti ti-calendar"></i>다가오는 일정 없음</div>';
 
-  // 지난 일정 (토글 켜져 있을 때만 다시 그림)
-  const pastCard=document.getElementById('past-schedule-card');
-  if(pastCard && pastCard.style.display!=='none') renderPastSchedule(todayStr, now);
+  // 지난 일정 모달이 열려 있는 동안 변경사항 생기면 같이 갱신
+  const pastModal=document.getElementById('modal-past-schedule');
+  if(pastModal && pastModal.classList.contains('open')) renderPastSchedule(todayStr, now);
 }
 function renderPastSchedule(todayStr, now){
   todayStr=todayStr||new Date().toISOString().split('T')[0];
@@ -3270,13 +3279,8 @@ function renderPastSchedule(todayStr, now){
     : '<div class="empty"><i class="ti ti-calendar"></i>지난 일정이 없어요</div>';
 }
 function togglePastSchedule(){
-  const card=document.getElementById('past-schedule-card');
-  const btn=document.getElementById('past-toggle-btn');
-  if(!card) return;
-  const show=card.style.display==='none';
-  card.style.display=show?'block':'none';
-  if(btn) btn.innerHTML=show?'<i class="ti ti-eye-off"></i> 지난 일정 숨기기':'<i class="ti ti-history"></i> 지난 일정 보기';
-  if(show) renderPastSchedule();
+  renderPastSchedule();
+  openModal('modal-past-schedule');
 }
 function deleteSchedule(id){
   const s=schedules.find(x=>x.id===id);
