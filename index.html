@@ -1555,8 +1555,11 @@ function saveMemos(){
 }
 
 function initMemoTab(){
-  // 탭 진입 시 접힘 상태 초기화 → 항상 펼쳐서 보임 (모바일 대응)
-  window._memoCatCollapsed = {};
+  // 접힘 상태 localStorage에서 복원
+  try {
+    const saved = localStorage.getItem('hk_memo_collapsed');
+    window._memoCatCollapsed = saved ? JSON.parse(saved) : {};
+  } catch(e){ window._memoCatCollapsed = {}; }
   renderMemoList();
 }
 
@@ -1590,9 +1593,9 @@ function renderMemoList(){
 
   // 카테고리별 접힘 상태 — 기본값 접힘
   if(!window._memoCatCollapsed) window._memoCatCollapsed={};
-  // 새로 생긴 카테고리는 기본 펼침으로 (모바일에서 텅 빈 것처럼 보이는 문제 방지)
+  // 새로 생긴 카테고리는 기본 접힘
   Object.keys(groups).forEach(c=>{
-    if(window._memoCatCollapsed[c]===undefined) window._memoCatCollapsed[c]=false;
+    if(window._memoCatCollapsed[c]===undefined) window._memoCatCollapsed[c]=true;
   });
 
   el.innerHTML=Object.entries(groups).map(([c,items])=>{
@@ -1627,6 +1630,7 @@ function renderMemoList(){
 function toggleMemoCat(cat){
   if(!window._memoCatCollapsed) window._memoCatCollapsed={};
   window._memoCatCollapsed[cat]=!window._memoCatCollapsed[cat];
+  try{ localStorage.setItem('hk_memo_collapsed', JSON.stringify(window._memoCatCollapsed)); }catch(e){}
   renderMemoList();
 }
 
