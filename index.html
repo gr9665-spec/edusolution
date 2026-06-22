@@ -5412,11 +5412,26 @@ function openPrintPreview(pid){
 
 function printPlan(){
   const content=document.getElementById('plan-print-content').innerHTML;
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>플랜표</title>
-    <style>*{box-sizing:border-box}body{margin:16px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px}</style>
-    </head><body>${content}</body></html>`);
-  w.document.close();
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>플랜표</title>
+    <style>
+      *{box-sizing:border-box}
+      body{margin:16px;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:12px}
+      @media print{body{margin:0}}
+    </style>
+    </head><body>${content}<script>window.onload=function(){window.print();}<\/script></body></html>`;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank');
+  if(!w){
+    // 팝업 차단 시 현재 탭에서 직접 print
+    const f=document.createElement('iframe');
+    f.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:9999;background:#fff';
+    f.srcdoc=html;
+    f.onload=()=>{f.contentWindow.focus();f.contentWindow.print();setTimeout(()=>f.remove(),1000);};
+    document.body.appendChild(f);
+    return;
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
 
 function openMobilePlanPage(){
