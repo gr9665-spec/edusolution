@@ -73,7 +73,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy)}
 .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .modal-head h2{font-size:15px;font-weight:700}
 .empty{text-align:center;padding:36px 0;color:var(--text2);font-size:13px}
-.empty i{font-size:28px;display:block;margin-bottom:8px;opacity:.4}
+.empty i{font-size:28px;display:block;margin-bottom:8px;opacity:.6}
 .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:var(--r);background:var(--bg2);color:var(--text2);margin:2px}
 .progress-bar{height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;margin:4px 0 2px}
 .progress-fill{height:100%;background:var(--navy);border-radius:3px;transition:width .4s}
@@ -4641,8 +4641,8 @@ function buildPlanTableUI(p,t){
     </tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i], el=sem.elec&&sem.elec[i], gn=sem.gen&&sem.gen[i], lb=sem.lib&&sem.lib[i];
-      body+=`<tr style="${sem.completed?'opacity:.4':''}">
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수완료</span>':sem.name||''): ''}</td>
+      body+=`<tr style="${sem.completed?'opacity:.6':''}">
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수</span>':sem.name||''): ''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#f9f9f4">${rq&&rq.credit?rq.credit:''}</td>
         <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${rq&&rq.subject?rq.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
@@ -5326,7 +5326,7 @@ function openPrintPreview(pid){
     const doneOp=done?'opacity:.5':'';
     // 학기구분 행 — 가운데 정렬
     planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
-      ${done?'<span style="color:#bbb">✓ 이수 &nbsp;|&nbsp; </span>':''}교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
+      ${done?'<span style="color:#2e7d32;font-weight:700">✓ 이수 &nbsp;|&nbsp; </span>':''}교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
     </td></tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i],el=sem.elec&&sem.elec[i],gn=sem.gen&&sem.gen[i],lb=sem.lib&&sem.lib[i];
@@ -5342,7 +5342,7 @@ function openPrintPreview(pid){
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
-    planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#bbb':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
+    planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
       <td colspan="7" style="padding:5px 8px;font-weight:700;border:1px solid #ccc;color:${done?'#bbb':'inherit'}">${semTot}학점</td></tr>`;
   });
 
