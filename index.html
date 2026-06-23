@@ -3899,18 +3899,18 @@ function saveBulkSchedule(){
       const dateRange = origNoteParts.length > 1 ? origNoteParts.slice(1).join('|').trim() : '';
       const note = dateRange ? `${noteBase} | ${dateRange}` : noteBase;
 
-      // 시작 일정 등록
-      const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date);
+      // 시작 일정 등록 (중복: 같은 학습자+유형+날짜+note 모두 같을 때만 skip)
+      const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
       if(!dup){
-        schedules.push({id:Date.now()+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,type:s.type,date:s.date,sent:'false',note});
+        schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,type:s.type,date:s.date,sent:'false',note});
         count++;
       }
       // 마감일 자동 등록
       if(HAS_END.includes(s.type)&&s.endDate){
         const endType=s.type+'마감';
-        const dupEnd=schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate);
+        const dupEnd=schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate&&ex.note===note);
         if(!dupEnd){
-          schedules.push({id:Date.now()+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,type:endType,date:s.endDate,sent:'false',note});
+          schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,type:endType,date:s.endDate,sent:'false',note});
           count++;
         }
       }
