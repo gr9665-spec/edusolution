@@ -4583,14 +4583,15 @@ function buildPlanTableUI(p,t){
           <input id="sem-date-${si}" type="text" value="${sem.date||''}" placeholder="일자 (예: 5/13~8/25)"
             style="width:115px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
             onchange="plans[curPid].semesters[${si}].date=this.value;LS.set('hk_plans',plans);saveToFirebase()">
-          <button class="btn btn-sm" style="padding:3px 8px;font-size:10px;color:var(--red);margin-left:auto" onclick="deleteSem(${si})"><i class="ti ti-trash"></i></button>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;font-size:11px;font-weight:600;color:${sem.completed?'#2e7d32':'var(--text2)'}"><input type="checkbox" ${sem.completed?'checked':''} style="accent-color:#2e7d32;width:14px;height:14px" onchange="plans[curPid].semesters[${si}].completed=this.checked;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])"> 이수완료</label>
+          <button class="btn btn-sm" style="padding:3px 8px;font-size:10px;color:var(--red)" onclick="deleteSem(${si})"><i class="ti ti-trash"></i></button>
         </div>
       </td>
     </tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i], el=sem.elec&&sem.elec[i], gn=sem.gen&&sem.gen[i], lb=sem.lib&&sem.lib[i];
-      body+=`<tr>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
+      body+=`<tr style="${sem.completed?'opacity:.4':''}">
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수완료</span>':sem.name||''): ''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#f9f9f4">${rq&&rq.credit?rq.credit:''}</td>
         <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${rq&&rq.subject?rq.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
@@ -4601,9 +4602,9 @@ function buildPlanTableUI(p,t){
         <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
-    body+=`<tr style="background:#eaeae4">
-      <td style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:600" colspan="2">취득학점</td>
-      <td colspan="7" style="padding:4px 8px;font-weight:700;font-size:12px;border:1px solid #ccc">${semTot}</td>
+    body+=`<tr style="background:${sem.completed?'#e8f5e9':'#eaeae4'}">
+      <td style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:600" colspan="2">${sem.completed?'<span style="color:#2e7d32">✓ 이수완료</span>':'취득학점'}</td>
+      <td colspan="7" style="padding:4px 8px;font-weight:700;font-size:12px;border:1px solid #ccc">${semTot}학점</td>
     </tr>
     <tr><td colspan="9" style="padding:0;border:none">
       <div style="display:flex;gap:5px;padding:5px 8px;background:${PLAN_GRAY};flex-wrap:wrap">
@@ -5269,13 +5270,16 @@ function openPrintPreview(pid){
   p.semesters.forEach((sem)=>{
     const maxR=Math.max(1,(sem.req||[]).length,(sem.elec||[]).length,(sem.gen||[]).length,(sem.lib||[]).length);
     const semTot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
+    const done=sem.completed;
+    const doneBg=done?'background:#f1f8f1':'';
+    const doneOp=done?'opacity:.5':'';
     // 학기구분 행 — 가운데 정렬
-    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
-      교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
+    planRows+=`<tr style="background:${done?'#c8e6c9':'#eeeee8'}"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
+      ${done?'<span style="color:#2e7d32">✓ 이수완료 &nbsp;|&nbsp; </span>':''}교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
     </td></tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i],el=sem.elec&&sem.elec[i],gn=sem.gen&&sem.gen[i],lb=sem.lib&&sem.lib[i];
-      planRows+=`<tr>
+      planRows+=`<tr style="${doneOp}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f8f8f3">${rq&&rq.credit?rq.credit:''}</td>
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${rq&&rq.subject?rq.subject:''}</td>
@@ -5287,8 +5291,8 @@ function openPrintPreview(pid){
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
-    planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700">취득학점</td>
-      <td colspan="7" style="padding:5px 8px;font-weight:700;border:1px solid #ccc">${semTot}</td></tr>`;
+    planRows+=`<tr style="background:${done?'#a5d6a7':'#e8e8e2'}"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수완료':'취득학점'}</td>
+      <td colspan="7" style="padding:5px 8px;font-weight:700;border:1px solid #ccc;color:${done?'#2e7d32':'inherit'}">${semTot}학점</td></tr>`;
   });
 
   // 자격증/독학사 행 — 해당없음 제거, 헤더 가운데 정렬
