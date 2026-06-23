@@ -4653,8 +4653,8 @@ function buildPlanTableUI(p,t){
       const rq=sem.req&&sem.req[i], el=sem.elec&&sem.elec[i], gn=sem.gen&&sem.gen[i], lb=sem.lib&&sem.lib[i];
       body+=`<tr style="${sem.completed?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수</span>':sem.name||''): ''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#f9f9f4">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
         <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
@@ -5314,8 +5314,8 @@ function openPrintPreview(pid){
       const rq=rReq[i],el=rElec[i],gn=rGen[i],lb=rLib[i];
       ownRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f9f9f4">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
@@ -5342,8 +5342,8 @@ function openPrintPreview(pid){
       const rq=sem.req&&sem.req[i],el=sem.elec&&sem.elec[i],gn=sem.gen&&sem.gen[i],lb=sem.lib&&sem.lib[i];
       planRows+=`<tr style="${done?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f8f8f3">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
@@ -5369,8 +5369,8 @@ function openPrintPreview(pid){
       const rq=rReq[i],el=rElec[i],gn=rGen[i],lb=rLib[i];
       planRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
-        <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#f8f8f3;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#fff;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
