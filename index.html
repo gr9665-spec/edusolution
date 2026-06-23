@@ -1200,13 +1200,23 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div style="background:var(--bg2);border-radius:var(--r);padding:12px;margin-bottom:14px">
     <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px">② 일정 내용 입력 (여러 개 한 번에 추가 가능)</div>
     <!-- 기존 기수 일정 복사 -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r)">
-      <i class="ti ti-copy" style="font-size:14px;color:var(--navy)"></i>
-      <span style="font-size:12px;color:var(--text2);flex-shrink:0">기존 기수에서 복사:</span>
-      <select id="copy-kisu-sel" style="flex:1;font-size:12px" onchange="previewCopyKisu()">
-        <option value="">-- 기수 선택 --</option>
-      </select>
-      <button class="btn btn-sm btn-primary" style="font-size:11px;flex-shrink:0" onclick="applyCopyKisu()"><i class="ti ti-check"></i> 적용</button>
+    <div style="padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+        <i class="ti ti-copy" style="font-size:13px;color:var(--navy)"></i>
+        <span style="font-size:12px;font-weight:600;color:var(--navy)">기존 기수 일정 복사</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select id="copy-kisu-edu-filter" style="flex:0 0 auto;font-size:12px;width:110px" onchange="filterCopyKisuSel()">
+          <option value="">전체 교육원</option>
+        </select>
+        <input type="text" id="copy-kisu-search" placeholder="검색..." style="flex:1;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:4px" oninput="filterCopyKisuSel()">
+      </div>
+      <div style="display:flex;gap:6px">
+        <select id="copy-kisu-sel" style="flex:1;font-size:12px" onchange="previewCopyKisu()">
+          <option value="">-- 기수 선택 --</option>
+        </select>
+        <button class="btn btn-sm btn-primary" style="font-size:11px;flex-shrink:0" onclick="applyCopyKisu()"><i class="ti ti-check"></i> 적용</button>
+      </div>
     </div>
     <div id="copy-kisu-preview" style="font-size:11px;color:var(--text2);margin-bottom:8px"></div>
     <div id="bulk-schedule-rows">
@@ -2966,30 +2976,47 @@ function deleteTodo(id){
 }
 function renderTodos(){
   const todayStr=new Date().toISOString().split('T')[0];
+  // 오늘 항목 + 이전 날짜 미완료 항목
   const todayTodos=todos.filter(t=>t.date===todayStr);
+  const overdue=todos.filter(t=>t.date<todayStr&&!t.done);
+  const allVisible=[...todayTodos];
   const el=document.getElementById('todo-list');
   if(!el) return;
-  if(!todayTodos.length){ el.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px 0">오늘 할 일을 추가해보세요</div>'; return; }
+  if(!todayTodos.length&&!overdue.length){ el.innerHTML='<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px 0">오늘 할 일을 추가해보세요</div>'; return; }
 
-  const renderItems=(items)=>items.map(t=>`
+  const renderItems=(items,isOverdue)=>items.map(t=>`
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <input type="checkbox" id="td-${t.id}" ${t.done?'checked':''} onchange="toggleTodo('${t.id}')" style="width:auto;cursor:pointer">
-      <label for="td-${t.id}" style="flex:1;font-size:13px;cursor:pointer;${t.done?'text-decoration:line-through;color:var(--text2)':''}">${t.text}</label>
+      <label for="td-${t.id}" style="flex:1;font-size:13px;cursor:pointer;${t.done?'text-decoration:line-through;color:var(--text2)':isOverdue?'color:var(--red)':''}">${t.text}${isOverdue?`<span style="font-size:10px;color:var(--red);margin-left:5px">(${t.date.slice(5).replace('-','/')})</span>`:''}
+      </label>
       <button class="btn btn-icon" style="width:22px;height:22px;color:var(--text3);padding:0" onclick="deleteTodo('${t.id}')"><i class="ti ti-x" style="font-size:12px"></i></button>
     </div>`).join('');
 
-  const am=todayTodos.filter(t=>t.period!=='오후');
-  const pm=todayTodos.filter(t=>t.period==='오후');
-
   let html='';
-  if(am.length){
-    html+=`<div style="font-size:11px;font-weight:700;color:var(--navy);padding:4px 0 2px;margin-top:2px">+오전</div>`;
-    html+=renderItems(am);
+
+  // 미완료 이월 항목
+  if(overdue.length){
+    html+=`<div style="font-size:11px;font-weight:700;color:var(--red);padding:4px 0 2px;display:flex;align-items:center;gap:4px"><i class="ti ti-clock-exclamation" style="font-size:12px"></i> 미완료 이월</div>`;
+    html+=renderItems(overdue, true);
   }
-  if(pm.length){
-    html+=`<div style="font-size:11px;font-weight:700;color:var(--amber);padding:4px 0 2px;margin-top:6px">+오후</div>`;
-    html+=renderItems(pm);
+
+  // 오늘 항목
+  if(todayTodos.length){
+    const am=todayTodos.filter(t=>t.period!=='오후');
+    const pm=todayTodos.filter(t=>t.period==='오후');
+    if(overdue.length){
+      html+=`<div style="font-size:11px;font-weight:700;color:var(--navy);padding:4px 0 2px;margin-top:8px">── 오늘</div>`;
+    }
+    if(am.length){
+      html+=`<div style="font-size:11px;font-weight:700;color:var(--navy);padding:4px 0 2px;margin-top:2px">+오전</div>`;
+      html+=renderItems(am, false);
+    }
+    if(pm.length){
+      html+=`<div style="font-size:11px;font-weight:700;color:var(--amber);padding:4px 0 2px;margin-top:6px">+오후</div>`;
+      html+=renderItems(pm, false);
+    }
   }
+
   el.innerHTML=html;
 }
 
@@ -3651,21 +3678,31 @@ function openBulkScheduleModal(){
   kisuSel.innerHTML = '<option value="">전체</option>' + kisuSet.map(k=>`<option>${k}</option>`).join('');
 
   // 기존 기수에서 복사 드롭다운 — 학사일정에 이미 등록된 기수 목록
-  const copyKisuSel = document.getElementById('copy-kisu-sel');
-  const kisuGroups = {};
+  window._copyKisuGroups = {};
   schedules.forEach(s=>{
     const note = s.note||'';
-    // note 형식: "하나원격 26년도 2-1 | 날짜범위" 또는 "하나원격 2-1" (일괄등록)
     const key = note.split('|')[0].trim();
     if(!key) return;
-    if(!kisuGroups[key]) kisuGroups[key] = [];
-    kisuGroups[key].push(s);
+    if(!window._copyKisuGroups[key]) window._copyKisuGroups[key] = [];
+    window._copyKisuGroups[key].push(s);
   });
-  // 기수별로 몇 건인지 표시
-  const kisuOptions = Object.entries(kisuGroups)
-    .sort((a,b)=>b[1].length-a[1].length)
-    .map(([k,v])=>`<option value="${k}">${k} (${v.length}건)</option>`).join('');
-  copyKisuSel.innerHTML = '<option value="">-- 기수 선택 --</option>' + kisuOptions;
+
+  // 교육원 필터 드롭다운 채우기 (key 앞부분에서 교육원명 추출)
+  const copyEduFilter = document.getElementById('copy-kisu-edu-filter');
+  if(copyEduFilter){
+    const eduSet = new Set();
+    Object.keys(window._copyKisuGroups).forEach(k=>{
+      // "하나원격 26-2" → "하나원격", "올에듀 2-1" → "올에듀" 등
+      const edu = k.split(' ')[0];
+      if(edu) eduSet.add(edu);
+    });
+    copyEduFilter.innerHTML = '<option value="">전체 교육원</option>' +
+      [...eduSet].sort().map(e=>`<option value="${e}">${e}</option>`).join('');
+  }
+  const searchEl = document.getElementById('copy-kisu-search');
+  if(searchEl) searchEl.value = '';
+
+  filterCopyKisuSel();
   document.getElementById('copy-kisu-preview').textContent = '';
 
   bulkRows = 1;
@@ -3674,6 +3711,20 @@ function openBulkScheduleModal(){
   openModal('modal-bulk-schedule');
 }
 
+function filterCopyKisuSel(){
+  const edu = document.getElementById('copy-kisu-edu-filter')?.value||'';
+  const q = (document.getElementById('copy-kisu-search')?.value||'').toLowerCase();
+  const sel = document.getElementById('copy-kisu-sel');
+  if(!sel||!window._copyKisuGroups) return;
+  const filtered = Object.entries(window._copyKisuGroups).filter(([k])=>{
+    if(edu && !k.startsWith(edu)) return false;
+    if(q && !k.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a,b)=>b[1].length-a[1].length);
+  sel.innerHTML = '<option value="">-- 기수 선택 (' + filtered.length + '개) --</option>' +
+    filtered.map(([k,v])=>`<option value="${k}">${k} (${v.length}건)</option>`).join('');
+  document.getElementById('copy-kisu-preview').textContent = '';
+}
 function previewCopyKisu(){
   const key = document.getElementById('copy-kisu-sel').value;
   if(!key){ document.getElementById('copy-kisu-preview').textContent=''; return; }
@@ -4602,7 +4653,7 @@ function buildPlanTableUI(p,t){
         <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
-    body+=`<tr style="background:${sem.completed?'#e8f5e9':'#eaeae4'}">
+    body+=`<tr style="background:#eaeae4">
       <td style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:600" colspan="2">${sem.completed?'<span style="color:#2e7d32">✓ 이수완료</span>':'취득학점'}</td>
       <td colspan="7" style="padding:4px 8px;font-weight:700;font-size:12px;border:1px solid #ccc">${semTot}학점</td>
     </tr>
@@ -5274,8 +5325,8 @@ function openPrintPreview(pid){
     const doneBg=done?'background:#f1f8f1':'';
     const doneOp=done?'opacity:.5':'';
     // 학기구분 행 — 가운데 정렬
-    planRows+=`<tr style="background:${done?'#c8e6c9':'#eeeee8'}"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
-      ${done?'<span style="color:#2e7d32">✓ 이수완료 &nbsp;|&nbsp; </span>':''}교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
+    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
+      ${done?'<span style="color:#bbb">✓ 이수 &nbsp;|&nbsp; </span>':''}교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
     </td></tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i],el=sem.elec&&sem.elec[i],gn=sem.gen&&sem.gen[i],lb=sem.lib&&sem.lib[i];
@@ -5291,8 +5342,8 @@ function openPrintPreview(pid){
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
-    planRows+=`<tr style="background:${done?'#a5d6a7':'#e8e8e2'}"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수완료':'취득학점'}</td>
-      <td colspan="7" style="padding:5px 8px;font-weight:700;border:1px solid #ccc;color:${done?'#2e7d32':'inherit'}">${semTot}학점</td></tr>`;
+    planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#bbb':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
+      <td colspan="7" style="padding:5px 8px;font-weight:700;border:1px solid #ccc;color:${done?'#bbb':'inherit'}">${semTot}학점</td></tr>`;
   });
 
   // 자격증/독학사 행 — 해당없음 제거, 헤더 가운데 정렬
