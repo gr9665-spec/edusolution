@@ -4641,7 +4641,7 @@ function buildPlanTableUI(p,t){
     </tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i], el=sem.elec&&sem.elec[i], gn=sem.gen&&sem.gen[i], lb=sem.lib&&sem.lib[i];
-      body+=`<tr style="${sem.completed?'opacity:.6':''}">
+      body+=`<tr style="${sem.completed?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수</span>':sem.name||''): ''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#f9f9f4">${rq&&rq.credit?rq.credit:''}</td>
         <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#f9f9f4">${rq&&rq.subject?rq.subject:''}</td>
@@ -4653,8 +4653,8 @@ function buildPlanTableUI(p,t){
         <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
       </tr>`;
     }
-    body+=`<tr style="background:#eaeae4">
-      <td style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:600" colspan="2">${sem.completed?'<span style="color:#2e7d32">✓ 이수완료</span>':'취득학점'}</td>
+    body+=`<tr style="background:${sem.completed?'#e8e8e8':'#eaeae4'}">
+      <td style="padding:4px 8px;font-size:11px;border:1px solid #ccc;font-weight:600" colspan="2">${sem.completed?'<span style="color:#2e7d32;font-weight:700">✓ 이수완료</span>':'취득학점'}</td>
       <td colspan="7" style="padding:4px 8px;font-weight:700;font-size:12px;border:1px solid #ccc">${semTot}학점</td>
     </tr>
     <tr><td colspan="9" style="padding:0;border:none">
@@ -5330,7 +5330,7 @@ function openPrintPreview(pid){
     </td></tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i],el=sem.elec&&sem.elec[i],gn=sem.gen&&sem.gen[i],lb=sem.lib&&sem.lib[i];
-      planRows+=`<tr style="${doneOp}">
+      planRows+=`<tr style="${done?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#f8f8f3">${rq&&rq.credit?rq.credit:''}</td>
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#f8f8f3">${rq&&rq.subject?rq.subject:''}</td>
