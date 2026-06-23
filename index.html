@@ -1142,7 +1142,11 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option>기타</option>
       </select>
     </div>
-    <div class="fg"><label>마감일 *</label><input type="date" id="s-date"></div>
+    <div class="fg"><label>시작일 *</label><input type="date" id="s-date"></div>
+    <div class="fg" style="display:flex;gap:6px;align-items:flex-end">
+      <div style="flex:1"><label>마감일 <span style="font-size:10px;color:var(--text2)">(선택)</span></label><input type="date" id="s-end-date" style="width:100%"></div>
+      <div style="flex:1"><label>마감 시간 <span style="font-size:10px;color:var(--text2)">(선택)</span></label><input type="time" id="s-time" style="width:100%;font-size:13px"></div>
+    </div>
     <div class="fg"><label>연락 여부</label><select id="s-sent"><option value="false">미발송</option><option value="true">발송완료</option></select></div>
   </div>
   <div class="fg" style="margin-top:10px"><label>메모</label><textarea id="s-note" style="height:50px;resize:none"></textarea></div>
@@ -2952,6 +2956,7 @@ function renderDashboard(){
         <div style="flex:1;min-width:0">
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
           <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+          ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
           ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
         ${s.sent==='true'
@@ -3024,13 +3029,17 @@ function openScheduleModal(){
   const sel=document.getElementById('s-learner');
   sel.innerHTML='<option value="">학습자 선택</option>'+learners.map(l=>`<option>${l.name}</option>`).join('');
   document.getElementById('s-date').value='';document.getElementById('s-note').value='';
+  const stEl=document.getElementById('s-time'); if(stEl) stEl.value='';
+  const edEl=document.getElementById('s-end-date'); if(edEl) edEl.value='';
   openModal('modal-schedule');
 }
 function saveSchedule(){
   const ln=document.getElementById('s-learner').value;
   const date=document.getElementById('s-date').value;
   if(!ln||!date){alert('학습자와 날짜를 선택해주세요');return;}
-  schedules.push({id:Date.now()+'',learnerName:ln,type:document.getElementById('s-type').value,date,sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
+  const sTime=(document.getElementById('s-time')?.value||'').trim();
+  const sEndDate=(document.getElementById('s-end-date')?.value||'').trim();
+  schedules.push({id:Date.now()+'',learnerName:ln,type:document.getElementById('s-type').value,date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
 function importScheduleFile(input){
@@ -3261,6 +3270,7 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
               <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+              ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
               ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note}</div>`:''}
             </div>
