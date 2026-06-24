@@ -2526,9 +2526,16 @@ function applyLearnerCopyKisu(){
     .sort((a,b)=>a.date.localeCompare(b.date));
   if(!unique.length){ if(prev){prev.textContent='해당 기수에 등록된 일정이 없어요';prev.style.color='var(--red)';} return; }
 
+  // 기수 일정 전체에서 날짜범위 직접 계산 (note 의존 X)
+  const allDates=items.map(s=>s.date).filter(Boolean).sort();
+  const minDate=allDates[0]||'';
+  const maxDate=allDates[allDates.length-1]||'';
+  const dateRange=minDate&&maxDate?(minDate===maxDate?minDate.slice(5).replace('-','/'):minDate.slice(5).replace('-','/')+'~'+maxDate.slice(5).replace('-','/')):'' ;
+  const kisuNote=dateRange?`${key} | ${dateRange}`:key;
+
   const wrap=document.getElementById('learner-sched-rows');
   wrap.innerHTML='';
-  unique.forEach(s=>addLearnerSchedRow(s.type, s.date, s.note||''));
+  unique.forEach(s=>addLearnerSchedRow(s.type, s.date, kisuNote));
 
   if(prev){
     const preview=unique.map(s=>`${s.type}(${s.date.slice(5)})`).join(' · ');
@@ -2674,9 +2681,8 @@ async function saveLearner(){
   let schedAddedCount=0;
   const noteBase=[edu, document.getElementById('l-kisu')?.value?.trim()].filter(Boolean).join(' ');
   schedRows.forEach((sr,si)=>{
-    // 원본 note에서 날짜범위(| 이후) 추출해서 붙이기
-    const origDateRange=(sr.note||'').includes('|')?(sr.note||'').split('|').slice(1).join('|').trim():'';
-    const finalNote=origDateRange?`${noteBase} | ${origDateRange}`:noteBase;
+    // sr.note가 'edu kisu | 날짜범위' 형태이면 그대로, 아니면 noteBase 사용
+    const finalNote=sr.note||noteBase;
     schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
     schedAddedCount++;
   });
