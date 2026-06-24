@@ -2528,7 +2528,7 @@ function applyLearnerCopyKisu(){
 
   const wrap=document.getElementById('learner-sched-rows');
   wrap.innerHTML='';
-  unique.forEach(s=>addLearnerSchedRow(s.type, s.date));
+  unique.forEach(s=>addLearnerSchedRow(s.type, s.date, s.note||''));
 
   if(prev){
     const preview=unique.map(s=>`${s.type}(${s.date.slice(5)})`).join(' · ');
@@ -2536,7 +2536,7 @@ function applyLearnerCopyKisu(){
     prev.style.color='var(--green)';
   }
 }
-function addLearnerSchedRow(presetType,presetDate){
+function addLearnerSchedRow(presetType,presetDate,presetNote){
   const wrap=document.getElementById('learner-sched-rows');
   const rowId='sr'+Date.now()+Math.floor(Math.random()*1000);
   const row=document.createElement('div');
@@ -2558,6 +2558,7 @@ function addLearnerSchedRow(presetType,presetDate){
       <option${presetType==='기타'?' selected':''}>기타</option>
     </select>
     <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;font-size:12px;padding:5px 7px">
+    <input type="hidden" class="ls-note" value="${(presetNote||'').replace(/"/g,'&quot;')}">
     <button type="button" class="btn btn-icon" style="width:26px;height:26px;color:var(--red)" onclick="document.getElementById('${rowId}').remove()"><i class="ti ti-x" style="font-size:12px"></i></button>
   `;
   wrap.appendChild(row);
@@ -2568,7 +2569,8 @@ function collectLearnerSchedRows(){
   rows.forEach(r=>{
     const type=r.querySelector('.ls-type').value;
     const date=r.querySelector('.ls-date').value;
-    if(date) result.push({type,date});
+    const note=r.querySelector('.ls-note')?.value||'';
+    if(date) result.push({type,date,note});
   });
   return result;
 }
@@ -2672,7 +2674,10 @@ async function saveLearner(){
   let schedAddedCount=0;
   const noteBase=[edu, document.getElementById('l-kisu')?.value?.trim()].filter(Boolean).join(' ');
   schedRows.forEach((sr,si)=>{
-    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:noteBase});
+    // 원본 note에서 날짜범위(| 이후) 추출해서 붙이기
+    const origDateRange=(sr.note||'').includes('|')?(sr.note||'').split('|').slice(1).join('|').trim():'';
+    const finalNote=origDateRange?`${noteBase} | ${origDateRange}`:noteBase;
+    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
     schedAddedCount++;
   });
 
