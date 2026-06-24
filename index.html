@@ -1481,6 +1481,7 @@ async function showApp(){
     }
   }
 
+  fixMissingScheduleNotes();
   renderDashboard();
 }
 
@@ -2669,8 +2670,9 @@ async function saveLearner(){
   // 학사일정 동시 등록
   const schedRows=collectLearnerSchedRows();
   let schedAddedCount=0;
-  schedRows.forEach(sr=>{
-    schedules.push({id:Date.now()+''+Math.floor(Math.random()*1000),learnerName:name,type:sr.type,date:sr.date,sent:'false',note:''});
+  const noteBase=[edu, document.getElementById('l-kisu')?.value?.trim()].filter(Boolean).join(' ');
+  schedRows.forEach((sr,si)=>{
+    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:noteBase});
     schedAddedCount++;
   });
 
@@ -3921,6 +3923,19 @@ function saveBulkSchedule(){
   renderSchedule(); renderDashboard();
   const btn = document.querySelector('#modal-bulk-schedule .btn-primary');
   if(btn){ const orig=btn.innerHTML; btn.innerHTML=`<i class="ti ti-check"></i> ${count}건 등록됨!`; setTimeout(()=>btn.innerHTML=orig,2000); }
+}
+
+// ── 기존 note 없는 일정 자동 보정 (학습자 edu+kisu 기반)
+function fixMissingScheduleNotes(){
+  let fixed=0;
+  schedules.forEach(s=>{
+    if(s.note) return; // 이미 있으면 skip
+    const learner=learners.find(l=>l.name===s.learnerName);
+    if(!learner) return;
+    const noteBase=[learner.edu,learner.kisu].filter(Boolean).join(' ');
+    if(noteBase){ s.note=noteBase; fixed++; }
+  });
+  if(fixed>0){ save(); console.log(`[보정] note 없는 일정 ${fixed}건 자동 채움`); }
 }
 
 renderDashboard();calcReward();
