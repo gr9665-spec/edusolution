@@ -3123,6 +3123,14 @@ function importScheduleFile(input){
         const parseKorDate=s=>{const m=s.match(/(\d{1,2})월\s*(\d{1,2})일/);return m?{mm:parseInt(m[1]),dd:parseInt(m[2])}:null;};
         const parseSingleRange=(seg,year)=>{
           seg=seg.replace(/\s+/g,' ').trim();
+          // 시간 추출 (22:59, 23시59분, 18시 등)
+          let extractedTime='';
+          const timem=seg.match(/(\d{1,2})[:시](\d{2})?[분]?(?!\d)/);
+          if(timem){
+            const hh=String(parseInt(timem[1])).padStart(2,'0');
+            const mm2=timem[2]?String(parseInt(timem[2])).padStart(2,'0'):'00';
+            extractedTime=`${hh}:${mm2}`;
+          }
           seg=seg.replace(/\s*\d{1,2}[시:]\d{0,2}[분]?\S*/g,'').replace(/\s*\d{1,2}시/g,'').trim();
           // 한글 날짜 "5월20일~5월26일", "26년5월20일~5월26일23시" 등
           if(/월.*일/.test(seg)){
@@ -3131,7 +3139,7 @@ function importScheduleFile(input){
             const div=clean.includes('~')?'~':'-';
             const pts=clean.split(div).map(p=>p.trim());
             const k0=parseKorDate(pts[0]), k1=parseKorDate(pts[pts.length-1]);
-            if(k0) return{start:toDate(k0.mm,k0.dd,segYear),end:toDate(k1?k1.mm:k0.mm,k1?k1.dd:k0.dd,segYear)};
+            if(k0) return{start:toDate(k0.mm,k0.dd,segYear),end:toDate(k1?k1.mm:k0.mm,k1?k1.dd:k0.dd,segYear),time:extractedTime};
           }
           let parts;
           if(seg.includes('~')){parts=seg.split('~');}
@@ -3140,7 +3148,7 @@ function importScheduleFile(input){
           const s0=parseSlash(parts[0]); const s1=parseSlash(parts[parts.length-1]);
           if(!s0)return null;
           const endMM=s1&&s1.mm?s1.mm:s0.mm; const endDD=s1&&s1.dd?s1.dd:s0.dd;
-          return{start:toDate(s0.mm,s0.dd,year),end:toDate(endMM,endDD,year)};
+          return{start:toDate(s0.mm,s0.dd,year),end:toDate(endMM,endDD,year),time:extractedTime};
         };
         const parseRanges=(raw,fb=2026)=>{
           if(isInv(raw))return[];
@@ -3195,7 +3203,7 @@ function importScheduleFile(input){
           [{col:C.quiz,type:'쪽지시험'},{col:C.disc,type:'토론'},{col:C.task,type:'과제'},{col:C.mid,type:'중간고사'},{col:C.final,type:'기말고사'}].forEach(({col,type})=>{
             const val=String(row[col]||'').trim(); if(isInv(val))return;
             parseRanges(val,baseYear).forEach(r=>{
-              if(r.start&&r.start.length===10){const label=r.round>0?`${type} ${r.round}차`:type;items.push({id:String(++ts),learnerName:name,type:label,date:r.start,sent:'false',note:`${noteBase} | ${val}`});}
+              if(r.start&&r.start.length===10){const label=r.round>0?`${type} ${r.round}차`:type;items.push({id:String(++ts),learnerName:name,type:label,date:r.start,endDate:r.end||'',time:r.time||'',sent:'false',note:`${noteBase} | ${val}`});}
             });
           });
         });
