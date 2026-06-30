@@ -188,7 +188,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div class="topbar-right">
     <span class="badge" id="user-badge"><i class="ti ti-user" style="font-size:12px"></i> 상희경 주임</span>
-    <button class="btn btn-sm" onclick="switchTab('settings',null)" style="margin-left:8px"><i class="ti ti-settings"></i> 수당 세팅</button>
+    <button class="btn btn-sm" onclick="switchTab('settings',null)" style="margin-left:8px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35)" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'"><i class="ti ti-settings"></i> 수당 세팅</button>
   </div>
 </div>
 
@@ -199,9 +199,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
   <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>메모</div>
+  <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격조건</div>
   <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
   <div class="tab" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
-  <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격조건</div>
 </div>
 
 <!-- 대시보드 -->
