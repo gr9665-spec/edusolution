@@ -2338,28 +2338,31 @@ function findSchedulesForLearner(l){
   }
   return schedules.filter(s=>s.learnerName===l.name);
 }
-function getLearnerStartDate(l){
+// 학습자의 "이번 학기(kisu)"에 해당하는 일정만 좁혀서 반환
+function findSchedulesForLearnerThisTerm(l){
   const all=findSchedulesForLearner(l);
-  const cands=all.filter(s=>s.type==='개강일');
-  if(!cands.length) return '';
-  if(cands.length===1) return cands[0].date||'';
-
-  // 1순위: 기수(kisu)가 note에 포함된 것
   const kisu=(l.kisu||'').trim();
   const eduTrim=(l.edu||'').trim();
-  let kisuMatches=cands.filter(s=>kisu&&(s.note||'').includes(kisu));
-  if(kisuMatches.length>1 && eduTrim){
+  if(!kisu) return all; // 기수 정보가 없으면 전체로 폴백
+
+  let kisuMatches=all.filter(s=>(s.note||'').includes(kisu));
+  if(kisuMatches.length && eduTrim){
     const eduKisuMatches=kisuMatches.filter(s=>(s.note||'').includes(eduTrim));
     if(eduKisuMatches.length) kisuMatches=eduKisuMatches;
   }
-  if(kisuMatches.length===1) return kisuMatches[0].date;
+  // 기수로 좁혀지는 일정이 하나도 없으면(예: note 형식이 다름) 안전하게 전체 반환
+  return kisuMatches.length?kisuMatches:all;
+}
+function getLearnerStartDate(l){
+  const cands=findSchedulesForLearnerThisTerm(l).filter(s=>s.type==='개강일');
+  if(!cands.length) return '';
+  if(cands.length===1) return cands[0].date||'';
 
-  // 2순위: 입금일(paydate)과 가장 가까운 개강일
-  const pool=kisuMatches.length?kisuMatches:cands;
+  // 입금일(paydate)과 가장 가까운 개강일
   if(l.paydate){
     const pd=new Date(l.paydate);
     let best=null, bestDiff=Infinity;
-    pool.forEach(s=>{
+    cands.forEach(s=>{
       const sd=new Date(s.date);
       const diff=Math.abs(sd-pd);
       if(diff<bestDiff){ bestDiff=diff; best=s; }
@@ -2367,13 +2370,13 @@ function getLearnerStartDate(l){
     if(best) return best.date;
   }
 
-  // 3순위: 가장 최근(미래에 가까운) 개강일
-  const sorted=[...pool].sort((a,b)=>b.date.localeCompare(a.date));
+  // 가장 최근(미래에 가까운) 개강일
+  const sorted=[...cands].sort((a,b)=>b.date.localeCompare(a.date));
   return sorted[0]?.date||'';
 }
 function hasNonStartSchedule(l){
-  // 개강일 외 일정(쪽지시험, 과제, 토론, 중간/기말고사 등)이 하나라도 있는지
-  return findSchedulesForLearner(l).some(s=>s.type!=='개강일' && !s.type.includes('마감'));
+  // "이번 학기" 일정 중 개강일 외(쪽지시험, 과제, 토론, 중간/기말고사 등)가 하나라도 있는지
+  return findSchedulesForLearnerThisTerm(l).some(s=>s.type!=='개강일' && !s.type.includes('마감'));
 }
 function calcRewardForLearner(l){
   const code=l.code||'', credit=parseInt(l.credit)||0, total=parseInt(l.total)||0;
