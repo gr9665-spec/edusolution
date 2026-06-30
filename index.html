@@ -355,7 +355,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <th style="width:36px;text-align:center">
           <input type="checkbox" id="chk-all-learners" title="전체 선택" style="width:auto;cursor:pointer" onchange="toggleAllLearners(this.checked)">
         </th>
-        <th>학생명</th><th>교육원</th><th>입금년월</th><th>기수</th><th>구분</th>
+        <th>학생명</th><th>교육원</th><th>입금년월</th><th>기수</th><th>개강일</th><th>구분</th>
         <th>학점</th><th>학점당금액</th><th>총매출</th><th>예상수당</th><th>관리</th>
       </tr></thead>
       <tbody id="learner-tbody"></tbody>
@@ -429,7 +429,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="metrics" id="sales-metrics"></div>
   <div class="tw" style="margin-bottom:14px">
     <table>
-      <thead><tr><th>학생명</th><th>교육원</th><th>구분코드</th><th>입금일</th><th>학점</th><th>총매출</th><th>수당</th><th>신규/기존</th><th></th></tr></thead>
+      <thead><tr><th>학생명</th><th>교육원</th><th>구분코드</th><th>입금일</th><th>개강일</th><th>학점</th><th>총매출</th><th>수당</th><th>신규/기존</th><th></th></tr></thead>
       <tbody id="sales-tbody"></tbody>
     </table>
   </div>
@@ -2326,6 +2326,16 @@ let editIdx = -1;
 
 
 // ── 개별 학습자 수당 계산 (rewardType/rewardValue 우선) ───────────────
+function getLearnerStartDate(l){
+  // 학습자명+기수가 일치하는 개강일 일정 우선, 없으면 학습자명만으로 찾기
+  const cands=schedules.filter(s=>s.type==='개강일'&&s.learnerName===l.name);
+  if(!cands.length) return '';
+  // 기수 정보로 좁히기 (note 또는 kisu 매칭)
+  const kisu=(l.kisu||'').trim();
+  let match=cands.find(s=>kisu&&(s.note||'').includes(kisu));
+  if(!match) match=cands[0];
+  return match.date||'';
+}
 function calcRewardForLearner(l){
   const code=l.code||'', credit=parseInt(l.credit)||0, total=parseInt(l.total)||0;
   const rType=l.rewardType||'', rVal=parseFloat(l.rewardValue)||0;
@@ -2916,6 +2926,7 @@ function renderLearners(){
       <td>${l.edu||''}</td>
       <td style="font-size:11px;color:var(--text2);white-space:nowrap">${lyear}년 ${l.month}월</td>
       <td style="font-size:12px;white-space:nowrap">${(l.kisu||'').replace(/\s+/g,' ')}</td>
+      <td style="font-size:12px;white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
       <td><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type||''}</span></td>
       <td>${l.credit||0}학점</td><td>${(l.unitprice||0).toLocaleString()}원</td>
       <td><strong>${(l.total||0).toLocaleString()}원</strong></td>
@@ -2938,6 +2949,7 @@ function renderLearners(){
           <td>${g2.edu||''}</td>
           <td style="font-size:11px;white-space:nowrap">${ly2}년 ${g2.month}월</td>
           <td style="font-size:12px;white-space:nowrap">${(g2.kisu||'').replace(/\s+/g,' ')}</td>
+          <td style="font-size:12px;white-space:nowrap">${(()=>{const sd2=getLearnerStartDate(g2);return sd2?sd2.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
           <td><span class="pill ${g2.type==='신규'?'pill-blue':'pill-gray'}">${g2.type||''}</span></td>
           <td>${g2.credit||0}학점</td><td>${(g2.unitprice||0).toLocaleString()}원</td>
           <td><strong>${(g2.total||0).toLocaleString()}원</strong></td>
@@ -3505,13 +3517,14 @@ function renderSales(){
     return mYear&&mEdu&&mType;
   });
   const totalSales=filtered.reduce((a,l)=>a+calcExportTotal(l),0);
+  const totalCredit=filtered.reduce((a,l)=>a+(parseInt(l.credit)||0),0);
   const newOnly2=filtered.filter(l=>l.type==='신규');
   const newSales=newOnly2.reduce((a,l)=>a+calcExportTotal(l),0);
-  const newCount=newOnly2.length;
+  const newCredit=newOnly2.reduce((a,l)=>a+(parseInt(l.credit)||0),0);
   document.getElementById('sales-metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">총 학생 수</div><div class="metric-val">${filtered.length}</div><div class="metric-sub">명</div></div>
+    <div class="metric"><div class="metric-label">총 학점수</div><div class="metric-val">${totalCredit}</div><div class="metric-sub">학점</div></div>
     <div class="metric"><div class="metric-label">총 매출</div><div class="metric-val" style="font-size:18px">${totalSales.toLocaleString()}</div><div class="metric-sub">원</div></div>
-    <div class="metric"><div class="metric-label">신규 학생 수</div><div class="metric-val">${newCount}</div><div class="metric-sub">명</div></div>
+    <div class="metric"><div class="metric-label">신규 학점수</div><div class="metric-val">${newCredit}</div><div class="metric-sub">학점</div></div>
     <div class="metric"><div class="metric-label">신규 매출</div><div class="metric-val" style="font-size:18px">${newSales.toLocaleString()}</div><div class="metric-sub">원</div></div>`;
   const tbody=document.getElementById('sales-tbody');
   const empty=document.getElementById('sales-empty');
@@ -3523,6 +3536,7 @@ function renderSales(){
     <td><strong>${l.name}</strong></td><td>${l.edu}</td>
     <td><span class="pill pill-gray">${l.code||''}</span></td>
     <td style="font-size:12px;color:var(--text2)">${l.paydate||''}</td>
+    <td style="font-size:12px;color:var(--text2);white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
     <td>${l.credit||0}학점</td>
     <td>${(()=>{
       const exportTotal=calcExportTotal(l);
