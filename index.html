@@ -342,6 +342,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <select id="filter-edu" onchange="renderLearners()" style="width:100px">
         <option value="">전체 교육원</option>
       </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#c0392b;cursor:pointer;white-space:nowrap">
+        <input type="checkbox" id="filter-no-sched" onchange="renderLearners()" style="width:auto;accent-color:#c0392b">
+        일정없음만
+      </label>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <span id="learner-sel-count" style="font-size:12px;color:var(--text2);display:none"></span>
@@ -2326,15 +2330,50 @@ let editIdx = -1;
 
 
 // ── 개별 학습자 수당 계산 (rewardType/rewardValue 우선) ───────────────
+// 학습자 ID(아이디) 있으면 ID로 매칭, 없으면 이름으로 폴백
+function findSchedulesForLearner(l){
+  if(l.id){
+    const byId=schedules.filter(s=>s.learnerId&&s.learnerId===l.id);
+    if(byId.length) return byId;
+  }
+  return schedules.filter(s=>s.learnerName===l.name);
+}
 function getLearnerStartDate(l){
-  // 학습자명+기수가 일치하는 개강일 일정 우선, 없으면 학습자명만으로 찾기
-  const cands=schedules.filter(s=>s.type==='개강일'&&s.learnerName===l.name);
+  const all=findSchedulesForLearner(l);
+  const cands=all.filter(s=>s.type==='개강일');
   if(!cands.length) return '';
-  // 기수 정보로 좁히기 (note 또는 kisu 매칭)
+  if(cands.length===1) return cands[0].date||'';
+
+  // 1순위: 기수(kisu)가 note에 포함된 것
   const kisu=(l.kisu||'').trim();
-  let match=cands.find(s=>kisu&&(s.note||'').includes(kisu));
-  if(!match) match=cands[0];
-  return match.date||'';
+  const eduTrim=(l.edu||'').trim();
+  let kisuMatches=cands.filter(s=>kisu&&(s.note||'').includes(kisu));
+  if(kisuMatches.length>1 && eduTrim){
+    const eduKisuMatches=kisuMatches.filter(s=>(s.note||'').includes(eduTrim));
+    if(eduKisuMatches.length) kisuMatches=eduKisuMatches;
+  }
+  if(kisuMatches.length===1) return kisuMatches[0].date;
+
+  // 2순위: 입금일(paydate)과 가장 가까운 개강일
+  const pool=kisuMatches.length?kisuMatches:cands;
+  if(l.paydate){
+    const pd=new Date(l.paydate);
+    let best=null, bestDiff=Infinity;
+    pool.forEach(s=>{
+      const sd=new Date(s.date);
+      const diff=Math.abs(sd-pd);
+      if(diff<bestDiff){ bestDiff=diff; best=s; }
+    });
+    if(best) return best.date;
+  }
+
+  // 3순위: 가장 최근(미래에 가까운) 개강일
+  const sorted=[...pool].sort((a,b)=>b.date.localeCompare(a.date));
+  return sorted[0]?.date||'';
+}
+function hasNonStartSchedule(l){
+  // 개강일 외 일정(쪽지시험, 과제, 토론, 중간/기말고사 등)이 하나라도 있는지
+  return findSchedulesForLearner(l).some(s=>s.type!=='개강일' && !s.type.includes('마감'));
 }
 function calcRewardForLearner(l){
   const code=l.code||'', credit=parseInt(l.credit)||0, total=parseInt(l.total)||0;
@@ -2824,7 +2863,7 @@ async function saveLearner(){
   schedRows.forEach((sr,si)=>{
     // sr.note가 'edu kisu | 날짜범위' 형태이면 그대로, 아니면 noteBase 사용
     const finalNote=sr.note||noteBase;
-    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
+    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
     schedAddedCount++;
   });
 
@@ -2860,6 +2899,7 @@ function renderLearners(){
   const month=document.getElementById('filter-month').value;
   const type=document.getElementById('filter-type').value;
   const edu=document.getElementById('filter-edu')?.value||'';
+  const noSchedOnly=document.getElementById('filter-no-sched')?.checked||false;
   const now=new Date();
   const filtered=learners.filter(l=>{
     const mQ=!q||(l.name||'').toLowerCase().includes(q)||(l.id||'').toLowerCase().includes(q);
@@ -2867,7 +2907,8 @@ function renderLearners(){
     const mM=!month||String(l.month)===month;
     const mT=!type||l.type===type;
     const mE=!edu||(l.edu||'')===edu;
-    return mQ&&mY&&mM&&mT&&mE;
+    const mNS=!noSchedOnly||!hasNonStartSchedule(l);
+    return mQ&&mY&&mM&&mT&&mE&&mNS;
   });
   // 입금일 오름차순 정렬
   filtered.sort((a,b)=>{
@@ -2917,6 +2958,7 @@ function renderLearners(){
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
           <strong>${l.name}</strong>
           ${l.images&&l.images.length?`<span style="font-size:10px;background:#e8f4fd;color:#1a5fa8;border-radius:3px;padding:0 4px"><i class="ti ti-photo" style="font-size:10px"></i> ${l.images.length}</span>`:''}
+          ${!hasNonStartSchedule(l)?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;font-weight:600" title="시험/과제/토론 등 일정이 등록되지 않았어요"><i class="ti ti-alert-triangle" style="font-size:10px"></i> 일정없음</span>`:''}
           <span style="font-size:12px;color:var(--text3)">${l.id?'/ '+l.id:''}</span>
           ${isDup?`<button class="btn btn-sm" style="font-size:10px;padding:1px 5px;color:var(--navy)" onclick="toggleDupGroup('${key.replace(/'/g,'\\\'')}')">+${group.length-1} ${isExpanded?'접기':'더보기'}</button>`:''}
         </div>
@@ -3183,19 +3225,25 @@ function renderTodos(){
 
 function openScheduleModal(){
   const sel=document.getElementById('s-learner');
-  sel.innerHTML='<option value="">학습자 선택</option>'+learners.map(l=>`<option>${l.name}</option>`).join('');
+  // 동명이인 구분: 아이디/연락처를 같이 표시, value는 학습자 배열 인덱스
+  sel.innerHTML='<option value="">학습자 선택</option>'+learners.map((l,i)=>{
+    const idTag=l.id?` (${l.id})`:l.phone?` (${l.phone.slice(-4)})`:'';
+    return `<option value="${i}">${l.name}${idTag}</option>`;
+  }).join('');
   document.getElementById('s-date').value='';document.getElementById('s-note').value='';
   const stEl=document.getElementById('s-time'); if(stEl) stEl.value='';
   const edEl=document.getElementById('s-end-date'); if(edEl) edEl.value='';
   openModal('modal-schedule');
 }
 function saveSchedule(){
-  const ln=document.getElementById('s-learner').value;
+  const idx=document.getElementById('s-learner').value;
   const date=document.getElementById('s-date').value;
-  if(!ln||!date){alert('학습자와 날짜를 선택해주세요');return;}
+  if(idx===''||!date){alert('학습자와 날짜를 선택해주세요');return;}
+  const learner=learners[parseInt(idx)];
+  if(!learner){alert('학습자를 찾을 수 없어요');return;}
   const sTime=(document.getElementById('s-time')?.value||'').trim();
   const sEndDate=(document.getElementById('s-end-date')?.value||'').trim();
-  schedules.push({id:Date.now()+'',learnerName:ln,type:document.getElementById('s-type').value,date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
+  schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:document.getElementById('s-type').value,date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
 function importScheduleFile(input){
@@ -3341,12 +3389,13 @@ function importScheduleFile(input){
               }
             }
           }
-          if(startDate&&startDate.length===10)items.push({id:String(++ts),learnerName:name,type:'개강일',date:startDate,sent:'false',note:noteBase});
+          const matchedLearner=learners.find(l=>l.name===name);
+          if(startDate&&startDate.length===10)items.push({id:String(++ts),learnerName:name,learnerId:matchedLearner?.id||'',type:'개강일',date:startDate,sent:'false',note:noteBase});
           const baseYear=startDate?parseInt(startDate.slice(0,4)):2026;
           [{col:C.quiz,type:'쪽지시험'},{col:C.disc,type:'토론'},{col:C.task,type:'과제'},{col:C.mid,type:'중간고사'},{col:C.final,type:'기말고사'}].forEach(({col,type})=>{
             const val=String(row[col]||'').trim(); if(isInv(val))return;
             parseRanges(val,baseYear).forEach(r=>{
-              if(r.start&&r.start.length===10){const label=r.round>0?`${type} ${r.round}차`:type;items.push({id:String(++ts),learnerName:name,type:label,date:r.start,endDate:r.end||'',time:r.time||'',sent:'false',note:`${noteBase} | ${val}`});}
+              if(r.start&&r.start.length===10){const label=r.round>0?`${type} ${r.round}차`:type;items.push({id:String(++ts),learnerName:name,learnerId:matchedLearner?.id||'',type:label,date:r.start,endDate:r.end||'',time:r.time||'',sent:'false',note:`${noteBase} | ${val}`});}
             });
           });
         });
@@ -3533,7 +3582,7 @@ function renderSales(){
   tbody.innerHTML=filtered.map(l=>{
     const origIdx=learners.indexOf(l);
     return `<tr>
-    <td><strong>${l.name}</strong></td><td>${l.edu}</td>
+    <td><strong>${l.name}</strong>${!hasNonStartSchedule(l)?`<br><span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;font-weight:600" title="시험/과제/토론 등 일정이 등록되지 않았어요"><i class="ti ti-alert-triangle" style="font-size:10px"></i> 일정없음</span>`:''}</td><td>${l.edu}</td>
     <td><span class="pill pill-gray">${l.code||''}</span></td>
     <td style="font-size:12px;color:var(--text2)">${l.paydate||''}</td>
     <td style="font-size:12px;color:var(--text2);white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
@@ -4068,7 +4117,7 @@ function saveBulkSchedule(){
       // 시작 일정 등록 (중복: 같은 학습자+유형+날짜+note 모두 같을 때만 skip)
       const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
       if(!dup){
-        schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,type:s.type,date:s.date,sent:'false',note});
+        schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,learnerId:learner.id||'',type:s.type,date:s.date,sent:'false',note});
         count++;
       }
       // 마감일 자동 등록
@@ -4076,7 +4125,7 @@ function saveBulkSchedule(){
         const endType=s.type+'마감';
         const dupEnd=schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate&&ex.note===note);
         if(!dupEnd){
-          schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,type:endType,date:s.endDate,sent:'false',note});
+          schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,learnerId:learner.id||'',type:endType,date:s.endDate,sent:'false',note});
           count++;
         }
       }
