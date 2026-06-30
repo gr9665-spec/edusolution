@@ -3713,7 +3713,7 @@ function renderExport(){
 
   const rows=filtered.map(l=>{
     const exportTotal=calcExportTotal(l);
-    const openingDate=l.start?l.start.replace(/-/g,''):'';
+    const openingDate=l.start||''; // 2026-06-24 형식 그대로 유지 (하이픈 포함)
     return [
       l.code||'',l.edu||'',`${l.month}월`,'2코드',l.approve||'',l.paydate||'',l.kisu||'',openingDate,
       l.manager||(window._currentUserName||currentUser?.email?.split('@')[0]||''),l.type||'',l.name||'',l.id||'',l.phone||'',l.email||'',
@@ -3721,8 +3721,8 @@ function renderExport(){
     ];
   });
 
-  // 탭 구분 텍스트 생성
-  const tsv=[headers,...rows].map(r=>r.join('\t')).join('\n');
+  // 탭 구분 텍스트 생성 — 헤더 줄 제외, 해당 월 데이터만 복사되도록
+  const tsv=rows.map(r=>r.join('\t')).join('\n');
   document.getElementById('export-data').textContent=tsv;
 
   // 미리보기 테이블
