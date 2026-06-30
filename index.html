@@ -199,7 +199,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
   <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>메모</div>
-  <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격조건</div>
+  <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격증/편입정보</div>
   <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
   <div class="tab" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
 </div>
@@ -523,13 +523,22 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <!-- 마케팅 -->
 <!-- 자격조건 -->
 <div id="panel-certinfo" class="panel">
-  <div style="font-size:13px;color:var(--text2);margin-bottom:14px">학점은행제로 자격증 취득 시 알아둬야 할 제도상 조건들을 정리했어요. 상담 중 빠르게 확인용으로 활용하세요.</div>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:14px">학점은행제 제도상 조건들을 카테고리별로 정리했어요. 상담 중 빠르게 확인용으로 활용하세요.</div>
+
+  <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:0">
+    <button class="certinfo-subtab active" data-sub="cert" onclick="switchCertSub('cert',this)" style="padding:8px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--navy);border-bottom:2px solid var(--navy);display:flex;align-items:center;gap:5px"><i class="ti ti-certificate" style="font-size:14px"></i>자격증</button>
+    <button class="certinfo-subtab" data-sub="transfer" onclick="switchCertSub('transfer',this)" style="padding:8px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;display:flex;align-items:center;gap:5px"><i class="ti ti-school" style="font-size:14px"></i>편입</button>
+    <button class="certinfo-subtab" data-sub="grad" onclick="switchCertSub('grad',this)" style="padding:8px 16px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;display:flex;align-items:center;gap:5px"><i class="ti ti-briefcase" style="font-size:14px"></i>대졸자전형</button>
+  </div>
+
+  <div id="certinfo-sub-cert" class="certinfo-sub">
 
   <div class="card" style="margin-bottom:14px">
-    <div class="card-head" style="background:#fff3e0">
+    <div class="card-head" style="background:#fff3e0;cursor:pointer" onclick="toggleCertCard(this)">
       <h3><i class="ti ti-baby-carriage" style="color:#e07a1f"></i>보육교사 2급</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s"></i>
     </div>
-    <div style="padding:16px">
+    <div class="cert-card-body" style="padding:16px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <span class="pill" style="background:#fff3e0;color:#e07a1f;font-weight:700">총 17과목 · 51학점</span>
         <span class="pill" style="background:#e8f0fe;color:#1a5fa8">이론 9과목</span>
@@ -578,10 +587,11 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
 
   <div class="card">
-    <div class="card-head" style="background:#e8f5e9">
+    <div class="card-head" style="background:#e8f5e9;cursor:pointer" onclick="toggleCertCard(this)">
       <h3><i class="ti ti-heart-handshake" style="color:#2e7d32"></i>사회복지사 2급</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s"></i>
     </div>
-    <div style="padding:16px">
+    <div class="cert-card-body" style="padding:16px">
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <span class="pill" style="background:#fdeaea;color:#c0392b;font-weight:700"><i class="ti ti-alert-triangle" style="font-size:11px"></i> 구법/신법 대상자 구분 필수 확인</span>
@@ -647,6 +657,26 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <i class="ti ti-info-circle" style="font-size:13px"></i> 전문대졸 이상은 기존 전공 무관하게 17과목만 이수하면 자격 취득 가능<br>
         <i class="ti ti-info-circle" style="font-size:13px"></i> 실습 관련 별도 비용 발생 가능: 실습세미나 수강료, 실습기관 관리비 등 (학습설계 시 안내 필요)<br>
         <i class="ti ti-info-circle" style="font-size:13px"></i> 자격증 발급: 학위 완료 후 한국사회복지사협회(지방협회)에 서류 제출 + 수수료
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <div id="certinfo-sub-transfer" class="certinfo-sub" style="display:none">
+    <div class="card">
+      <div style="padding:40px 20px;text-align:center;color:var(--text2)">
+        <i class="ti ti-school" style="font-size:32px;color:var(--border2);margin-bottom:8px;display:block"></i>
+        편입 관련 정보는 준비 중이에요.
+      </div>
+    </div>
+  </div>
+
+  <div id="certinfo-sub-grad" class="certinfo-sub" style="display:none">
+    <div class="card">
+      <div style="padding:40px 20px;text-align:center;color:var(--text2)">
+        <i class="ti ti-briefcase" style="font-size:32px;color:var(--border2);margin-bottom:8px;display:block"></i>
+        대졸자전형 관련 정보는 준비 중이에요.
       </div>
     </div>
   </div>
@@ -2424,6 +2454,26 @@ function calcExportTotal(l){
   return total;
 }
 
+function switchCertSub(sub,el){
+  document.querySelectorAll('.certinfo-sub').forEach(s=>s.style.display='none');
+  document.getElementById('certinfo-sub-'+sub).style.display='block';
+  document.querySelectorAll('.certinfo-subtab').forEach(t=>{
+    t.style.color='var(--text2)';
+    t.style.borderBottomColor='transparent';
+  });
+  if(el){
+    el.style.color='var(--navy)';
+    el.style.borderBottomColor='var(--navy)';
+  }
+}
+function toggleCertCard(headEl){
+  const body=headEl.nextElementSibling;
+  const chevron=headEl.querySelector('.cert-chevron');
+  if(!body) return;
+  const collapsed=body.style.display==='none';
+  body.style.display=collapsed?'block':'none';
+  if(chevron) chevron.style.transform=collapsed?'rotate(0deg)':'rotate(-90deg)';
+}
 function switchTab(name,el){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
