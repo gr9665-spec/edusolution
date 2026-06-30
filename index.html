@@ -3703,6 +3703,14 @@ function renderExport(){
     const lm=parseInt(l.month)||0;
     return ly===selYear && (selMonth===0||lm===selMonth);
   });
+  // 입금일 빠른순 정렬 (paydate에서 일(day) 숫자 추출, 월은 l.month 기준)
+  filtered.sort((a,b)=>{
+    const am=parseInt(a.month)||0, bm=parseInt(b.month)||0;
+    if(am!==bm) return am-bm;
+    const ad=parseInt((a.paydate||'').match(/(\d+)\s*일/)?.[1])||parseInt((a.paydate||'').match(/\d+/)?.[0])||0;
+    const bd=parseInt((b.paydate||'').match(/(\d+)\s*일/)?.[1])||parseInt((b.paydate||'').match(/\d+/)?.[0])||0;
+    return ad-bd;
+  });
   const empty=document.getElementById('export-empty');
   const tbody=document.getElementById('export-tbody');
   document.getElementById('export-count').textContent=filtered.length?`${filtered.length}건`:'';
