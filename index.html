@@ -1648,8 +1648,10 @@ async function showApp(){
 
   fixMissingScheduleNotes();
   const dateFix=fixMissingScheduleDates();
-  if(dateFix.fixed>0){
-    setTimeout(()=>showToast(`날짜 누락된 일정 ${dateFix.fixed}건을 자동 복구했어요`),800);
+  const endFix=fixMissingEndDates();
+  const totalFix=(dateFix.fixed||0)+endFix;
+  if(totalFix>0){
+    setTimeout(()=>showToast(`누락된 일정 정보 ${totalFix}건을 자동 복구했어요`),800);
   }
   renderDashboard();
 }
@@ -3552,7 +3554,7 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
               <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
-              ${(!s.endDate&&!s.time&&s.type!=='개강일'&&!s.type.includes('마감'))?'<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px" title="마감일이 등록되지 않았어요">⚠ 마감일없음</span>':''}
+              ${(!s.endDate&&!s.time&&s.type!=='개강일'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
               ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note.split('|')[0].trim()}</div>`:''}
             </div>
@@ -4228,6 +4230,33 @@ function fixMissingScheduleNotes(){
   if(fixed>0){ save(); console.log(`[보정] note 없는 일정 ${fixed}건 자동 채움`); }
 }
 // date 필드가 통째로 누락된 일정을 같은 학습자+기수(note)의 다른 일정 날짜로 복구
+function fixMissingEndDates(){
+  // endDate/time이 없는 시험/과제/토론 일정을 note의 날짜범위에서 복구
+  let fixed=0;
+  schedules.forEach(s=>{
+    if(s.endDate||s.time) return; // 이미 있으면 skip
+    if(s.type==='개강일'||s.type.includes('마감')) return;
+
+    const note=s.note||'';
+    // note에서 날짜범위 파싱: "| 4/22~4/28 22:59" 또는 "| 4/22-4/28" 형태
+    const rangeMatch=note.match(/\|\s*([\d/]+)\s*[~\-]\s*([\d/]+)(?:\s+(\d{1,2}:\d{2}))?/);
+    if(rangeMatch){
+      const [,startPart,endPart,timePart]=rangeMatch;
+      // 종료일: M/D 형태를 현재 연도 기준 YYYY-MM-DD로
+      const endParsed=endPart.trim();
+      const [em,ed]=(endParsed.includes('/')?(endParsed.split('/')):([null,null]));
+      if(em&&ed){
+        const yr=new Date().getFullYear();
+        const endDate=`${yr}-${String(em).padStart(2,'0')}-${String(ed).padStart(2,'0')}`;
+        s.endDate=endDate;
+        if(timePart) s.time=timePart;
+        fixed++;
+      }
+    }
+  });
+  if(fixed>0){ save(); console.log(`[보정] endDate 없는 일정 ${fixed}건을 note 날짜범위에서 자동 복구`); }
+  return fixed;
+}
 function fixMissingScheduleDates(){
   let fixed=0, unfixable=[];
   schedules.forEach(s=>{
