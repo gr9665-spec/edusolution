@@ -4293,7 +4293,19 @@ function fixMissingEndDates(){
       }
     }
   });
-  if(fixed>0){ save(); console.log(`[보정] endDate 없는 일정 ${fixed}건을 note 날짜범위에서 자동 복구`); }
+  // 2차: note에 날짜범위 없으면 같은 note(기수)+같은 type의 다른 학생 endDate 빌려오기
+  schedules.forEach(s=>{
+    if(s.endDate||s.time) return;
+    if(s.type==='개강일'||s.type.includes('마감')) return;
+    const noteKey=(s.note||'').split('|')[0].trim(); // 기수 부분만
+    if(!noteKey) return;
+    const sibling=schedules.find(x=>
+      x!==s && x.endDate && x.type===s.type &&
+      (x.note||'').split('|')[0].trim()===noteKey
+    );
+    if(sibling){ s.endDate=sibling.endDate; if(sibling.time) s.time=sibling.time; fixed++; }
+  });
+  if(fixed>0){ save(); console.log(`[보정] endDate 없는 일정 ${fixed}건을 같은 기수/타입 다른 학생에서 복구`); }
   return fixed;
 }
 function fixMissingScheduleDates(){
