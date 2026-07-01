@@ -1647,6 +1647,10 @@ async function showApp(){
   }
 
   fixMissingScheduleNotes();
+  const dateFix=fixMissingScheduleDates();
+  if(dateFix.fixed>0){
+    setTimeout(()=>showToast(`날짜 누락된 일정 ${dateFix.fixed}건을 자동 복구했어요`),800);
+  }
   renderDashboard();
 }
 
@@ -2924,6 +2928,7 @@ async function saveLearner(){
   let schedAddedCount=0;
   const noteBase=[edu, document.getElementById('l-kisu')?.value?.trim()].filter(Boolean).join(' ');
   schedRows.forEach((sr,si)=>{
+    if(!sr.date) return; // date 없으면 절대 등록 안 함 (안전장치)
     // sr.note가 'edu kisu | 날짜범위' 형태이면 그대로, 아니면 noteBase 사용
     const finalNote=sr.note||noteBase;
     schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
@@ -4187,16 +4192,16 @@ function saveBulkSchedule(){
       const note = dateRange ? `${noteBase} | ${dateRange}` : noteBase;
 
       // 시작 일정 등록 (중복: 같은 학습자+유형+날짜+note 모두 같을 때만 skip)
-      const dup = schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
-      if(!dup){
+      const dup = s.date && schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
+      if(s.date && !dup){
         schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,learnerId:learner.id||'',type:s.type,date:s.date,sent:'false',note});
         count++;
       }
       // 마감일 자동 등록
       if(HAS_END.includes(s.type)&&s.endDate){
         const endType=s.type+'마감';
-        const dupEnd=schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate&&ex.note===note);
-        if(!dupEnd){
+        const dupEnd=s.endDate && schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate&&ex.note===note);
+        if(s.endDate && !dupEnd){
           schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,learnerId:learner.id||'',type:endType,date:s.endDate,sent:'false',note});
           count++;
         }
@@ -4221,6 +4226,28 @@ function fixMissingScheduleNotes(){
     if(noteBase){ s.note=noteBase; fixed++; }
   });
   if(fixed>0){ save(); console.log(`[보정] note 없는 일정 ${fixed}건 자동 채움`); }
+}
+// date 필드가 통째로 누락된 일정을 같은 학습자+기수(note)의 다른 일정 날짜로 복구
+function fixMissingScheduleDates(){
+  let fixed=0, unfixable=[];
+  schedules.forEach(s=>{
+    if(s.date) return; // 이미 있으면 skip
+    // 같은 학습자 + 같은 note(기수)를 가진 다른 일정들 중 날짜 있는 것 찾기
+    const siblings=schedules.filter(x=>x!==s && x.date && x.learnerName===s.learnerName &&
+      ((s.learnerId&&x.learnerId===s.learnerId) || (!s.learnerId && x.note===s.note)));
+    if(siblings.length){
+      // 개강일이면 가장 빠른 날짜, 그 외(쪽지시험/과제 등)면 가장 가까운 날짜를 사용
+      const sorted=siblings.map(x=>x.date).sort();
+      s.date=sorted[0];
+      s._dateRecovered=true; // 자동복구 표시 (UI에서 확인용, 저장은 안 함)
+      fixed++;
+    } else {
+      unfixable.push(s);
+    }
+  });
+  if(fixed>0){ save(); console.log(`[보정] date 없는 일정 ${fixed}건을 같은 학습자/기수의 다른 일정 날짜로 자동 복구`); }
+  if(unfixable.length){ console.warn(`[보정 실패] date를 복구할 수 없는 일정 ${unfixable.length}건:`, unfixable.map(s=>`${s.learnerName} / ${s.type} / ${s.note}`)); }
+  return {fixed, unfixable};
 }
 
 renderDashboard();calcReward();
