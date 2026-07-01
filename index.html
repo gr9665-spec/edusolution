@@ -195,9 +195,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <div class="tabs">
   <div class="tab active" onclick="switchTab('dashboard',this)"><i class="ti ti-layout-dashboard"></i>대시보드</div>
   <div class="tab" onclick="switchTab('learners',this)"><i class="ti ti-users"></i>학습자 관리</div>
+  <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
   <div class="tab" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
-  <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>메모</div>
   <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격증/편입정보</div>
   <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
@@ -426,6 +426,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <select id="sales-type" onchange="renderSales()" style="width:76px">
         <option value="">전체</option><option value="신규">신규</option><option value="기존">기존</option>
       </select>
+      <input type="text" id="sales-name-search" placeholder="이름 검색" style="width:90px;padding:7px 10px;font-size:13px" oninput="renderSales()">
       <span style="font-size:13px;color:var(--text2)">기준</span>
     </div>
     <button class="btn btn-primary" onclick="openLearnerModal()"><i class="ti ti-plus"></i>결제건 추가</button>
@@ -3086,6 +3087,7 @@ function renderLearners(){
       <td style="white-space:nowrap">
         <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
         <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'플랜 바로가기':'플랜 연결'}" style="color:${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'var(--green)':'var(--navy)'}"><i class="ti ti-clipboard-list"></i></button>
+        <button class="btn btn-icon btn-sm" onclick="goToSalesFilter('${l.name.replace(/'/g,"\\'")}')" title="매출에서 보기" style="color:var(--amber)"><i class="ti ti-chart-bar"></i></button>
         <button class="btn btn-icon btn-sm" onclick="deleteLearner(${origIdx})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
       </td></tr>`;
 
@@ -3661,6 +3663,7 @@ function renderSales(){
   const selMonth=parseInt(document.getElementById('sales-month').value)||0;
   const selEdu=document.getElementById('sales-edu')?.value||'';
   const selType=document.getElementById('sales-type')?.value||'';
+  const selName=(document.getElementById('sales-name-search')?.value||'').trim().toLowerCase();
   // 교육원 목록 동적 생성
   const eduSel=document.getElementById('sales-edu');
   if(eduSel){
@@ -3674,7 +3677,8 @@ function renderSales(){
     const mYear=ly===selYear && (selMonth===0||lm===selMonth);
     const mEdu=!selEdu||(l.edu||'')===selEdu;
     const mType=!selType||l.type===selType;
-    return mYear&&mEdu&&mType;
+    const mName=!selName||(l.name||'').toLowerCase().includes(selName);
+    return mYear&&mEdu&&mType&&mName;
   });
   const totalSales=filtered.reduce((a,l)=>a+calcExportTotal(l),0);
   const totalCredit=filtered.reduce((a,l)=>a+(parseInt(l.credit)||0),0);
@@ -3693,7 +3697,10 @@ function renderSales(){
   tbody.innerHTML=filtered.map(l=>{
     const origIdx=learners.indexOf(l);
     return `<tr>
-    <td><strong>${l.name}</strong>${!hasNonStartSchedule(l)?`<br><span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;font-weight:600" title="시험/과제/토론 등 일정이 등록되지 않았어요"><i class="ti ti-alert-triangle" style="font-size:10px"></i> 일정없음</span>`:''}</td><td>${l.edu}</td>
+    <td>
+      <strong style="cursor:pointer;color:var(--navy);text-decoration:underline;text-decoration-style:dotted" onclick="goToLearnerSearch('${l.name.replace(/'/g,"\\'")}')" title="학습자 관리에서 보기">${l.name}</strong>
+      ${!hasNonStartSchedule(l)?`<br><span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;font-weight:600" title="시험/과제/토론 등 일정이 등록되지 않았어요"><i class="ti ti-alert-triangle" style="font-size:10px"></i> 일정없음</span>`:''}
+    </td><td>${l.edu}</td>
     <td><span class="pill pill-gray">${l.code||''}</span></td>
     <td style="font-size:12px;color:var(--text2)">${l.paydate||''}</td>
     <td style="font-size:12px;color:var(--text2);white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
@@ -3709,10 +3716,36 @@ function renderSales(){
     <td><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type}</span></td>
     <td style="white-space:nowrap">
       <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
+      <button class="btn btn-icon btn-sm" onclick="goToLearnerSearch('${l.name.replace(/'/g,"\\'")}')" title="학습자 관리에서 보기" style="color:var(--navy)"><i class="ti ti-users"></i></button>
       <button class="btn btn-icon btn-sm" onclick="deleteLearner(${origIdx})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
     </td>
   </tr>`;
   }).join('');
+}
+
+// ── 탭 간 연동 ──────────────────────────────────────────────────────────
+// 학습자 관리 → 매출 관리: 해당 학생 이름으로 매출 탭 이동
+function goToSalesFilter(name){
+  // 매출 탭 전환
+  const salesTab=document.querySelector('.tab[onclick*="sales"]');
+  if(salesTab) switchTab('sales', salesTab);
+  // 이름 필터링을 위한 전역 변수 세팅
+  window._salesNameFilter = name;
+  // renderSales 후 검색창에 이름 세팅
+  setTimeout(()=>{
+    const searchEl = document.getElementById('sales-name-search');
+    if(searchEl){ searchEl.value = name; renderSales(); }
+  }, 50);
+}
+
+// 매출 관리 → 학습자 관리: 해당 학생 이름으로 학습자 탭 이동
+function goToLearnerSearch(name){
+  const learnersTab=document.querySelector('.tab[onclick*="learners"]');
+  if(learnersTab) switchTab('learners', learnersTab);
+  setTimeout(()=>{
+    const searchEl = document.getElementById('search-learner');
+    if(searchEl){ searchEl.value = name; renderLearners(); }
+  }, 50);
 }
 
 function calcReward(){
