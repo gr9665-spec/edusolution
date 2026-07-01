@@ -2109,8 +2109,9 @@ function saveToFirebase(){
     fbDb.collection('userData').doc(currentUser.uid).set({
       learners, schedules, mktActivities, mktGoals,
       rewardTable, todos, plans,
+      memos, memoCategories, blogKeywords,
       lastUpdated: new Date().toISOString()
-    }).catch(e=>console.warn('Firebase 저장 실패:', e));
+    }, {merge:true}).catch(e=>console.warn('Firebase 저장 실패:', e));
   }, 800);
 }
 
@@ -2265,7 +2266,7 @@ function viewMemberDetail(uid){
   const m=allMembersData[uid];
   if(!m){alert('데이터 없음');return;}
   const learners=m.learners||[];
-  const totalSales=learners.reduce((a,l)=>a+(l.total||0),0);
+  const totalSales=learners.reduce((a,l)=>a+calcExportTotal(l),0);
   const totalReward=learners.reduce((a,l)=>a+(l.reward||0),0);
   alert(`[ ${m.name||'-'} (${m.rank||'-'}) ]\n이메일: ${m.email||'-'}\n학습자: ${learners.length}명\n총 매출: ${Math.round(totalSales/10000)}만원\n총 수당: ${Math.round(totalReward/10000)}만원\n마지막 업데이트: ${(m.lastUpdated||'').split('T')[0]||'-'}`);
 }
@@ -2289,7 +2290,7 @@ function renderAdminStats(){
       const mo=monthFilter?String(l.month||'')===monthFilter:true;
       return yr&&mo;
     });
-    const ms=ml.reduce((a,l)=>a+(l.total||0),0);
+    const ms=ml.reduce((a,l)=>a+calcExportTotal(l),0);
     const mr=ml.reduce((a,l)=>a+(l.reward||0),0);
     totalLearners+=ml.length; totalSales+=ms; totalReward+=mr;
     return `<div class="card" style="margin-bottom:10px">
@@ -6049,9 +6050,18 @@ function openMobilePlanPage(){
 
 </div></body></html>`;
 
-  const w=window.open('','_blank');
-  w.document.write(html);
-  w.document.close();
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank');
+  if(!w){
+    const f=document.createElement('iframe');
+    f.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;border:none;z-index:9999;background:#fff';
+    f.src=url;
+    document.body.appendChild(f);
+    f.onload=()=>setTimeout(()=>f.remove(),30000);
+    return;
+  }
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
 }
 
 function switchPrintView(mode){
