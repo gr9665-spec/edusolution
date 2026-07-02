@@ -478,12 +478,16 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 
   <!-- 데이터 진단 / JSON 내보내기 -->
   <div style="background:#f0f4ff;border:1.5px solid #b8c8f0;border-radius:var(--r);padding:14px 16px;margin-bottom:20px">
-    <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--navy)"><i class="ti ti-database-export" style="font-size:14px"></i> 데이터 진단 · 내보내기</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">일정 마감일 이상 여부 확인 및 전체 데이터 파일 내보내기</div>
+    <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--navy)"><i class="ti ti-database-export" style="font-size:14px"></i> 데이터 진단 · 내보내기 · 가져오기</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">일정 마감일 이상 여부 확인 및 전체 데이터 파일 내보내기/가져오기</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="diagnosSchedules()" style="background:var(--navy);color:#fff;border-color:var(--navy)"><i class="ti ti-stethoscope"></i> 일정 진단</button>
-      <button class="btn btn-sm" onclick="exportDataJson()" style="background:var(--green);color:#fff;border-color:var(--green)"><i class="ti ti-download"></i> 전체 데이터 JSON 내보내기</button>
-      <button class="btn btn-sm" onclick="fixScheduleDates()" style="background:var(--amber);color:#fff;border-color:var(--amber)" id="btn-fix-dates" title="마감일 형식 자동 정규화 (시간 제거, mm/dd 변환)"><i class="ti ti-tool"></i> 마감일 자동 수정</button>
+      <button class="btn btn-sm" onclick="exportDataJson()" style="background:var(--green);color:#fff;border-color:var(--green)"><i class="ti ti-download"></i> JSON 내보내기</button>
+      <button class="btn btn-sm" onclick="fixScheduleDates()" style="background:var(--amber);color:#fff;border-color:var(--amber)" id="btn-fix-dates"><i class="ti ti-tool"></i> 마감일 자동 수정</button>
+      <label class="btn btn-sm" style="background:#7c3aed;color:#fff;border-color:#7c3aed;cursor:pointer;margin:0">
+        <i class="ti ti-upload"></i> JSON 가져오기
+        <input type="file" accept=".json" style="display:none" onchange="importDataJson(event)">
+      </label>
     </div>
     <div id="diag-result" style="margin-top:10px;font-size:12px;line-height:1.7;display:none"></div>
   </div>
@@ -3857,6 +3861,60 @@ function calcReward(){
 }
 
 // ── 데이터 진단 / JSON 내보내기 ────────────────────────────────────────
+function importDataJson(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  if(!confirm(`⚠️ JSON 가져오기를 하면 현재 데이터가 덮어씌워져요.\n"${file.name}" 파일로 교체할까요?\n\n(현재 데이터는 먼저 JSON 내보내기로 백업해두세요)`)){
+    event.target.value=''; return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      // 필드 검증
+      if(!d.learners || !d.schedules){
+        alert('올바른 에듀솔루션 데이터 파일이 아니에요.\nlearners/schedules 필드가 없어요.'); return;
+      }
+      // 데이터 적용
+      if(d.learners)       learners       = d.learners;
+      if(d.schedules)      schedules      = d.schedules;
+      if(d.plans)          plans          = d.plans;
+      if(d.memos)          memos          = d.memos;
+      if(d.memoCategories) memoCategories = d.memoCategories;
+      if(d.blogKeywords)   blogKeywords   = d.blogKeywords;
+      if(d.todos)          todos          = d.todos;
+      if(d.rewardTable)    rewardTable    = d.rewardTable;
+      if(d.mktActivities)  mktActivities  = d.mktActivities;
+      if(d.mktGoals)       mktGoals       = d.mktGoals;
+
+      // Firebase + 로컬 저장
+      save();
+      if(currentUser && fbDb){
+        fbDb.collection('userData').doc(currentUser.uid).set({
+          learners, schedules, plans, memos, memoCategories,
+          blogKeywords, todos, rewardTable, mktActivities, mktGoals,
+          lastUpdated: new Date().toISOString()
+        }, {merge:false}).then(()=>{
+          showToast('✅ 데이터 가져오기 완료! Firebase에 저장됐어요.');
+          renderLearners(); renderSchedule(); renderSales(); renderDashboard();
+          const result = document.getElementById('diag-result');
+          result.style.display='block';
+          result.innerHTML=`<span style="color:var(--green)">✅ ${file.name} 가져오기 완료! 학습자 ${learners.length}명 · 일정 ${schedules.length}건 반영됐어요.</span>`;
+        }).catch(err=>{
+          alert('Firebase 저장 실패: ' + err.message);
+        });
+      } else {
+        showToast('✅ 데이터 가져오기 완료! (로컬 저장)');
+        renderLearners(); renderSchedule(); renderSales(); renderDashboard();
+      }
+    } catch(err){
+      alert('파일 파싱 실패: ' + err.message);
+    }
+    event.target.value='';
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 function exportDataJson(){
   const data={
     exportedAt: new Date().toISOString(),
