@@ -1748,7 +1748,23 @@ async function loadUserData(){
     if(doc.exists){
       const d=doc.data();
       if(d.learners)    learners=d.learners;
-      if(d.schedules)   schedules=d.schedules;
+      if(d.schedules){
+        schedules=d.schedules;
+        // learnerId 없는 구 데이터 → 학습자 이름으로 learnerId 자동 보완
+        if(d.learners){
+          const nameToId={};
+          d.learners.forEach(l=>{ if(l.id&&l.name) nameToId[l.name]=l.id; });
+          let migrated=false;
+          schedules=schedules.map(s=>{
+            if(!s.learnerId && s.learnerName && nameToId[s.learnerName]){
+              migrated=true;
+              return {...s, learnerId:nameToId[s.learnerName]};
+            }
+            return s;
+          });
+          if(migrated) saveToFirebase(); // 보완된 데이터 즉시 저장
+        }
+      }
       if(d.mktActivities) mktActivities=d.mktActivities;
       if(d.mktGoals)    mktGoals=d.mktGoals;
       // 수당 테이블: 커스텀 저장값 있으면 사용, 없으면 직급 기본값
@@ -2495,7 +2511,7 @@ function getLearnerStartDate(l){
   return sorted[0]?.date||'';
 }
 function hasNonStartSchedule(l){
-  // "이번 학기" 일정 중 개강일 외(쪽지시험, 과제, 토론, 중간/기말고사 등)가 하나라도 있는지
+  // "이번 학기" 일정 중 개강일/마감 외(쪽지시험, 과제, 토론, 중간/기말고사, 기타 등)가 하나라도 있는지
   return findSchedulesForLearnerThisTerm(l).some(s=>s.type!=='개강일' && !s.type.includes('마감'));
 }
 function calcRewardForLearner(l){
@@ -3651,7 +3667,7 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
               <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
-              ${(!s.endDate&&!s.time&&s.type!=='개강일'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
+              ${(!s.endDate&&!s.time&&s.type!=='개강일'&&s.type!=='기타'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
               ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note.split('|')[0].trim()}</div>`:''}
             </div>
@@ -4183,13 +4199,24 @@ function applyCopyKisu(){
 
   if(!startItems.length){ alert('복사할 일정이 없어요'); return; }
 
-  // 마감일 매핑
+  // 마감일 매핑 — 같은 유형 마감 중 시작일 이후 가장 가까운 것으로 매칭
   bulkRows = startItems.length;
   renderBulkRows(startItems.map(s=>{
     let endDate='';
     if(HAS_END_TYPES.includes(s.type)){
-      const endItem=items.find(x=>x.type===s.type+'마감');
-      if(endItem) endDate=endItem.date;
+      const endItems=items.filter(x=>x.type===s.type+'마감'&&x.date>=s.date);
+      if(endItems.length){
+        // 시작일 이후 마감 중 가장 가까운 것
+        endItems.sort((a,b)=>a.date.localeCompare(b.date));
+        endDate=endItems[0].date;
+      } else {
+        // 시작일 이전 마감도 포함해서 날짜 가장 가까운 것으로 폴백
+        const allEnd=items.filter(x=>x.type===s.type+'마감');
+        if(allEnd.length){
+          allEnd.sort((a,b)=>Math.abs(new Date(a.date)-new Date(s.date))-Math.abs(new Date(b.date)-new Date(s.date)));
+          endDate=allEnd[0].date;
+        }
+      }
     }
     return {type:s.type, date:s.date, endDate, note:s.note};
   }));
