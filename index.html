@@ -1443,6 +1443,12 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
           <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
         </select>
       </div>
+      <div class="fg" style="display:flex;align-items:flex-end;padding-bottom:2px">
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:600;color:var(--red);white-space:nowrap">
+          <input type="checkbox" id="bulk-no-sched" onchange="refreshBulkList()" style="width:auto;accent-color:var(--red)">
+          일정없음만
+        </label>
+      </div>
     </div>
     <!-- 학습자 체크리스트 -->
     <div style="font-size:11px;color:var(--text2);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
@@ -4414,10 +4420,12 @@ function refreshBulkList(){
   const edu = document.getElementById('bulk-edu').value;
   const kisu = document.getElementById('bulk-kisu').value;
   const month = document.getElementById('bulk-month').value;
+  const noSchedOnly = document.getElementById('bulk-no-sched')?.checked||false;
   const filtered = learners.filter(l=>
     (!edu || l.edu===edu) &&
     (!kisu || l.kisu===kisu) &&
-    (!month || String(l.month)===month)
+    (!month || String(l.month)===month) &&
+    (!noSchedOnly || !hasNonStartSchedule(l))
   );
   document.getElementById('bulk-list-count').textContent = `학습자 ${filtered.length}명`;
   const container = document.getElementById('bulk-learner-list');
@@ -4427,10 +4435,12 @@ function refreshBulkList(){
   }
   container.innerHTML = filtered.map(l=>{
     const origIdx = learners.indexOf(l);
+    const noSched = !hasNonStartSchedule(l);
     return `<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:var(--r);cursor:pointer;font-size:13px" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
       <input type="checkbox" class="bulk-chk" data-idx="${origIdx}" checked style="width:auto">
       <span style="font-weight:600;min-width:60px">${l.name}</span>
       <span style="font-size:11px;color:var(--text2)">${l.edu} · ${l.kisu||''} · ${l.month}월</span>
+      ${noSched?'<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 4px;margin-left:2px">일정없음</span>':''}
     </label>`;
   }).join('');
   updateBulkPreview();
