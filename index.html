@@ -4503,20 +4503,28 @@ function onBulkTypeChange(i){
   if(timeEmpty) timeEmpty.style.display=HAS_TIME.includes(type)?'none':'block';
 }
 
-function addBulkRow(){
-  bulkRows++;
-  renderBulkRows();
+function collectBulkRowVals(){
+  return [...document.querySelectorAll('.bulk-row')].map(r=>({
+    type:    r.querySelector('.bulk-type')?.value||'쪽지시험',
+    date:    r.querySelector('.bulk-date')?.value||'',
+    endDate: r.querySelector('.bulk-end')?.value||'',
+    time:    r.querySelector('.bulk-time')?.value||'',
+    note:    r.querySelector('.bulk-note')?.value||''
+  }));
 }
+
+function addBulkRow(){
+  const vals = collectBulkRowVals();
+  bulkRows++;
+  renderBulkRows([...vals, {}]);
+}
+
 function removeBulkRow(i){
   if(bulkRows<=1) return;
-  const rows = [...document.querySelectorAll('.bulk-row')];
-  const types = rows.map(r=>r.querySelector('.bulk-type').value);
-  const dates = rows.map(r=>r.querySelector('.bulk-date').value);
-  types.splice(i,1); dates.splice(i,1);
+  const vals = collectBulkRowVals();
+  vals.splice(i,1);
   bulkRows--;
-  renderBulkRows();
-  document.querySelectorAll('.bulk-type').forEach((s,j)=>s.value=types[j]);
-  document.querySelectorAll('.bulk-date').forEach((d,j)=>d.value=dates[j]);
+  renderBulkRows(vals);
 }
 
 function updateBulkPreview(){
