@@ -4349,7 +4349,6 @@ function applyCopyKisu(){
   const key = document.getElementById('copy-kisu-sel').value;
   if(!key){ alert('기수를 선택해주세요'); return; }
   const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
-  const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
 
   // 마감 제외한 시작 일정만
   const startItems=[...new Map(items
