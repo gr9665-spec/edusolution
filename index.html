@@ -2907,12 +2907,32 @@ function applyLearnerCopyKisu(){
   const prev=document.getElementById('learner-copy-kisu-preview');
   if(!key){ if(prev){prev.textContent='기수를 선택해주세요';prev.style.color='var(--red)';} return; }
   const items=schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
-  // 마감 포함 전체 유형+날짜 유니크 (학습자는 개별 일정이므로 마감도 그대로 행으로 추가)
-  const unique=[...new Map(items.map(s=>[s.type+'|'+s.date, s])).values()]
+
+  // 마감 제외한 시작 일정만 (endDate/time 포함)
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const unique=[...new Map(items
+    .filter(s=>!s.type.includes('마감'))
+    .map(s=>[s.type+'|'+s.date, s])).values()]
     .sort((a,b)=>a.date.localeCompare(b.date));
   if(!unique.length){ if(prev){prev.textContent='해당 기수에 등록된 일정이 없어요';prev.style.color='var(--red)';} return; }
 
-  // 기수 일정 전체에서 날짜범위 직접 계산 (note 의존 X)
+  // 기수 내 다수결 endDate/time
+  const endDateByType={}, timeByType={};
+  HAS_END.forEach(type=>{
+    const arr=items.filter(s=>s.type===type && s.endDate);
+    if(arr.length){
+      const freq={};
+      arr.forEach(s=>{ freq[s.endDate]=(freq[s.endDate]||0)+1; });
+      endDateByType[type]=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+    }
+    const tarr=items.filter(s=>s.type===type && s.time);
+    if(tarr.length){
+      const tfreq={};
+      tarr.forEach(s=>{ tfreq[s.time]=(tfreq[s.time]||0)+1; });
+      timeByType[type]=Object.entries(tfreq).sort((a,b)=>b[1]-a[1])[0][0];
+    }
+  });
+
   const allDates=items.map(s=>s.date).filter(Boolean).sort();
   const minDate=allDates[0]||'';
   const maxDate=allDates[allDates.length-1]||'';
@@ -2921,7 +2941,7 @@ function applyLearnerCopyKisu(){
 
   const wrap=document.getElementById('learner-sched-rows');
   wrap.innerHTML='';
-  unique.forEach(s=>addLearnerSchedRow(s.type, s.date, kisuNote));
+  unique.forEach(s=>addLearnerSchedRow(s.type, s.date, kisuNote, endDateByType[s.type]||'', timeByType[s.type]||''));
 
   if(prev){
     const preview=unique.map(s=>`${s.type}(${s.date.slice(5)})`).join(' · ');
@@ -2929,32 +2949,47 @@ function applyLearnerCopyKisu(){
     prev.style.color='var(--green)';
   }
 }
-function addLearnerSchedRow(presetType,presetDate,presetNote){
+
+function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTime){
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const wrap=document.getElementById('learner-sched-rows');
   const rowId='sr'+Date.now()+Math.floor(Math.random()*1000);
+  const type=presetType||'개강일';
+  const showEnd=HAS_END.includes(type);
+  const showTime=HAS_TIME.includes(type);
   const row=document.createElement('div');
   row.id=rowId;
-  row.style.cssText='display:flex;gap:6px;align-items:center';
+  row.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px';
   row.innerHTML=`
-    <select class="ls-type" style="flex:1;font-size:12px;padding:5px 7px">
-      <option${presetType==='개강일'?' selected':''}>개강일</option>
-      <option${presetType==='쪽지시험'?' selected':''}>쪽지시험</option>
-      <option${presetType==='쪽지시험마감'?' selected':''}>쪽지시험마감</option>
-      <option${presetType==='토론'?' selected':''}>토론</option>
-      <option${presetType==='토론마감'?' selected':''}>토론마감</option>
-      <option${presetType==='과제'?' selected':''}>과제</option>
-      <option${presetType==='과제마감'?' selected':''}>과제마감</option>
-      <option${presetType==='중간고사'?' selected':''}>중간고사</option>
-      <option${presetType==='중간고사마감'?' selected':''}>중간고사마감</option>
-      <option${presetType==='기말고사'?' selected':''}>기말고사</option>
-      <option${presetType==='기말고사마감'?' selected':''}>기말고사마감</option>
-      <option${presetType==='기타'?' selected':''}>기타</option>
+    <select class="ls-type" style="flex:0 0 110px;font-size:12px;padding:5px 7px" onchange="onLearnerSchedTypeChange('${rowId}')">
+      <option${type==='개강일'?' selected':''}>개강일</option>
+      <option${type==='쪽지시험'?' selected':''}>쪽지시험</option>
+      <option${type==='토론'?' selected':''}>토론</option>
+      <option${type==='과제'?' selected':''}>과제</option>
+      <option${type==='중간고사'?' selected':''}>중간고사</option>
+      <option${type==='기말고사'?' selected':''}>기말고사</option>
+      <option${type==='기타'?' selected':''}>기타</option>
     </select>
-    <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;font-size:12px;padding:5px 7px">
+    <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;min-width:110px;font-size:12px;padding:5px 7px" placeholder="시작일">
+    <input type="date" class="ls-end" value="${presetEnd||''}" style="flex:1;min-width:110px;font-size:12px;padding:5px 7px;display:${showEnd?'block':'none'}" placeholder="마감일">
+    <input type="time" class="ls-time" value="${presetTime||''}" style="flex:0 0 80px;font-size:12px;padding:5px 7px;display:${showTime?'block':'none'}" placeholder="시간">
     <input type="hidden" class="ls-note" value="${(presetNote||'').replace(/"/g,'&quot;')}">
     <button type="button" class="btn btn-icon" style="width:26px;height:26px;color:var(--red)" onclick="document.getElementById('${rowId}').remove()"><i class="ti ti-x" style="font-size:12px"></i></button>
   `;
   wrap.appendChild(row);
+}
+
+function onLearnerSchedTypeChange(rowId){
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
+  const row=document.getElementById(rowId);
+  if(!row) return;
+  const type=row.querySelector('.ls-type').value;
+  const endEl=row.querySelector('.ls-end');
+  const timeEl=row.querySelector('.ls-time');
+  if(endEl) endEl.style.display=HAS_END.includes(type)?'block':'none';
+  if(timeEl) timeEl.style.display=HAS_TIME.includes(type)?'block':'none';
 }
 function collectLearnerSchedRows(){
   const rows=document.querySelectorAll('#learner-sched-rows > div');
@@ -2962,8 +2997,10 @@ function collectLearnerSchedRows(){
   rows.forEach(r=>{
     const type=r.querySelector('.ls-type').value;
     const date=r.querySelector('.ls-date').value;
+    const endDate=r.querySelector('.ls-end')?.value||'';
+    const time=r.querySelector('.ls-time')?.value||'';
     const note=r.querySelector('.ls-note')?.value||'';
-    if(date) result.push({type,date,note});
+    if(date) result.push({type,date,endDate,time,note});
   });
   return result;
 }
