@@ -3081,7 +3081,7 @@ async function saveLearner(){
   const eduCustom=document.getElementById('l-edu-custom').value.trim();
   const edu=eduSel==='기타'?(eduCustom||'기타'):eduSel;
   const l={
-    name,id:document.getElementById('l-id').value.trim(),
+    name,id:document.getElementById('l-id').value.trim()||('L'+Date.now()+Math.random().toString(36).slice(2,7)),
     phone:document.getElementById('l-phone').value.trim(),
     email:document.getElementById('l-email').value.trim(),
     edu, kisu:document.getElementById('l-kisu').value.trim(),
@@ -3111,7 +3111,7 @@ async function saveLearner(){
     schedAddedCount++;
   });
 
-  save();closeModal('modal-learner');renderLearners();renderDashboard();renderSchedule();
+  save();closeModal('modal-learner');renderLearners();renderSales();renderDashboard();renderSchedule();
   if(schedAddedCount) showToast(`학습자 저장 + 학사일정 ${schedAddedCount}건 등록 완료!`);
 }
 
