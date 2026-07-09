@@ -1387,7 +1387,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="fg2">
     <div class="fg"><label>학생명 *</label><select id="s-learner"><option value="">학습자 선택</option></select></div>
     <div class="fg"><label>일정 유형</label>
-      <select id="s-type">
+      <select id="s-type" onchange="document.getElementById('s-label-wrap').style.display=this.value==='기타'?'block':'none'">
         <option>개강일</option>
         <option>쪽지시험</option><option>쪽지시험마감</option>
         <option>토론</option><option>토론마감</option>
@@ -1397,6 +1397,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option>기타</option>
       </select>
     </div>
+    <div class="fg" id="s-label-wrap" style="display:none"><label>기타 일정 내용 <span style="font-size:10px;color:var(--text2)">(직접 입력)</span></label><input type="text" id="s-label" placeholder="예: 팀프로젝트 제출, 출석인정기간 등"></div>
     <div class="fg"><label>시작일 *</label><input type="date" id="s-date"></div>
     <div class="fg" style="display:flex;gap:6px;align-items:flex-end">
       <div style="flex:1"><label>마감일 <span style="font-size:10px;color:var(--text2)">(선택)</span></label><input type="date" id="s-end-date" style="width:100%"></div>
@@ -2950,7 +2951,7 @@ function applyLearnerCopyKisu(){
   }
 }
 
-function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTime){
+function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTime,presetLabel){
   const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
   const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const wrap=document.getElementById('learner-sched-rows');
@@ -2977,6 +2978,13 @@ function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTim
     <input type="hidden" class="ls-note" value="${(presetNote||'').replace(/"/g,'&quot;')}">
     <button type="button" class="btn btn-icon" style="width:26px;height:26px;color:var(--red)" onclick="document.getElementById('${rowId}').remove()"><i class="ti ti-x" style="font-size:12px"></i></button>
   `;
+  if(type==='기타'){
+    const labelDiv=document.createElement('div');
+    labelDiv.className='ls-label-wrap';
+    labelDiv.style.cssText='display:flex;margin-top:4px;padding-left:2px';
+    labelDiv.innerHTML=`<input type="text" class="ls-label" value="${(presetLabel||'').replace(/"/g,'&quot;')}" placeholder="기타 일정 내용 직접 입력" style="width:100%;font-size:12px;padding:5px 8px">`;
+    row.appendChild(labelDiv);
+  }
   wrap.appendChild(row);
 }
 
@@ -2990,6 +2998,17 @@ function onLearnerSchedTypeChange(rowId){
   const timeEl=row.querySelector('.ls-time');
   if(endEl) endEl.style.display=HAS_END.includes(type)?'block':'none';
   if(timeEl) timeEl.style.display=HAS_TIME.includes(type)?'block':'none';
+  // 기타 라벨 wrap 토글
+  let labelWrap=row.querySelector('.ls-label-wrap');
+  if(type==='기타'){
+    if(!labelWrap){
+      labelWrap=document.createElement('div');
+      labelWrap.className='ls-label-wrap';
+      labelWrap.style.cssText='display:flex;margin-top:4px;padding-left:2px';
+      labelWrap.innerHTML=`<input type="text" class="ls-label" placeholder="기타 일정 내용 직접 입력" style="width:100%;font-size:12px;padding:5px 8px">`;
+      row.appendChild(labelWrap);
+    } else { labelWrap.style.display='flex'; }
+  } else if(labelWrap){ labelWrap.style.display='none'; }
 }
 function collectLearnerSchedRows(){
   const rows=document.querySelectorAll('#learner-sched-rows > div');
@@ -2999,8 +3018,9 @@ function collectLearnerSchedRows(){
     const date=r.querySelector('.ls-date').value;
     const endDate=r.querySelector('.ls-end')?.value||'';
     const time=r.querySelector('.ls-time')?.value||'';
+    const label=r.querySelector('.ls-label')?.value||'';
     const note=r.querySelector('.ls-note')?.value||'';
-    if(date) result.push({type,date,endDate,time,note});
+    if(date) result.push({type,date,endDate,time,label,note});
   });
   return result;
 }
@@ -3107,7 +3127,7 @@ async function saveLearner(){
     if(!sr.date) return; // date 없으면 절대 등록 안 함 (안전장치)
     // sr.note가 'edu kisu | 날짜범위' 형태이면 그대로, 아니면 noteBase 사용
     const finalNote=sr.note||noteBase;
-    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
+    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,label:sr.type==='기타'?(sr.label||''):'',date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
     schedAddedCount++;
   });
 
@@ -3398,9 +3418,9 @@ function renderDashboard(){
       <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[s.type]||'#999'}">
         <div style="flex:1;min-width:0">
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
-          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type==='기타'&&s.label?s.label:s.type}</span>
           ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
-          ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+          ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>x.name===s.learnerName&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName);const _t=_learner?.type||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
         ${s.sent==='true'
           ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
@@ -3488,7 +3508,9 @@ function saveSchedule(){
   if(!learner){alert('학습자를 찾을 수 없어요');return;}
   const sTime=(document.getElementById('s-time')?.value||'').trim();
   const sEndDate=(document.getElementById('s-end-date')?.value||'').trim();
-  schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:document.getElementById('s-type').value,date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
+  const sLabel=(document.getElementById('s-label')?.value||'').trim();
+  const sType=document.getElementById('s-type').value;
+  schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:sType,label:sType==='기타'?sLabel:'',date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
 function importScheduleFile(input){
@@ -3727,10 +3749,10 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
           <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${SCHED_TYPE_COLOR[s.type]||'#999'};${isPast?'opacity:.65':''}">
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
-              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type==='기타'&&s.label?s.label:s.type}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
               ${(!s.endDate&&!s.time&&s.type!=='개강일'&&s.type!=='기타'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
-              ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+              ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>x.name===s.learnerName&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName);const _t=_learner?.type||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note.split('|')[0].trim()}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
@@ -4530,6 +4552,9 @@ function renderBulkRows(initVals=[]){
         </div>
         <button class="btn btn-icon" style="color:var(--red);margin-top:${i===0?'16px':'0'}" onclick="removeBulkRow(${i})" ${bulkRows<=1?'disabled':''}><i class="ti ti-trash"></i></button>
       </div>
+      <div class="bulk-label-wrap" style="display:${type==='기타'?'block':'none'};margin-top:4px;padding-left:2px">
+        <input type="text" class="bulk-label" value="${init.label||''}" placeholder="기타 일정 내용 직접 입력 (예: 팀프로젝트 제출)" style="width:100%;font-size:12px;padding:5px 8px">
+      </div>
     </div>`;
   }).join('');
 }
@@ -4548,6 +4573,8 @@ function onBulkTypeChange(i){
   if(endEmpty) endEmpty.style.display=HAS_END.includes(type)?'none':'block';
   if(timeWrap) timeWrap.style.display=HAS_TIME.includes(type)?'block':'none';
   if(timeEmpty) timeEmpty.style.display=HAS_TIME.includes(type)?'none':'block';
+  const labelWrap=row.querySelector('.bulk-label-wrap');
+  if(labelWrap) labelWrap.style.display=type==='기타'?'block':'none';
 }
 
 function collectBulkRowVals(){
@@ -4556,6 +4583,7 @@ function collectBulkRowVals(){
     date:    r.querySelector('.bulk-date')?.value||'',
     endDate: r.querySelector('.bulk-end')?.value||'',
     time:    r.querySelector('.bulk-time')?.value||'',
+    label:   r.querySelector('.bulk-label')?.value||'',
     note:    r.querySelector('.bulk-note')?.value||''
   }));
 }
@@ -4607,7 +4635,7 @@ function saveBulkSchedule(){
       // 시작 일정 등록 (중복: 같은 학습자+유형+날짜+note 모두 같을 때만 skip)
       const dup = s.date && schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
       if(s.date && !dup){
-        schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,learnerId:learner.id||'',type:s.type,date:s.date,endDate:s.endDate||'',time:s.time||'',sent:'false',note});
+        schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,learnerId:learner.id||'',type:s.type,label:s.type==='기타'?(s.label||''):'',date:s.date,endDate:s.endDate||'',time:s.time||'',sent:'false',note});
         count++;
       }
       // 마감일 자동 등록
