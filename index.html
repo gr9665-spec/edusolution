@@ -1628,8 +1628,8 @@ function initFirebase(){
         if(!isAdmin && fbDb){
           const doc=await fbDb.collection('userData').doc(user.uid).get();
           const data=doc.exists?doc.data():{};
-          if(data.approved===false){
-            // 미승인 상태 — 승인 대기 화면 표시
+          // approved 필드가 없거나 false면 대기 화면 (undefined도 미승인으로 처리)
+          if(!doc.exists || data.approved !== true){
             showPendingApproval(user.email);
             return;
           }
@@ -2327,20 +2327,26 @@ function renderAdminMembers(){
 
 async function approveMember(uid){
   if(!fbDb) return;
-  await fbDb.collection('userData').doc(uid).set({approved:true},{merge:true});
-  await fbDb.collection('users').doc(uid).update({approved:true});
-  if(allMembersData[uid]) allMembersData[uid].approved=true;
-  renderAdminMembers();
-  alert('✓ 승인됐어요! 해당 멤버가 이제 로그인할 수 있어요.');
+  try {
+    // userData에 approved:true 저장 (핵심)
+    await fbDb.collection('userData').doc(uid).set({approved:true},{merge:true});
+    // users 컬렉션은 없을 수도 있으니 실패해도 무시
+    await fbDb.collection('users').doc(uid).set({approved:true},{merge:true}).catch(()=>{});
+    if(allMembersData[uid]) allMembersData[uid].approved=true;
+    renderAdminMembers();
+    alert('✓ 승인됐어요! 해당 멤버가 이제 로그인할 수 있어요.');
+  } catch(e){ alert('승인 실패: '+e.message); }
 }
 async function rejectMember(uid){
   if(!confirm('이 멤버를 거절할까요? 계정이 삭제돼요.')) return;
   if(!fbDb) return;
-  await fbDb.collection('users').doc(uid).delete().catch(()=>{});
-  await fbDb.collection('userData').doc(uid).delete().catch(()=>{});
-  delete allMembersData[uid];
-  renderAdminMembers();
-  alert('거절됐어요.');
+  try {
+    await fbDb.collection('userData').doc(uid).set({approved:false},{merge:true});
+    await fbDb.collection('users').doc(uid).set({approved:false},{merge:true}).catch(()=>{});
+    delete allMembersData[uid];
+    renderAdminMembers();
+    alert('거절됐어요.');
+  } catch(e){ alert('거절 처리 실패: '+e.message); }
 }
 
 async function updateMemberRank(uid, newRank){
