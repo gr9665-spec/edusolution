@@ -2845,7 +2845,7 @@ function linkLearnerToPlan(idx){
   _planLinkAllOpts=[{value:'',text:'-- 연결 안 함 --',selected:false},
     ...planList.map(p=>({
       value:p.id,
-      text:`${p.clientName||'(미입력)'} — ${p.degree==='기타'?(p.degreeCustom||''):p.degree} ${p.major} (${p.counselDate||''}) ${(p.status||'가망')==='결제완료'?'✓':''}`,
+      text:`${p.clientName||'(미입력)'} — ${p.degree==='기타'?(p.degreeCustom||''):p.degree} ${p.major==='기타'?(p.majorCustom||''):p.major} (${p.counselDate||''}) ${(p.status||'가망')==='결제완료'?'✓':''}`,
       selected:!!(existing&&p.id===existing.id)
     }))
   ];
@@ -4685,7 +4685,7 @@ function renderPlanList(){
         <div style="font-size:13px;font-weight:600;color:${cur?'#fff':'var(--text)'};;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.clientName||'(이름 미입력)'}</div>
         <span style="font-size:10px;background:${cur?'rgba(255,255,255,.15)':'var(--bg2)'};color:${cur?'#fff':statusColor};border-radius:99px;padding:1px 6px;flex-shrink:0;font-weight:600">${status}</span>
       </div>
-      <div style="font-size:11px;color:${cur?'rgba(255,255,255,.65)':'var(--text2)'};margin-top:2px">${p.major} · ${p.degree==='기타'?(p.degreeCustom||''):p.degree}</div>
+      <div style="font-size:11px;color:${cur?'rgba(255,255,255,.65)':'var(--text2)'};margin-top:2px">${p.major==='기타'?(p.majorCustom||''):p.major} · ${p.degree==='기타'?(p.degreeCustom||''):p.degree}</div>
       <div style="font-size:10px;color:${cur?'rgba(255,255,255,.45)':'var(--text3)'};margin-top:1px">${p.counselDate||''}</div>
     </div>`;
   }).join('');
