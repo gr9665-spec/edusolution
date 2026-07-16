@@ -6084,7 +6084,7 @@ function openPrintPreview(pid){
       </div>
       <div style="text-align:right;font-size:12px;opacity:.85">
         <div style="font-weight:700">${p.major==='기타'&&p.majorCustom?p.majorCustom:p.major} ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree}</div>
-        <div style="font-size:11px;opacity:.8">${dr.note}</div>
+        <div style="font-size:11px;opacity:.8">${p.degree==='기타'?'':dr.note}</div>
       </div>
     </div>
 
@@ -6284,7 +6284,7 @@ function openMobilePlanPage(){
   <div style="background:${BL};color:#fff;border-radius:12px;padding:16px;margin-bottom:14px">
     <div style="font-size:20px;font-weight:700">${p.clientName||'플랜표'}</div>
     <div style="font-size:12px;opacity:.75;margin-top:4px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree}</div>
-    <div style="font-size:11px;opacity:.65;margin-top:2px">${dr.note}</div>
+    <div style="font-size:11px;opacity:.65;margin-top:2px">${p.degree==='기타'?'':dr.note}</div>
   </div>
 
   <!-- 학점 요약 -->
@@ -6418,7 +6418,7 @@ function renderMobilePlan(pid){
     <div style="background:${BL};color:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px">
       <div style="font-size:18px;font-weight:700">${p.clientName||'플랜표'}</div>
       <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree}</div>
-      <div style="font-size:11px;opacity:.7;margin-top:2px">${dr.note}</div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px">${p.degree==='기타'?'':dr.note}</div>
     </div>
 
     <!-- 총학점 요약 -->
