@@ -1622,7 +1622,6 @@ function initFirebase(){
           const doc=await fbDb.collection('userData').doc(user.uid).get();
           const data=doc.exists?doc.data():{};
           if(data.approved===false){
-            // 미승인 상태 — 승인 대기 화면 표시
             showPendingApproval(user.email);
             return;
           }
@@ -1674,9 +1673,10 @@ function doRegister(){
   if(pw.length<6){errEl.textContent='비밀번호는 6자 이상이어야 해요';return;}
   fbAuth.createUserWithEmailAndPassword(email,pw)
     .then(cred=>{
-      return fbDb.collection('users').doc(cred.user.uid).set({
+      const uid=cred.user.uid;
+      return fbDb.collection('users').doc(uid).set({
         name, email, rank, createdAt:new Date().toISOString(), role:'member', approved:false
-      });
+      }).then(()=>fbDb.collection('userData').doc(uid).set({approved:false,createdAt:new Date().toISOString()},{merge:true}));
     })
     .catch(e=>{
       errEl.textContent=e.code==='auth/email-already-in-use'?'이미 사용 중인 이메일이에요':e.message;
@@ -2320,20 +2320,24 @@ function renderAdminMembers(){
 
 async function approveMember(uid){
   if(!fbDb) return;
-  await fbDb.collection('userData').doc(uid).set({approved:true},{merge:true});
-  await fbDb.collection('users').doc(uid).update({approved:true});
-  if(allMembersData[uid]) allMembersData[uid].approved=true;
-  renderAdminMembers();
-  alert('✓ 승인됐어요! 해당 멤버가 이제 로그인할 수 있어요.');
+  try{
+    await fbDb.collection('userData').doc(uid).set({approved:true},{merge:true});
+    await fbDb.collection('users').doc(uid).set({approved:true},{merge:true}).catch(()=>{});
+    if(allMembersData[uid]) allMembersData[uid].approved=true;
+    renderAdminMembers();
+    alert('✓ 승인됐어요! 해당 멤버가 이제 로그인할 수 있어요.');
+  }catch(e){alert('승인 실패: '+e.message);}
 }
 async function rejectMember(uid){
   if(!confirm('이 멤버를 거절할까요? 계정이 삭제돼요.')) return;
   if(!fbDb) return;
-  await fbDb.collection('users').doc(uid).delete().catch(()=>{});
-  await fbDb.collection('userData').doc(uid).delete().catch(()=>{});
-  delete allMembersData[uid];
-  renderAdminMembers();
-  alert('거절됐어요.');
+  try{
+    await fbDb.collection('userData').doc(uid).set({approved:false},{merge:true});
+    await fbDb.collection('users').doc(uid).set({approved:false},{merge:true}).catch(()=>{});
+    delete allMembersData[uid];
+    renderAdminMembers();
+    alert('거절됐어요.');
+  }catch(e){alert('거절 실패: '+e.message);}
 }
 
 async function updateMemberRank(uid, newRank){
@@ -4612,7 +4616,7 @@ const DEG_REQ = {
   '전문학사':       {total:80,  req:45,  elec:0,  gen:15, lib:15, major:45,  note:'전공45 · 교양15 · 총80학점'},
   '타전공 전문학사':{total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:36,  note:'전공36학점 (복수전공)'},
   '타전공 학사':    {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:48,  note:'전공48학점 (복수전공)'},
-  '기타':           {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:0,   note:'학위 취득 외 목적 (기사/산업기사 응시자격 등)'},
+  '기타':           {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:0,   note:''},
 };
 
 let plans = LS.get('hk_plans')||{};
@@ -5063,7 +5067,13 @@ function copyPlan(){
 function deleteCurPlan(){
   if(!curPid) return;
   showDeleteModal(`플랜 <strong>${plans[curPid].clientName||'(미입력)'}</strong>을 삭제할까요?`,()=>{
-    delete plans[curPid]; curPid=null; LS.set('hk_plans',plans); saveToFirebase(); renderPlanList();
+    const deletedPid=curPid;
+    delete plans[deletedPid]; curPid=null; LS.set('hk_plans',plans);
+    if(currentUser&&fbDb){
+      const upd={}; upd[`plans.${deletedPid}`]=firebase.firestore.FieldValue.delete();
+      fbDb.collection('userData').doc(currentUser.uid).update(upd).catch(()=>saveToFirebase());
+    }
+    renderPlanList();
     document.getElementById('plan-body').innerHTML='<div class="empty" style="margin-top:80px"><i class="ti ti-clipboard-list" style="font-size:40px;display:block;margin-bottom:12px;opacity:.25"></i>플랜을 선택하거나 새로 작성해주세요</div>';
   });
 }
@@ -5156,9 +5166,8 @@ function renderPlanEditor(p){
             ${Object.keys(DEG_REQ).map(d=>`<option ${p.degree===d?'selected':''}>${d}</option>`).join('')}
           </select>
           <div id="degree-custom-wrap" style="margin-top:4px;display:${p.degree==='기타'?'block':'none'}">
-            <input type="text" value="${p.degreeCustom||''}" placeholder="목적 직접 입력 (예: 기사 응시자격 취득)" onchange="upP('degreeCustom',this.value)" style="font-size:12px;padding:5px 8px;width:100%">
-          </div>
-        </div>
+            <input type="text" value="${p.degreeCustom||''}" placeholder="목적 직접 입력 (예: 방송대 3학년 편입)" onchange="upP('degreeCustom',this.value)" style="font-size:12px;padding:5px 8px;width:100%">
+          </div></div>
         <div class="fg"><label>전공</label>
           <select onchange="upP('major',this.value);document.getElementById('major-custom-wrap').style.display=this.value==='기타'?'block':'none'">
             ${majors.map(m=>`<option ${p.major===m?'selected':''}>${m}</option>`).join('')}
