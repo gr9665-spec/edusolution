@@ -1387,7 +1387,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="fg2">
     <div class="fg"><label>학생명 *</label><select id="s-learner"><option value="">학습자 선택</option></select></div>
     <div class="fg"><label>일정 유형</label>
-      <select id="s-type" onchange="document.getElementById('s-label-wrap').style.display=this.value==='기타'?'block':'none'">
+      <select id="s-type">
         <option>개강일</option>
         <option>쪽지시험</option><option>쪽지시험마감</option>
         <option>토론</option><option>토론마감</option>
@@ -1397,7 +1397,6 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option>기타</option>
       </select>
     </div>
-    <div class="fg" id="s-label-wrap" style="display:none"><label>기타 일정 내용 <span style="font-size:10px;color:var(--text2)">(직접 입력)</span></label><input type="text" id="s-label" placeholder="예: 팀프로젝트 제출, 출석인정기간 등"></div>
     <div class="fg"><label>시작일 *</label><input type="date" id="s-date"></div>
     <div class="fg" style="display:flex;gap:6px;align-items:flex-end">
       <div style="flex:1"><label>마감일 <span style="font-size:10px;color:var(--text2)">(선택)</span></label><input type="date" id="s-end-date" style="width:100%"></div>
@@ -1443,12 +1442,6 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
           <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
           <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
         </select>
-      </div>
-      <div class="fg" style="display:flex;align-items:flex-end;padding-bottom:2px">
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;font-weight:600;color:var(--red);white-space:nowrap">
-          <input type="checkbox" id="bulk-no-sched" onchange="refreshBulkList()" style="width:auto;accent-color:var(--red)">
-          일정없음만
-        </label>
       </div>
     </div>
     <!-- 학습자 체크리스트 -->
@@ -1628,8 +1621,8 @@ function initFirebase(){
         if(!isAdmin && fbDb){
           const doc=await fbDb.collection('userData').doc(user.uid).get();
           const data=doc.exists?doc.data():{};
-          // approved가 명시적으로 false일 때만 대기 화면 (기존 직원은 필드 없음=통과)
           if(data.approved===false){
+            // 미승인 상태 — 승인 대기 화면 표시
             showPendingApproval(user.email);
             return;
           }
@@ -1681,12 +1674,9 @@ function doRegister(){
   if(pw.length<6){errEl.textContent='비밀번호는 6자 이상이어야 해요';return;}
   fbAuth.createUserWithEmailAndPassword(email,pw)
     .then(cred=>{
-      const uid=cred.user.uid;
-      return fbDb.collection('users').doc(uid).set({
+      return fbDb.collection('users').doc(cred.user.uid).set({
         name, email, rank, createdAt:new Date().toISOString(), role:'member', approved:false
-      }).then(()=>fbDb.collection('userData').doc(uid).set({
-        approved:false, createdAt:new Date().toISOString()
-      },{merge:true}));
+      });
     })
     .catch(e=>{
       errEl.textContent=e.code==='auth/email-already-in-use'?'이미 사용 중인 이메일이에요':e.message;
@@ -2330,26 +2320,20 @@ function renderAdminMembers(){
 
 async function approveMember(uid){
   if(!fbDb) return;
-  try {
-    // userData에 approved:true 저장 (핵심)
-    await fbDb.collection('userData').doc(uid).set({approved:true},{merge:true});
-    // users 컬렉션은 없을 수도 있으니 실패해도 무시
-    await fbDb.collection('users').doc(uid).set({approved:true},{merge:true}).catch(()=>{});
-    if(allMembersData[uid]) allMembersData[uid].approved=true;
-    renderAdminMembers();
-    alert('✓ 승인됐어요! 해당 멤버가 이제 로그인할 수 있어요.');
-  } catch(e){ alert('승인 실패: '+e.message); }
+  await fbDb.collection('userData').doc(uid).set({approved:true},{merge:true});
+  await fbDb.collection('users').doc(uid).update({approved:true});
+  if(allMembersData[uid]) allMembersData[uid].approved=true;
+  renderAdminMembers();
+  alert('✓ 승인됐어요! 해당 멤버가 이제 로그인할 수 있어요.');
 }
 async function rejectMember(uid){
   if(!confirm('이 멤버를 거절할까요? 계정이 삭제돼요.')) return;
   if(!fbDb) return;
-  try {
-    await fbDb.collection('userData').doc(uid).set({approved:false},{merge:true});
-    await fbDb.collection('users').doc(uid).set({approved:false},{merge:true}).catch(()=>{});
-    delete allMembersData[uid];
-    renderAdminMembers();
-    alert('거절됐어요.');
-  } catch(e){ alert('거절 처리 실패: '+e.message); }
+  await fbDb.collection('users').doc(uid).delete().catch(()=>{});
+  await fbDb.collection('userData').doc(uid).delete().catch(()=>{});
+  delete allMembersData[uid];
+  renderAdminMembers();
+  alert('거절됐어요.');
 }
 
 async function updateMemberRank(uid, newRank){
@@ -2503,26 +2487,24 @@ function findSchedulesForLearnerThisTerm(l){
   const kisu=(l.kisu||'').trim();
   const eduTrim=(l.edu||'').trim();
 
-  if(!all.length) return [];
-
-  // kisu가 있으면 무조건 기수 필터 우선 적용 (learnerId 매칭이 됐어도)
-  if(kisu){
-    let kisuMatches=all.filter(s=>(s.note||'').includes(kisu));
-    if(kisuMatches.length && eduTrim){
-      const eduKisuMatches=kisuMatches.filter(s=>(s.note||'').includes(eduTrim));
-      if(eduKisuMatches.length) kisuMatches=eduKisuMatches;
-    }
-    // 기수 매칭 일정이 있으면 그것만 반환, 없으면 일정 미등록으로 간주
-    return kisuMatches;
-  }
-
-  // kisu 없는 경우: learnerId로만 매칭된 결과 사용
-  if(l.id && all.every(s=>s.learnerId===l.id)){
+  // learnerId로 정확히 매칭된 일정이 있다면: 그 학습자 row 자체의 일정이므로
+  // ID가 같은 한 같은 학습자(같은 등록 건)로 보고 그대로 사용 (기수 추가 필터 불필요)
+  if(l.id && all.length && all.every(s=>s.learnerId===l.id)){
     return all;
   }
 
-  // 기수도 없고 ID 매칭도 불완전하면 비교 불가 → 빈 배열
-  return l.id ? [] : all;
+  if(!kisu){
+    // 기수 정보가 없는데 ID 매칭도 안 됐다면 비교 불가 → 빈 배열(=일정없음으로 간주, 안전)
+    return l.id ? [] : all;
+  }
+
+  let kisuMatches=all.filter(s=>(s.note||'').includes(kisu));
+  if(kisuMatches.length && eduTrim){
+    const eduKisuMatches=kisuMatches.filter(s=>(s.note||'').includes(eduTrim));
+    if(eduKisuMatches.length) kisuMatches=eduKisuMatches;
+  }
+  // 기수로 좁혀지는 일정이 하나도 없으면 → 이 학습자는 일정 미등록으로 간주 (전체로 폴백하지 않음)
+  return kisuMatches;
 }
 function getLearnerStartDate(l){
   const cands=findSchedulesForLearnerThisTerm(l).filter(s=>s.type==='개강일');
@@ -2859,7 +2841,7 @@ function linkLearnerToPlan(idx){
   _planLinkAllOpts=[{value:'',text:'-- 연결 안 함 --',selected:false},
     ...planList.map(p=>({
       value:p.id,
-      text:`${p.clientName||'(미입력)'} — ${p.degree} ${p.major} (${p.counselDate||''}) ${(p.status||'가망')==='결제완료'?'✓':''}`,
+      text:`${p.clientName||'(미입력)'} — ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree} ${p.major} (${p.counselDate||''}) ${(p.status||'가망')==='결제완료'?'✓':''}`,
       selected:!!(existing&&p.id===existing.id)
     }))
   ];
@@ -2917,32 +2899,12 @@ function applyLearnerCopyKisu(){
   const prev=document.getElementById('learner-copy-kisu-preview');
   if(!key){ if(prev){prev.textContent='기수를 선택해주세요';prev.style.color='var(--red)';} return; }
   const items=schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
-
-  // 마감 제외한 시작 일정만 (endDate/time 포함)
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
-  const unique=[...new Map(items
-    .filter(s=>!s.type.includes('마감'))
-    .map(s=>[s.type+'|'+s.date, s])).values()]
+  // 마감 포함 전체 유형+날짜 유니크 (학습자는 개별 일정이므로 마감도 그대로 행으로 추가)
+  const unique=[...new Map(items.map(s=>[s.type+'|'+s.date, s])).values()]
     .sort((a,b)=>a.date.localeCompare(b.date));
   if(!unique.length){ if(prev){prev.textContent='해당 기수에 등록된 일정이 없어요';prev.style.color='var(--red)';} return; }
 
-  // 기수 내 다수결 endDate/time
-  const endDateByType={}, timeByType={};
-  HAS_END.forEach(type=>{
-    const arr=items.filter(s=>s.type===type && s.endDate);
-    if(arr.length){
-      const freq={};
-      arr.forEach(s=>{ freq[s.endDate]=(freq[s.endDate]||0)+1; });
-      endDateByType[type]=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
-    }
-    const tarr=items.filter(s=>s.type===type && s.time);
-    if(tarr.length){
-      const tfreq={};
-      tarr.forEach(s=>{ tfreq[s.time]=(tfreq[s.time]||0)+1; });
-      timeByType[type]=Object.entries(tfreq).sort((a,b)=>b[1]-a[1])[0][0];
-    }
-  });
-
+  // 기수 일정 전체에서 날짜범위 직접 계산 (note 의존 X)
   const allDates=items.map(s=>s.date).filter(Boolean).sort();
   const minDate=allDates[0]||'';
   const maxDate=allDates[allDates.length-1]||'';
@@ -2951,7 +2913,7 @@ function applyLearnerCopyKisu(){
 
   const wrap=document.getElementById('learner-sched-rows');
   wrap.innerHTML='';
-  unique.forEach(s=>addLearnerSchedRow(s.type, s.date, kisuNote, endDateByType[s.type]||'', timeByType[s.type]||''));
+  unique.forEach(s=>addLearnerSchedRow(s.type, s.date, kisuNote));
 
   if(prev){
     const preview=unique.map(s=>`${s.type}(${s.date.slice(5)})`).join(' · ');
@@ -2959,65 +2921,32 @@ function applyLearnerCopyKisu(){
     prev.style.color='var(--green)';
   }
 }
-
-function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTime,presetLabel){
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
-  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
+function addLearnerSchedRow(presetType,presetDate,presetNote){
   const wrap=document.getElementById('learner-sched-rows');
   const rowId='sr'+Date.now()+Math.floor(Math.random()*1000);
-  const type=presetType||'개강일';
-  const showEnd=HAS_END.includes(type);
-  const showTime=HAS_TIME.includes(type);
   const row=document.createElement('div');
   row.id=rowId;
-  row.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px';
+  row.style.cssText='display:flex;gap:6px;align-items:center';
   row.innerHTML=`
-    <select class="ls-type" style="flex:0 0 110px;font-size:12px;padding:5px 7px" onchange="onLearnerSchedTypeChange('${rowId}')">
-      <option${type==='개강일'?' selected':''}>개강일</option>
-      <option${type==='쪽지시험'?' selected':''}>쪽지시험</option>
-      <option${type==='토론'?' selected':''}>토론</option>
-      <option${type==='과제'?' selected':''}>과제</option>
-      <option${type==='중간고사'?' selected':''}>중간고사</option>
-      <option${type==='기말고사'?' selected':''}>기말고사</option>
-      <option${type==='기타'?' selected':''}>기타</option>
+    <select class="ls-type" style="flex:1;font-size:12px;padding:5px 7px">
+      <option${presetType==='개강일'?' selected':''}>개강일</option>
+      <option${presetType==='쪽지시험'?' selected':''}>쪽지시험</option>
+      <option${presetType==='쪽지시험마감'?' selected':''}>쪽지시험마감</option>
+      <option${presetType==='토론'?' selected':''}>토론</option>
+      <option${presetType==='토론마감'?' selected':''}>토론마감</option>
+      <option${presetType==='과제'?' selected':''}>과제</option>
+      <option${presetType==='과제마감'?' selected':''}>과제마감</option>
+      <option${presetType==='중간고사'?' selected':''}>중간고사</option>
+      <option${presetType==='중간고사마감'?' selected':''}>중간고사마감</option>
+      <option${presetType==='기말고사'?' selected':''}>기말고사</option>
+      <option${presetType==='기말고사마감'?' selected':''}>기말고사마감</option>
+      <option${presetType==='기타'?' selected':''}>기타</option>
     </select>
-    <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;min-width:110px;font-size:12px;padding:5px 7px" placeholder="시작일">
-    <input type="date" class="ls-end" value="${presetEnd||''}" style="flex:1;min-width:110px;font-size:12px;padding:5px 7px;display:${showEnd?'block':'none'}" placeholder="마감일">
-    <input type="time" class="ls-time" value="${presetTime||''}" style="flex:0 0 80px;font-size:12px;padding:5px 7px;display:${showTime?'block':'none'}" placeholder="시간">
+    <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;font-size:12px;padding:5px 7px">
     <input type="hidden" class="ls-note" value="${(presetNote||'').replace(/"/g,'&quot;')}">
     <button type="button" class="btn btn-icon" style="width:26px;height:26px;color:var(--red)" onclick="document.getElementById('${rowId}').remove()"><i class="ti ti-x" style="font-size:12px"></i></button>
   `;
-  if(type==='기타'){
-    const labelDiv=document.createElement('div');
-    labelDiv.className='ls-label-wrap';
-    labelDiv.style.cssText='display:flex;margin-top:4px;padding-left:2px';
-    labelDiv.innerHTML=`<input type="text" class="ls-label" value="${(presetLabel||'').replace(/"/g,'&quot;')}" placeholder="기타 일정 내용 직접 입력" style="width:100%;font-size:12px;padding:5px 8px">`;
-    row.appendChild(labelDiv);
-  }
   wrap.appendChild(row);
-}
-
-function onLearnerSchedTypeChange(rowId){
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
-  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
-  const row=document.getElementById(rowId);
-  if(!row) return;
-  const type=row.querySelector('.ls-type').value;
-  const endEl=row.querySelector('.ls-end');
-  const timeEl=row.querySelector('.ls-time');
-  if(endEl) endEl.style.display=HAS_END.includes(type)?'block':'none';
-  if(timeEl) timeEl.style.display=HAS_TIME.includes(type)?'block':'none';
-  // 기타 라벨 wrap 토글
-  let labelWrap=row.querySelector('.ls-label-wrap');
-  if(type==='기타'){
-    if(!labelWrap){
-      labelWrap=document.createElement('div');
-      labelWrap.className='ls-label-wrap';
-      labelWrap.style.cssText='display:flex;margin-top:4px;padding-left:2px';
-      labelWrap.innerHTML=`<input type="text" class="ls-label" placeholder="기타 일정 내용 직접 입력" style="width:100%;font-size:12px;padding:5px 8px">`;
-      row.appendChild(labelWrap);
-    } else { labelWrap.style.display='flex'; }
-  } else if(labelWrap){ labelWrap.style.display='none'; }
 }
 function collectLearnerSchedRows(){
   const rows=document.querySelectorAll('#learner-sched-rows > div');
@@ -3025,11 +2954,8 @@ function collectLearnerSchedRows(){
   rows.forEach(r=>{
     const type=r.querySelector('.ls-type').value;
     const date=r.querySelector('.ls-date').value;
-    const endDate=r.querySelector('.ls-end')?.value||'';
-    const time=r.querySelector('.ls-time')?.value||'';
-    const label=r.querySelector('.ls-label')?.value||'';
     const note=r.querySelector('.ls-note')?.value||'';
-    if(date) result.push({type,date,endDate,time,label,note});
+    if(date) result.push({type,date,note});
   });
   return result;
 }
@@ -3110,7 +3036,7 @@ async function saveLearner(){
   const eduCustom=document.getElementById('l-edu-custom').value.trim();
   const edu=eduSel==='기타'?(eduCustom||'기타'):eduSel;
   const l={
-    name,id:document.getElementById('l-id').value.trim()||('L'+Date.now()+Math.random().toString(36).slice(2,7)),
+    name,id:document.getElementById('l-id').value.trim(),
     phone:document.getElementById('l-phone').value.trim(),
     email:document.getElementById('l-email').value.trim(),
     edu, kisu:document.getElementById('l-kisu').value.trim(),
@@ -3136,11 +3062,11 @@ async function saveLearner(){
     if(!sr.date) return; // date 없으면 절대 등록 안 함 (안전장치)
     // sr.note가 'edu kisu | 날짜범위' 형태이면 그대로, 아니면 noteBase 사용
     const finalNote=sr.note||noteBase;
-    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,label:sr.type==='기타'?(sr.label||''):'',date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
+    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
     schedAddedCount++;
   });
 
-  save();closeModal('modal-learner');renderLearners();renderSales();renderDashboard();renderSchedule();
+  save();closeModal('modal-learner');renderLearners();renderDashboard();renderSchedule();
   if(schedAddedCount) showToast(`학습자 저장 + 학사일정 ${schedAddedCount}건 등록 완료!`);
 }
 
@@ -3427,9 +3353,9 @@ function renderDashboard(){
       <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[s.type]||'#999'}">
         <div style="flex:1;min-width:0">
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
-          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type==='기타'&&s.label?s.label:s.type}</span>
+          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
           ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
-          ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>x.name===s.learnerName&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName);const _t=_learner?.type||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+          ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
         ${s.sent==='true'
           ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
@@ -3517,9 +3443,7 @@ function saveSchedule(){
   if(!learner){alert('학습자를 찾을 수 없어요');return;}
   const sTime=(document.getElementById('s-time')?.value||'').trim();
   const sEndDate=(document.getElementById('s-end-date')?.value||'').trim();
-  const sLabel=(document.getElementById('s-label')?.value||'').trim();
-  const sType=document.getElementById('s-type').value;
-  schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:sType,label:sType==='기타'?sLabel:'',date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
+  schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:document.getElementById('s-type').value,date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
 function importScheduleFile(input){
@@ -3758,10 +3682,10 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
           <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${SCHED_TYPE_COLOR[s.type]||'#999'};${isPast?'opacity:.65':''}">
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
-              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type==='기타'&&s.label?s.label:s.type}</span>
+              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
               ${(!s.endDate&&!s.time&&s.type!=='개강일'&&s.type!=='기타'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
-              ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>x.name===s.learnerName&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName);const _t=_learner?.type||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+              ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note.split('|')[0].trim()}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
@@ -4423,6 +4347,7 @@ function applyCopyKisu(){
   const key = document.getElementById('copy-kisu-sel').value;
   if(!key){ alert('기수를 선택해주세요'); return; }
   const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
+  const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
 
   // 마감 제외한 시작 일정만
   const startItems=[...new Map(items
@@ -4432,46 +4357,22 @@ function applyCopyKisu(){
 
   if(!startItems.length){ alert('복사할 일정이 없어요'); return; }
 
-  // 마감일 매핑 — 1순위: 같은 기수 다른 학습자의 정상 endDate 참조
-  //              2순위: 같은 유형 마감 레코드
-  //              3순위: 원본 endDate (단, note 전체범위와 같으면 무시)
-  const kisuKey=(items[0]?.note||'').split('|')[0].trim();
-
-  // 같은 기수의 모든 일정에서 유형별 endDate 수집 (가장 많이 쓰인 값 = 정상값)
-  const allKisuSched=schedules.filter(s=>(s.note||'').split('|')[0].trim()===kisuKey);
-  const endDateByType={};
-  const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
-  HAS_END_TYPES.forEach(type=>{
-    const ends=allKisuSched.filter(s=>s.type===type && s.endDate && s.endDate!==s.date);
-    if(!ends.length) return;
-    // 가장 많이 쓰인 endDate
-    const freq={};
-    ends.forEach(s=>{ freq[s.endDate]=(freq[s.endDate]||0)+1; });
-    endDateByType[type]=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
-  });
-
+  // 마감일 매핑 — 같은 유형 마감 중 시작일 이후 가장 가까운 것으로 매칭
   bulkRows = startItems.length;
   renderBulkRows(startItems.map(s=>{
     let endDate='';
     if(HAS_END_TYPES.includes(s.type)){
-      // 1순위: 기수 내 다수결 endDate
-      if(endDateByType[s.type]){
-        endDate=endDateByType[s.type];
+      const endItems=items.filter(x=>x.type===s.type+'마감'&&x.date>=s.date);
+      if(endItems.length){
+        // 시작일 이후 마감 중 가장 가까운 것
+        endItems.sort((a,b)=>a.date.localeCompare(b.date));
+        endDate=endItems[0].date;
       } else {
-        // 2순위: 마감 레코드
-        const endItems=items.filter(x=>x.type===s.type+'마감'&&x.date>=s.date);
-        if(endItems.length){
-          endItems.sort((a,b)=>a.date.localeCompare(b.date));
-          endDate=endItems[0].date;
-        } else {
-          const allEnd=items.filter(x=>x.type===s.type+'마감');
-          if(allEnd.length){
-            allEnd.sort((a,b)=>Math.abs(new Date(a.date)-new Date(s.date))-Math.abs(new Date(b.date)-new Date(s.date)));
-            endDate=allEnd[0].date;
-          } else if(s.endDate && s.endDate!==s.date){
-            // 3순위: 원본 endDate (단, 시작일과 같으면=종강일 복사 오류이므로 제외)
-            endDate=s.endDate;
-          }
+        // 시작일 이전 마감도 포함해서 날짜 가장 가까운 것으로 폴백
+        const allEnd=items.filter(x=>x.type===s.type+'마감');
+        if(allEnd.length){
+          allEnd.sort((a,b)=>Math.abs(new Date(a.date)-new Date(s.date))-Math.abs(new Date(b.date)-new Date(s.date)));
+          endDate=allEnd[0].date;
         }
       }
     }
@@ -4488,12 +4389,10 @@ function refreshBulkList(){
   const edu = document.getElementById('bulk-edu').value;
   const kisu = document.getElementById('bulk-kisu').value;
   const month = document.getElementById('bulk-month').value;
-  const noSchedOnly = document.getElementById('bulk-no-sched')?.checked||false;
   const filtered = learners.filter(l=>
     (!edu || l.edu===edu) &&
     (!kisu || l.kisu===kisu) &&
-    (!month || String(l.month)===month) &&
-    (!noSchedOnly || !hasNonStartSchedule(l))
+    (!month || String(l.month)===month)
   );
   document.getElementById('bulk-list-count').textContent = `학습자 ${filtered.length}명`;
   const container = document.getElementById('bulk-learner-list');
@@ -4503,12 +4402,10 @@ function refreshBulkList(){
   }
   container.innerHTML = filtered.map(l=>{
     const origIdx = learners.indexOf(l);
-    const noSched = !hasNonStartSchedule(l);
     return `<label style="display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:var(--r);cursor:pointer;font-size:13px" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
       <input type="checkbox" class="bulk-chk" data-idx="${origIdx}" checked style="width:auto">
       <span style="font-weight:600;min-width:60px">${l.name}</span>
       <span style="font-size:11px;color:var(--text2)">${l.edu} · ${l.kisu||''} · ${l.month}월</span>
-      ${noSched?'<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 4px;margin-left:2px">일정없음</span>':''}
     </label>`;
   }).join('');
   updateBulkPreview();
@@ -4520,23 +4417,21 @@ function selectAllBulk(checked){
 }
 
 function renderBulkRows(initVals=[]){
+  // 마감이 있는 유형
   const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
-  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const ALL_TYPES=['개강일','쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const container = document.getElementById('bulk-schedule-rows');
   container.innerHTML = Array.from({length:bulkRows},(_,i)=>{
     const init=initVals[i]||{};
-    const type=init.type||'쪽지시험';
-    const hasEnd=HAS_END.includes(type);
-    const hasTime=HAS_TIME.includes(type);
+    const hasEnd=HAS_END.includes(init.type||'쪽지시험');
     return `
     <div class="bulk-row" id="brow-${i}" style="margin-bottom:8px">
       <input type="hidden" class="bulk-note" value="${(init.note||'').replace(/"/g,'&quot;')}">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 90px auto;gap:6px;align-items:center">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:center">
         <div class="fg">
           ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">일정 유형</label>':''}
           <select class="bulk-type" onchange="onBulkTypeChange(${i})">
-            ${ALL_TYPES.map(t=>`<option ${type===t?'selected':''}>${t}</option>`).join('')}
+            ${ALL_TYPES.map(t=>`<option ${(init.type||'쪽지시험')===t?'selected':''}>${t}</option>`).join('')}
           </select>
         </div>
         <div class="fg">
@@ -4547,22 +4442,11 @@ function renderBulkRows(initVals=[]){
           ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">마감일</label>':''}
           <input type="date" class="bulk-end" value="${init.endDate||''}">
         </div>
-        <div class="fg bulk-end-wrap-empty" style="display:${hasEnd?'none':'block'}">
-          ${i===0?'<label style="font-size:11px;color:transparent">-</label>':''}
-          <div></div>
-        </div>
-        <div class="fg bulk-time-wrap" style="display:${hasTime?'block':'none'}">
-          ${i===0?'<label style="font-size:11px;color:var(--text2);font-weight:600">마감시간</label>':''}
-          <input type="time" class="bulk-time" value="${init.time||''}" placeholder="시간" style="font-size:12px">
-        </div>
-        <div class="fg bulk-time-wrap-empty" style="display:${hasTime?'none':'block'}">
-          ${i===0?'<label style="font-size:11px;color:transparent">-</label>':''}
+        <div style="display:block" class="bulk-end-wrap-empty" style="display:${hasEnd?'none':'block'}">
+          ${i===0?'<label style="font-size:11px;color:transparent;font-weight:600">-</label>':''}
           <div></div>
         </div>
         <button class="btn btn-icon" style="color:var(--red);margin-top:${i===0?'16px':'0'}" onclick="removeBulkRow(${i})" ${bulkRows<=1?'disabled':''}><i class="ti ti-trash"></i></button>
-      </div>
-      <div class="bulk-label-wrap" style="display:${type==='기타'?'block':'none'};margin-top:4px;padding-left:2px">
-        <input type="text" class="bulk-label" value="${init.label||''}" placeholder="기타 일정 내용 직접 입력 (예: 팀프로젝트 제출)" style="width:100%;font-size:12px;padding:5px 8px">
       </div>
     </div>`;
   }).join('');
@@ -4570,45 +4454,27 @@ function renderBulkRows(initVals=[]){
 
 function onBulkTypeChange(i){
   const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
-  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const row=document.getElementById(`brow-${i}`);
   if(!row) return;
   const type=row.querySelector('.bulk-type').value;
   const endWrap=row.querySelector('.bulk-end-wrap');
-  const endEmpty=row.querySelector('.bulk-end-wrap-empty');
-  const timeWrap=row.querySelector('.bulk-time-wrap');
-  const timeEmpty=row.querySelector('.bulk-time-wrap-empty');
   if(endWrap) endWrap.style.display=HAS_END.includes(type)?'block':'none';
-  if(endEmpty) endEmpty.style.display=HAS_END.includes(type)?'none':'block';
-  if(timeWrap) timeWrap.style.display=HAS_TIME.includes(type)?'block':'none';
-  if(timeEmpty) timeEmpty.style.display=HAS_TIME.includes(type)?'none':'block';
-  const labelWrap=row.querySelector('.bulk-label-wrap');
-  if(labelWrap) labelWrap.style.display=type==='기타'?'block':'none';
-}
-
-function collectBulkRowVals(){
-  return [...document.querySelectorAll('.bulk-row')].map(r=>({
-    type:    r.querySelector('.bulk-type')?.value||'쪽지시험',
-    date:    r.querySelector('.bulk-date')?.value||'',
-    endDate: r.querySelector('.bulk-end')?.value||'',
-    time:    r.querySelector('.bulk-time')?.value||'',
-    label:   r.querySelector('.bulk-label')?.value||'',
-    note:    r.querySelector('.bulk-note')?.value||''
-  }));
 }
 
 function addBulkRow(){
-  const vals = collectBulkRowVals();
   bulkRows++;
-  renderBulkRows([...vals, {}]);
+  renderBulkRows();
 }
-
 function removeBulkRow(i){
   if(bulkRows<=1) return;
-  const vals = collectBulkRowVals();
-  vals.splice(i,1);
+  const rows = [...document.querySelectorAll('.bulk-row')];
+  const types = rows.map(r=>r.querySelector('.bulk-type').value);
+  const dates = rows.map(r=>r.querySelector('.bulk-date').value);
+  types.splice(i,1); dates.splice(i,1);
   bulkRows--;
-  renderBulkRows(vals);
+  renderBulkRows();
+  document.querySelectorAll('.bulk-type').forEach((s,j)=>s.value=types[j]);
+  document.querySelectorAll('.bulk-date').forEach((d,j)=>d.value=dates[j]);
 }
 
 function updateBulkPreview(){
@@ -4626,7 +4492,6 @@ function saveBulkSchedule(){
     type: r.querySelector('.bulk-type').value,
     date: r.querySelector('.bulk-date').value,
     endDate: r.querySelector('.bulk-end')?.value||'',
-    time: r.querySelector('.bulk-time')?.value||'',
     origNote: r.querySelector('.bulk-note')?.value||''
   })).filter(s=>s.date);
   if(!scheduleItems.length){ alert('시작일을 하나 이상 입력해주세요'); return; }
@@ -4644,7 +4509,7 @@ function saveBulkSchedule(){
       // 시작 일정 등록 (중복: 같은 학습자+유형+날짜+note 모두 같을 때만 skip)
       const dup = s.date && schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
       if(s.date && !dup){
-        schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,learnerId:learner.id||'',type:s.type,label:s.type==='기타'?(s.label||''):'',date:s.date,endDate:s.endDate||'',time:s.time||'',sent:'false',note});
+        schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,learnerId:learner.id||'',type:s.type,date:s.date,sent:'false',note});
         count++;
       }
       // 마감일 자동 등록
@@ -4747,6 +4612,7 @@ const DEG_REQ = {
   '전문학사':       {total:80,  req:45,  elec:0,  gen:15, lib:15, major:45,  note:'전공45 · 교양15 · 총80학점'},
   '타전공 전문학사':{total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:36,  note:'전공36학점 (복수전공)'},
   '타전공 학사':    {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:48,  note:'전공48학점 (복수전공)'},
+  '기타':           {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:0,   note:'학위 취득 외 목적 (기사/산업기사 응시자격 등)'},
 };
 
 let plans = LS.get('hk_plans')||{};
@@ -4757,7 +4623,7 @@ function blankPlan(){
   return {
     id:'p'+Date.now(),
     clientName:'', phone:'', counselDate:new Date().toISOString().split('T')[0],
-    degree:'학사', major:'경영', majorCustom:'',
+    degree:'학사', major:'경영', majorCustom:'', degreeCustom:'',
     linkedLearner:'',
     owned:{ req:[], elec:[], gen:[], lib:[], specials:[] },
     semesters:[],
@@ -4815,7 +4681,7 @@ function renderPlanList(){
         <div style="font-size:13px;font-weight:600;color:${cur?'#fff':'var(--text)'};;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.clientName||'(이름 미입력)'}</div>
         <span style="font-size:10px;background:${cur?'rgba(255,255,255,.15)':'var(--bg2)'};color:${cur?'#fff':statusColor};border-radius:99px;padding:1px 6px;flex-shrink:0;font-weight:600">${status}</span>
       </div>
-      <div style="font-size:11px;color:${cur?'rgba(255,255,255,.65)':'var(--text2)'};margin-top:2px">${p.major} · ${p.degree}</div>
+      <div style="font-size:11px;color:${cur?'rgba(255,255,255,.65)':'var(--text2)'};margin-top:2px">${p.major} · ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree}</div>
       <div style="font-size:10px;color:${cur?'rgba(255,255,255,.45)':'var(--text3)'};margin-top:1px">${p.counselDate||''}</div>
     </div>`;
   }).join('');
@@ -5286,9 +5152,13 @@ function renderPlanEditor(p){
           </select>
         </div>
         <div class="fg"><label>목표 학위</label>
-          <select onchange="upP('degree',this.value);renderPlanEditor(plans[curPid])">
+          <select onchange="upP('degree',this.value);document.getElementById('degree-custom-wrap').style.display=this.value==='기타'?'block':'none';renderPlanEditor(plans[curPid])">
             ${Object.keys(DEG_REQ).map(d=>`<option ${p.degree===d?'selected':''}>${d}</option>`).join('')}
-          </select></div>
+          </select>
+          <div id="degree-custom-wrap" style="margin-top:4px;display:${p.degree==='기타'?'block':'none'}">
+            <input type="text" value="${p.degreeCustom||''}" placeholder="목적 직접 입력 (예: 기사 응시자격 취득)" onchange="upP('degreeCustom',this.value)" style="font-size:12px;padding:5px 8px;width:100%">
+          </div>
+        </div>
         <div class="fg"><label>전공</label>
           <select onchange="upP('major',this.value);document.getElementById('major-custom-wrap').style.display=this.value==='기타'?'block':'none'">
             ${majors.map(m=>`<option ${p.major===m?'selected':''}>${m}</option>`).join('')}
@@ -5304,7 +5174,7 @@ function renderPlanEditor(p){
           </select></div>
       </div>
       <div style="margin-top:8px;font-size:12px;color:var(--blue);background:var(--blue-bg);border-radius:var(--r);padding:7px 10px">
-        <i class="ti ti-info-circle"></i> ${p.degree} — ${dr.note}
+        <i class="ti ti-info-circle"></i> ${p.degree==='기타'?(p.degreeCustom||'기타 목적'):p.degree} — ${dr.note}
       </div>
     </div>
 
@@ -5660,7 +5530,7 @@ function buildDegreeChecker(p,t,dr){
       <i class="ti ti-lock" style="font-size:11px"></i> 내부 확인용 — 학습자에게 전달하지 않습니다
     </div>
     <div style="padding:12px 14px">
-      <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:10px">${p.degree} 학위취득 기준 (${dr.note})</div>
+      <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:10px">${p.degree==='기타'?(p.degreeCustom||'기타 목적'):p.degree} ${p.degree==='기타'?'목표':' 학위취득 기준'} (${dr.note})</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
         ${items.map(item=>`
           <div style="background:${item.lack===0?'#e8f5e9':'#fff5f5'};border-radius:8px;padding:10px;text-align:center;border:1px solid ${item.lack===0?'#a5d6a7':'#ef9a9a'}">
@@ -6213,7 +6083,7 @@ function openPrintPreview(pid){
         <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''}</div>
       </div>
       <div style="text-align:right;font-size:12px;opacity:.85">
-        <div style="font-weight:700">${p.major==='기타'&&p.majorCustom?p.majorCustom:p.major} ${p.degree}</div>
+        <div style="font-weight:700">${p.major==='기타'&&p.majorCustom?p.majorCustom:p.major} ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree}</div>
         <div style="font-size:11px;opacity:.8">${dr.note}</div>
       </div>
     </div>
@@ -6413,7 +6283,7 @@ function openMobilePlanPage(){
   <!-- 헤더 -->
   <div style="background:${BL};color:#fff;border-radius:12px;padding:16px;margin-bottom:14px">
     <div style="font-size:20px;font-weight:700">${p.clientName||'플랜표'}</div>
-    <div style="font-size:12px;opacity:.75;margin-top:4px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree}</div>
+    <div style="font-size:12px;opacity:.75;margin-top:4px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree}</div>
     <div style="font-size:11px;opacity:.65;margin-top:2px">${dr.note}</div>
   </div>
 
@@ -6547,7 +6417,7 @@ function renderMobilePlan(pid){
     <!-- 헤더 -->
     <div style="background:${BL};color:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px">
       <div style="font-size:18px;font-weight:700">${p.clientName||'플랜표'}</div>
-      <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree}</div>
+      <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree==='기타'?(p.degreeCustom||'기타'):p.degree}</div>
       <div style="font-size:11px;opacity:.7;margin-top:2px">${dr.note}</div>
     </div>
 
