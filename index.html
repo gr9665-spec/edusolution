@@ -4510,8 +4510,6 @@ function removeBulkRow(i){
   bulkRows--;
   renderBulkRows(vals);
 }
-  document.querySelectorAll('.bulk-date').forEach((d,j)=>d.value=dates[j]);
-}
 
 function updateBulkPreview(){
   const checked = [...document.querySelectorAll('.bulk-chk:checked')];
