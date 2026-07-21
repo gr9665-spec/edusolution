@@ -3359,7 +3359,7 @@ function renderDashboard(){
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
           <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
           ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
-          ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+          ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>(x.learnerId&&x.learnerId===s.learnerId)||(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&s.note.includes(x.kisu));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
         ${s.sent==='true'
           ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
@@ -3689,7 +3689,7 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
               <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
               ${(!s.endDate&&!s.time&&s.type!=='개강일'&&s.type!=='기타'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
-              ${s.type==='개강일'?(()=>{const _same=learners.filter(x=>x.name===s.learnerName);const _start=s.date||'9999';const _hasPrev=_same.some(x=>(x.start||'')&&(x.start||'')<_start);const _t=_hasPrev?'기존':'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+              ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>(x.learnerId&&x.learnerId===s.learnerId)||(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&s.note.includes(x.kisu));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note.split('|')[0].trim()}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
