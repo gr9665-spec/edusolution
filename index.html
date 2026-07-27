@@ -4642,6 +4642,23 @@ function fixMissingScheduleDates(){
 
 renderDashboard();calcReward();
 
+// ── 중복 과목 헬퍼 (전역) ─────────────────────────────────────────────
+function getDupSubjects(p){
+  const freq={};
+  (p.semesters||[]).forEach(sem=>{
+    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
+      if(r&&r.subject){ const s=r.subject.trim(); freq[s]=(freq[s]||0)+1; }
+    });
+  });
+  return new Set(Object.keys(freq).filter(s=>freq[s]>1));
+}
+function ds(subject,dupSet){
+  if(!subject) return '';
+  return dupSet&&dupSet.has(subject.trim())
+    ? `<span style="color:#e53935;font-weight:700" title="중복 과목">${subject}</span>`
+    : subject;
+}
+
 // ── 플랜표 ───────────────────────────────────────────────────────────
 const DEG_REQ = {
   '학사':           {total:140, req:60,  elec:0,  gen:35, lib:30, major:60,  note:'전공60 · 교양30 · 총140학점'},
@@ -5157,21 +5174,7 @@ function renderPlanEditor(p){
   const majors=['경영','사회복지','보육·아동','심리','상담','청소년','한국어교원','평생교육사','기타'];
 
   // ── 중복 과목명 계산 ──
-  const _allSubjects=[];
-  (p.semesters||[]).forEach(sem=>{
-    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
-      if(r&&r.subject) _allSubjects.push(r.subject.trim());
-    });
-  });
-  const _subjectFreq={};
-  _allSubjects.forEach(s=>{ _subjectFreq[s]=(_subjectFreq[s]||0)+1; });
-  const _dupSubjects=new Set(Object.keys(_subjectFreq).filter(s=>_subjectFreq[s]>1));
-  // 과목명 표시 헬퍼: 중복이면 빨간색
-  const _ds=(subject)=>subject
-    ? (_dupSubjects.has(subject.trim())
-        ? `<span style="color:#e53935;font-weight:700" title="중복 과목">${subject}</span>`
-        : subject)
-    : '';
+  const _dupSubjects=getDupSubjects(p);
   // 중복 학습자 제거 (이름+전화번호 동일하면 하나만 표시)
   const seenLearners=new Set();
   const uniqueLearners=learners.filter(l=>{
@@ -5276,6 +5279,7 @@ function renderPlanEditor(p){
 }
 
 function buildOwnedTableUI(p,t){
+  const _dupSubjects=getDupSubjects(p);
   const o=p.owned;
   if(!o.specials) o.specials=[];
   const maxR=Math.max(1,(o.req||[]).length,(o.elec||[]).length,(o.gen||[]).length,(o.lib||[]).length);
@@ -5285,13 +5289,13 @@ function buildOwnedTableUI(p,t){
     rows+=`<tr>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
     </tr>`;
   }
 
@@ -5315,13 +5319,13 @@ function buildOwnedTableUI(p,t){
       specRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
       </tr>`;
     }
     specRows+=`<tr><td colspan="9" style="padding:0;border:none">
@@ -5369,6 +5373,7 @@ function buildOwnedTableUI(p,t){
 }
 
 function buildPlanTableUI(p,t){
+  const _dupSubjects=getDupSubjects(p);
   const th=(s,c='')=>`<th style="padding:6px 5px;border:1px solid #aaa;text-align:center;background:${PLAN_LBLUE};font-size:11px;color:${c||'#222'}">${s}</th>`;
   let body='';
 
@@ -5404,13 +5409,13 @@ function buildPlanTableUI(p,t){
       body+=`<tr style="${sem.completed?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수</span>':sem.name||''): ''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
       </tr>`;
     }
     body+=`<tr style="background:${sem.completed?'#e8e8e8':'#eaeae4'}">
@@ -5447,13 +5452,13 @@ function buildPlanTableUI(p,t){
       body+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
       </tr>`;
     }
     body+=`<tr><td colspan="9" style="padding:0;border:none">
@@ -6054,13 +6059,13 @@ function openPrintPreview(pid){
     ownRows+=`<tr>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
     </tr>`;
   }
   // owned specials (자격증/독학사 보유분)
@@ -6075,13 +6080,13 @@ function openPrintPreview(pid){
       ownRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
       </tr>`;
     }
   });
@@ -6103,13 +6108,13 @@ function openPrintPreview(pid){
       planRows+=`<tr style="${done?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
       </tr>`;
     }
     planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
@@ -6130,13 +6135,13 @@ function openPrintPreview(pid){
       planRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#fff;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
       </tr>`;
     }
   });
