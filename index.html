@@ -5166,7 +5166,7 @@ function planTotals(p){
   return {ownReq,ownElec,ownGen,ownLib,ownAll,semReq,semElec,semGen,semLib,specReq,specElec,specGen,specLib,totReq,totElec,totGen,totLib,grand};
 }
 
-const PLAN_BLUE='var(--navy)', PLAN_LBLUE='#e8edff', PLAN_YELLOW='#fffbe6', PLAN_DYELLOW='#fff3cd', PLAN_RED='#c92a2a', PLAN_LRED='#fff5f5', PLAN_GRAY='#f4f6fb';
+const PLAN_BLUE='#3b5bdb', PLAN_LBLUE='#e8edff', PLAN_YELLOW='#fffbe6', PLAN_DYELLOW='#fff3cd', PLAN_RED='#c92a2a', PLAN_LRED='#fff5f5', PLAN_GRAY='#f4f6fb';
 
 function renderPlanEditor(p){
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
@@ -5237,6 +5237,29 @@ function renderPlanEditor(p){
       <div style="margin-top:8px;font-size:12px;color:var(--blue);background:var(--blue-bg);border-radius:var(--r);padding:7px 10px">
         <i class="ti ti-info-circle"></i> ${p.degree==='기타'?(p.degreeCustom||''):(p.degree+' — '+dr.note)}
       </div>
+    </div>
+
+    <!-- ── 학점 요약 카드 ── -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
+      ${(()=>{
+        const items=[
+          {label:'총 취득학점', val:t.grand, need:dr.total, color:'var(--navy)'},
+          {label:'전공학점',    val:t.totReq+t.totElec, need:dr.major!=null?dr.major:dr.req+(dr.elec||0), color:'#3b5bdb'},
+          {label:'교양학점',   val:t.totLib, need:dr.lib||0, color:'#7048e8'},
+          {label:'일반학점',   val:t.totGen, need:null, color:'var(--text2)'},
+          {label:'보유학점',   val:t.ownAll||0, need:null, color:'var(--green)'},
+        ];
+        return items.map(item=>{
+          const pct=item.need?(Math.min(100,Math.round((item.val/item.need)*100))):null;
+          const ok=item.need&&item.val>=item.need;
+          return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;text-align:center">
+            <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px">${item.label}</div>
+            <div style="font-size:22px;font-weight:700;color:${ok?'var(--green)':item.color};line-height:1">${item.val}</div>
+            ${item.need?`<div style="font-size:10px;color:var(--text3);margin-top:2px">/ ${item.need}학점</div>`:'<div style="font-size:10px;color:var(--text3);margin-top:2px">학점</div>'}
+            ${pct!==null?`<div style="height:4px;background:var(--bg2);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${ok?'var(--green)':item.color};border-radius:99px;transition:width .3s"></div></div>`:''}
+          </div>`;
+        }).join('');
+      })()}
     </div>
 
     <div class="tw">${buildOwnedTableUI(p,t)}</div>
