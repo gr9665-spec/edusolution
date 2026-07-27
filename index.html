@@ -5155,6 +5155,23 @@ function renderPlanEditor(p){
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const majors=['경영','사회복지','보육·아동','심리','상담','청소년','한국어교원','평생교육사','기타'];
+
+  // ── 중복 과목명 계산 ──
+  const _allSubjects=[];
+  (p.semesters||[]).forEach(sem=>{
+    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
+      if(r&&r.subject) _allSubjects.push(r.subject.trim());
+    });
+  });
+  const _subjectFreq={};
+  _allSubjects.forEach(s=>{ _subjectFreq[s]=(_subjectFreq[s]||0)+1; });
+  const _dupSubjects=new Set(Object.keys(_subjectFreq).filter(s=>_subjectFreq[s]>1));
+  // 과목명 표시 헬퍼: 중복이면 빨간색
+  const _ds=(subject)=>subject
+    ? (_dupSubjects.has(subject.trim())
+        ? `<span style="color:#e53935;font-weight:700" title="중복 과목">${subject}</span>`
+        : subject)
+    : '';
   // 중복 학습자 제거 (이름+전화번호 동일하면 하나만 표시)
   const seenLearners=new Set();
   const uniqueLearners=learners.filter(l=>{
@@ -5268,13 +5285,13 @@ function buildOwnedTableUI(p,t){
     rows+=`<tr>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
     </tr>`;
   }
 
@@ -5298,13 +5315,13 @@ function buildOwnedTableUI(p,t){
       specRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
       </tr>`;
     }
     specRows+=`<tr><td colspan="9" style="padding:0;border:none">
@@ -5387,13 +5404,13 @@ function buildPlanTableUI(p,t){
       body+=`<tr style="${sem.completed?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수</span>':sem.name||''): ''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
       </tr>`;
     }
     body+=`<tr style="background:${sem.completed?'#e8e8e8':'#eaeae4'}">
@@ -5430,13 +5447,13 @@ function buildPlanTableUI(p,t){
       body+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
       </tr>`;
     }
     body+=`<tr><td colspan="9" style="padding:0;border:none">
@@ -5538,6 +5555,16 @@ function buildSemLimitWarning(p){
     if(s.courses>MAX_YEAR_COURSE)
       warnings.push({level:'error',msg:`⚠️ 20${y}년: ${s.courses}과목 — 연간 최대 ${MAX_YEAR_COURSE}과목 초과!`});
   });
+
+  // 중복 과목 경고 (_dupSubjects는 renderPlanEditor 스코프 밖이므로 여기서 재계산)
+  const _dupCheck={};
+  (p.semesters||[]).forEach(sem=>{
+    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
+      if(r&&r.subject) _dupCheck[r.subject.trim()]=(_dupCheck[r.subject.trim()]||0)+1;
+    });
+  });
+  const _dups=Object.keys(_dupCheck).filter(s=>_dupCheck[s]>1);
+  if(_dups.length) warnings.push({level:'error',msg:`⚠️ 중복 과목 ${_dups.length}개: ${_dups.join(', ')}`});
 
   if(!warnings.length) return '';
   return `<div style="margin-top:6px;border-radius:6px;overflow:hidden;border:1px solid #f5c6cb">
@@ -6027,13 +6054,13 @@ function openPrintPreview(pid){
     ownRows+=`<tr>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${rq&&rq.subject?rq.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
     </tr>`;
   }
   // owned specials (자격증/독학사 보유분)
@@ -6048,13 +6075,13 @@ function openPrintPreview(pid){
       ownRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
       </tr>`;
     }
   });
@@ -6076,13 +6103,13 @@ function openPrintPreview(pid){
       planRows+=`<tr style="${done?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
       </tr>`;
     }
     planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
@@ -6103,13 +6130,13 @@ function openPrintPreview(pid){
       planRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#fff;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${rq&&rq.subject?rq.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${el&&el.subject?el.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${gn&&gn.subject?gn.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${lb&&lb.subject?lb.subject:''}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
       </tr>`;
     }
   });
