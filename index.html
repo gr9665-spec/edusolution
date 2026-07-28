@@ -5606,6 +5606,7 @@ function buildSemLimitWarning(p){
 
 // ── 학위취득 가능여부 체커 (내부 전용) ────────────────────────────────
 function buildDegreeChecker(p,t,dr){
+  if(p.degree==='기타') return '';
   const totalMajor=t.totReq+t.totElec;
   const needMajor=dr.major!=null ? dr.major : dr.req+(dr.elec||0);
   const isTaJeon=dr.total===0; // 타전공: 전공학점만 체크
