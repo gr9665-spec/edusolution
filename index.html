@@ -5609,19 +5609,86 @@ function buildSemLimitWarning(p){
 const REQUIRED_SUBJECTS = {
   '경영_학사': {
     label: '경영학 학사 — 전공필수 9과목',
-    subjects: [
-      '경영정보시스템','경영학개론','경제학개론','국제경영',
-      '마케팅원론','인적자원관리','회계원리','생산관리','재무관리'
-    ]
+    subjects: ['경영정보시스템','경영학개론','경제학개론','국제경영','마케팅원론','인적자원관리','회계원리','생산관리','재무관리'],
+    subCreditMin: 27  // 자격증/독학사 대체 기준 학점
   },
   '경영_전문학사': {
     label: '경영 전문학사 — 전공필수 7과목',
-    subjects: [
-      '경영학개론','경제학개론','경영통계학',
-      '마케팅원론','인적자원관리','회계원리','재무관리'
-    ]
+    subjects: ['경영학개론','경제학개론','경영통계학','마케팅원론','인적자원관리','회계원리','재무관리'],
+    subCreditMin: 21
   }
 };
+
+function buildRequiredSubjectCheck(p){
+  const major = p.major==='기타'?(p.majorCustom||''):p.major;
+  const degree = p.degree;
+
+  let reqKey = null;
+  if(major.includes('경영') && degree==='학사') reqKey='경영_학사';
+  else if(major.includes('경영') && degree==='전문학사') reqKey='경영_전문학사';
+  if(!reqKey) return '';
+
+  const db = REQUIRED_SUBJECTS[reqKey];
+
+  // 플랜 전체 과목 수집
+  const entered = new Set();
+  (p.semesters||[]).forEach(sem=>{
+    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
+      if(r&&r.subject) entered.add(r.subject.trim());
+    });
+  });
+  if(p.owned){
+    [...(p.owned.req||[]),...(p.owned.elec||[]),...(p.owned.gen||[]),...(p.owned.lib||[])].forEach(r=>{
+      if(r&&r.subject) entered.add(r.subject.trim());
+    });
+  }
+
+  const ok=[], missing=[];
+  db.subjects.forEach(s=>{
+    const matched=[...entered].some(e=>e===s||e.includes(s.slice(0,Math.min(5,s.length)))||s.includes(e.slice(0,Math.min(5,e.length))));
+    if(matched) ok.push(s); else missing.push(s);
+  });
+
+  // 현재 전공학점 계산
+  const t = planTotals(p);
+  const totalMajorCredit = t.totReq + t.totElec;
+
+  const allSubjOk = missing.length === 0;
+  const creditOk = totalMajorCredit >= db.subCreditMin;
+  const passBy = allSubjOk ? 'subject' : (creditOk ? 'credit' : 'fail');
+
+  const headerColor = passBy==='fail' ? '#c92a2a' : '#00695c';
+  const headerBg = passBy==='fail' ? '#fff5f5' : '#e0f2f1';
+  const borderColor = passBy==='fail' ? '#ffc9c9' : '#b2dfdb';
+
+  const statusText = passBy==='subject'
+    ? `✅ 전공필수 ${ok.length}/${db.subjects.length}과목 이수 완료`
+    : passBy==='credit'
+    ? `✅ 전공학점 ${totalMajorCredit}학점 (${db.subCreditMin}학점 이상) — 자격증/독학사 대체 충족`
+    : `❌ 미충족 — 필수과목 ${missing.length}개 미이수 · 전공학점 ${totalMajorCredit}/${db.subCreditMin}학점`;
+
+  return `
+  <div style="border:1px solid ${borderColor};border-radius:var(--r);margin-top:12px;overflow:hidden">
+    <div style="background:${headerBg};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;font-weight:700;color:${headerColor}"><i class="ti ti-checklist"></i> ${db.label} 이수 체크</div>
+      <div style="font-size:12px;font-weight:700;color:${headerColor}">${statusText}</div>
+    </div>
+    ${passBy==='credit'?`
+    <div style="padding:8px 14px;background:#f0fdf4;font-size:11px;color:#2e7d32;border-bottom:1px solid #b2dfdb">
+      <i class="ti ti-info-circle"></i> 전공자격증 또는 전공독학사 합격과목으로 ${db.subCreditMin}학점 이상 충족 시 필수과목 이수 대체 가능
+    </div>`:''}
+    <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:5px">
+      ${db.subjects.map(s=>{
+        const matched=[...entered].some(e=>e===s||e.includes(s.slice(0,Math.min(5,s.length)))||s.includes(e.slice(0,Math.min(5,e.length))));
+        return `<span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${matched?'#e0f2f1':'#fff5f5'};color:${matched?'#00695c':'#c92a2a'};border:1px solid ${matched?'#b2dfdb':'#ffc9c9'}">
+          ${matched?'✓':'✗'} ${s}
+        </span>`;
+      }).join('')}
+    </div>
+    ${passBy==='fail'?`<div style="padding:4px 14px 10px;font-size:11px;color:#c92a2a">미이수 ${missing.length}과목: ${missing.join(', ')}</div>`:''}
+    ${passBy==='fail'?`<div style="padding:4px 14px 10px;font-size:11px;color:#e67700">또는 전공학점 ${db.subCreditMin}학점 이상이면 대체 가능 (현재 ${totalMajorCredit}학점)</div>`:''}
+  </div>`;
+}
 
 function buildRequiredSubjectCheck(p){
   const major = p.major==='기타'?(p.majorCustom||''):p.major;
