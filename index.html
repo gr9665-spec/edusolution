@@ -5267,6 +5267,7 @@ function renderPlanEditor(p){
 
     <div class="tw">${buildOwnedTableUI(p,t)}</div>
     <div class="tw">${buildPlanTableUI(p,t)}</div>
+    ${buildRequiredSubjectCheck(p)}
 
     <div class="card">
       <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
@@ -5601,6 +5602,82 @@ function buildSemLimitWarning(p){
   return `<div style="margin-top:6px;border-radius:6px;overflow:hidden;border:1px solid #f5c6cb">
     <div style="background:#c0392b;color:#fff;padding:6px 12px;font-size:11px;font-weight:700">⚠️ 최대이수학점 초과 경고 (온라인 수업 기준 · 자격증·독학사 제외)</div>
     ${warnings.map(w=>`<div style="padding:6px 12px;font-size:12px;background:${w.level==='error'?'#fff5f5':'#f0fff4'};color:${w.level==='error'?'#c0392b':'#2e6e10'};border-top:1px solid #f5c6cb">${w.msg}</div>`).join('')}
+  </div>`;
+}
+
+// ── 전공 필수과목 DB ────────────────────────────────────────────────
+const REQUIRED_SUBJECTS = {
+  '경영_학사': {
+    label: '경영학 학사 — 전공필수 9과목',
+    subjects: [
+      '경영정보시스템','경영학개론','경제학개론','국제경영',
+      '마케팅원론','인적자원관리','회계원리','생산관리','재무관리'
+    ]
+  },
+  '경영_전문학사': {
+    label: '경영 전문학사 — 전공필수 7과목',
+    subjects: [
+      '경영학개론','경제학개론','경영통계학',
+      '마케팅원론','인적자원관리','회계원리','재무관리'
+    ]
+  }
+};
+
+function buildRequiredSubjectCheck(p){
+  const major = p.major==='기타'?(p.majorCustom||''):p.major;
+  const degree = p.degree;
+
+  // 경영 학사 / 경영 전문학사만 체크
+  let reqKey = null;
+  if(major.includes('경영') && degree==='학사') reqKey='경영_학사';
+  else if(major.includes('경영') && degree==='전문학사') reqKey='경영_전문학사';
+  if(!reqKey) return '';
+
+  const db = REQUIRED_SUBJECTS[reqKey];
+
+  // 플랜에 입력된 전체 과목명 수집
+  const entered = new Set();
+  (p.semesters||[]).forEach(sem=>{
+    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
+      if(r&&r.subject) entered.add(r.subject.trim());
+    });
+  });
+  if(p.owned){
+    [...(p.owned.req||[]),...(p.owned.elec||[]),...(p.owned.gen||[]),...(p.owned.lib||[])].forEach(r=>{
+      if(r&&r.subject) entered.add(r.subject.trim());
+    });
+  }
+
+  const ok=[], missing=[];
+  db.subjects.forEach(s=>{
+    // 완전 일치 or 유사 포함 매칭 (앞 4글자 이상 포함)
+    const matched=[...entered].some(e=>e===s||e.includes(s.slice(0,Math.min(5,s.length)))||s.includes(e.slice(0,Math.min(5,e.length))));
+    if(matched) ok.push(s);
+    else missing.push(s);
+  });
+
+  const allOk = missing.length===0;
+
+  return `
+  <div style="border:1px solid ${allOk?'#b2dfdb':'#ffc9c9'};border-radius:var(--r);margin-top:12px;overflow:hidden">
+    <div style="background:${allOk?'#e0f2f1':'#fff5f5'};padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;font-weight:700;color:${allOk?'#00695c':'#c92a2a'}">
+        <i class="ti ti-checklist"></i> ${db.label} 이수 체크
+      </div>
+      <div style="font-size:12px;font-weight:700;color:${allOk?'#00695c':'#c92a2a'}">
+        ${ok.length} / ${db.subjects.length} 이수
+        ${allOk?' ✅':''}
+      </div>
+    </div>
+    <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:5px">
+      ${db.subjects.map(s=>{
+        const matched=[...entered].some(e=>e===s||e.includes(s.slice(0,Math.min(5,s.length)))||s.includes(e.slice(0,Math.min(5,e.length))));
+        return `<span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${matched?'#e0f2f1':'#fff5f5'};color:${matched?'#00695c':'#c92a2a'};border:1px solid ${matched?'#b2dfdb':'#ffc9c9'}">
+          ${matched?'✓':'✗'} ${s}
+        </span>`;
+      }).join('')}
+    </div>
+    ${missing.length>0?`<div style="padding:6px 14px 10px;font-size:11px;color:#c92a2a">미이수 ${missing.length}과목: ${missing.join(', ')}</div>`:''}
   </div>`;
 }
 
