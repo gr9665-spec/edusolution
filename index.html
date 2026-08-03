@@ -6077,9 +6077,9 @@ function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; LS.set('hk_pl
 
 // ── 인쇄 미리보기 ────────────────────────────────────────────────
 function openPrintPreview(pid){
-  const _dupSubjects=getDupSubjects(p);
   const p=plans[pid||curPid]; if(!p) return;
   _curPrintPid=pid||curPid;
+  const _dupSubjects=getDupSubjects(p);
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const BL=PLAN_BLUE, LBL=PLAN_LBLUE, YL=PLAN_YELLOW, DYL=PLAN_DYELLOW, RD=PLAN_RED;
@@ -6315,8 +6315,8 @@ function printPlan(){
 }
 
 function openMobilePlanPage(){
-  const _dupSubjects=getDupSubjects(p);
   const p=plans[_curPrintPid||curPid]; if(!p) return;
+  const _dupSubjects=getDupSubjects(p);
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const RD=PLAN_RED, BL=PLAN_BLUE;
@@ -6474,6 +6474,7 @@ function switchPrintView(mode){
 
 function renderMobilePlan(pid){
   const p=plans[pid||curPid]; if(!p) return;
+  const _dupSubjects=getDupSubjects(p);
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const RD=PLAN_RED, BL=PLAN_BLUE;
