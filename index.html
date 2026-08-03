@@ -145,6 +145,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     #panel-admin{display:none}
     #panel-admin.active{display:block}
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -1187,6 +1188,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
     <button class="btn" onclick="closeModal('modal-plan-print')">닫기</button>
+    <button class="btn" onclick="savePlanAsImage()" id="btn-save-img" style="background:#7048e8;color:#fff;border-color:#7048e8"><i class="ti ti-camera"></i> 이미지 저장</button>
     <button class="btn btn-primary" onclick="printPlan()"><i class="ti ti-printer"></i> 인쇄 / PDF</button>
   </div>
 </div>
@@ -6288,6 +6290,34 @@ function openPrintPreview(pid){
 
   document.getElementById('plan-print-content').innerHTML=content;
   openModal('modal-plan-print');
+}
+
+function savePlanAsImage(){
+  const el = document.getElementById('plan-print-content');
+  if(!el) return;
+  const btn = document.getElementById('btn-save-img');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> 변환 중...'; }
+
+  html2canvas(el, {
+    scale: 2,           // 고해상도
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    scrollX: 0, scrollY: 0,
+    windowWidth: el.scrollWidth + 40,
+  }).then(canvas => {
+    // PNG 다운로드
+    const p = plans[_curPrintPid||curPid];
+    const name = p ? (p.clientName||'플랜표') : '플랜표';
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = name + '_플랜표.png';
+    a.click();
+    showToast('📷 이미지 저장 완료! 카카오톡에 파일로 첨부하세요.');
+  }).catch(err => {
+    alert('이미지 변환 실패: ' + err.message);
+  }).finally(() => {
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-camera"></i> 이미지 저장'; }
+  });
 }
 
 function printPlan(){
