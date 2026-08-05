@@ -4356,7 +4356,7 @@ function applyCopyKisu(){
   const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
   const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
 
-  // 마감 제외한 시작 일정만
+  // 마감 제외한 시작 일정만 (유형+날짜 기준 중복 제거)
   const startItems=[...new Map(items
     .filter(s=>!s.type.includes('마감'))
     .map(s=>[s.type+'|'+s.date, s])).values()]
@@ -4364,26 +4364,35 @@ function applyCopyKisu(){
 
   if(!startItems.length){ alert('복사할 일정이 없어요'); return; }
 
-  // 마감일 매핑 — 같은 유형 마감 중 시작일 이후 가장 가까운 것으로 매칭
+  // 기수 내 유형별 endDate/time 다수결 (정상값 참조용)
+  const endDateByType={}, timeByType={};
+  HAS_END_TYPES.forEach(type=>{
+    const arr=items.filter(s=>s.type===type&&s.endDate);
+    if(arr.length){
+      const freq={};
+      arr.forEach(s=>{ freq[s.endDate]=(freq[s.endDate]||0)+1; });
+      endDateByType[type]=Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+    }
+    const tarr=items.filter(s=>s.type===type&&s.time);
+    if(tarr.length){
+      const tfreq={};
+      tarr.forEach(s=>{ tfreq[s.time]=(tfreq[s.time]||0)+1; });
+      timeByType[type]=Object.entries(tfreq).sort((a,b)=>b[1]-a[1])[0][0];
+    }
+  });
+
   bulkRows = startItems.length;
   renderBulkRows(startItems.map(s=>{
-    let endDate='';
+    let endDate='', time='';
     if(HAS_END_TYPES.includes(s.type)){
-      const endItems=items.filter(x=>x.type===s.type+'마감'&&x.date>=s.date);
-      if(endItems.length){
-        // 시작일 이후 마감 중 가장 가까운 것
-        endItems.sort((a,b)=>a.date.localeCompare(b.date));
-        endDate=endItems[0].date;
-      } else {
-        // 시작일 이전 마감도 포함해서 날짜 가장 가까운 것으로 폴백
-        const allEnd=items.filter(x=>x.type===s.type+'마감');
-        if(allEnd.length){
-          allEnd.sort((a,b)=>Math.abs(new Date(a.date)-new Date(s.date))-Math.abs(new Date(b.date)-new Date(s.date)));
-          endDate=allEnd[0].date;
-        }
-      }
+      // 1순위: 해당 일정의 endDate/time 직접 사용
+      endDate = s.endDate||'';
+      time = s.time||'';
+      // 2순위: endDate 없으면 기수 내 다수결 값 사용
+      if(!endDate && endDateByType[s.type]) endDate = endDateByType[s.type];
+      if(!time && timeByType[s.type]) time = timeByType[s.type];
     }
-    return {type:s.type, date:s.date, endDate, note:s.note};
+    return {type:s.type, date:s.date, endDate, time, note:s.note};
   }));
 
   updateBulkPreview();
