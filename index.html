@@ -6335,12 +6335,14 @@ function savePlanAsImage(){
       }
       showToast('새 탭에서 이미지를 길게 눌러 저장하세요!');
     } else {
-      // PC: 바로 다운로드
-      const a = document.createElement('a');
-      a.href = canvas.toDataURL('image/png');
-      a.download = name + '_플랜표.png';
-      a.click();
-      showToast('📷 이미지 저장 완료! 카카오톡에 파일로 첨부하세요.');
+      // PC: 새 탭에 이미지 열기 → 우클릭 복사 또는 다운로드
+      const url = canvas.toDataURL('image/png');
+      const w = window.open('', '_blank');
+      if(w){
+        w.document.write(`<!DOCTYPE html><html><head><title>${name}_플랜표</title><style>body{margin:0;background:#555;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px}img{max-width:100%;height:auto;box-shadow:0 4px 20px rgba(0,0,0,.4)}p{color:#fff;font-size:13px;font-family:sans-serif;margin:0;background:rgba(0,0,0,.4);padding:8px 16px;border-radius:8px}a{color:#adf;font-size:12px;font-family:sans-serif}</style></head><body><p>🖱️ 이미지 우클릭 → <b>이미지 복사</b> 또는 <b>이미지를 다른 이름으로 저장</b></p><img src="${url}" alt="플랜표"><a href="${url}" download="${name}_플랜표.png">⬇ 다운로드</a></body></html>`);
+        w.document.close();
+      }
+      showToast('새 탭에서 우클릭 → 이미지 복사하세요!');
     }
   }).catch(err => {
     alert('이미지 변환 실패: ' + err.message);
