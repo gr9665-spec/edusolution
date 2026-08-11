@@ -3812,7 +3812,13 @@ function renderSales(){
     </td>
     <td><span class="pill pill-gray">${l.code||''}</span></td>
     <td style="font-size:12px;color:var(--text2)">${l.paydate||''}</td>
-    <td style="font-size:12px;color:var(--text2);white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
+    <td style="font-size:12px;color:var(--text2);white-space:nowrap">${(()=>{
+      // 1순위: 학습자 직접 입력한 개강일
+      if(l.start) return l.start.slice(5).replace('-','/');
+      // 2순위: 학사일정에서 개강일 매칭
+      const sd=getLearnerStartDate(l);
+      return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';
+    })()}</td>
     <td>${l.credit||0}학점</td>
     <td>${(()=>{
       const exportTotal=calcExportTotal(l);
