@@ -3187,7 +3187,7 @@ function renderLearners(){
       <td style="font-size:12px;white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
       <td><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type||''}</span></td>
       <td>${l.credit||0}학점</td><td>${(l.unitprice||0).toLocaleString()}원</td>
-      <td><strong>${(l.total||0).toLocaleString()}원</strong></td>
+      <td><strong>${calcExportTotal(l).toLocaleString()}원</strong></td>
       <td style="color:var(--green);font-weight:600">${reward.toLocaleString()}원${badge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
@@ -3816,9 +3816,13 @@ function renderSales(){
     <td>${(()=>{
       const exportTotal=calcExportTotal(l);
       const isHalf=l.half||HALF_PRICE_CODES.includes(l.code||'')||HALF_PRICE_COURSES.includes(l.course||'')||(l.code||'').startsWith('이문')||(l.code||'').startsWith('에문');
-      return isHalf
-        ? `<strong>${(l.total||0).toLocaleString()}원</strong> <span style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:3px;padding:1px 5px">반액→${exportTotal.toLocaleString()}원</span>`
-        : `<strong>${(l.total||0).toLocaleString()}원</strong>`;
+      const hasReportAmt=l.reportAmt&&parseInt(l.reportAmt)>0;
+      if(hasReportAmt){
+        return `<strong>${exportTotal.toLocaleString()}원</strong> <span style="font-size:10px;color:#7048e8;background:#f3f0ff;border-radius:3px;padding:1px 5px">직접입력</span>`;
+      } else if(isHalf){
+        return `<strong>${exportTotal.toLocaleString()}원</strong> <span style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:3px;padding:1px 5px">반액</span>`;
+      }
+      return `<strong>${exportTotal.toLocaleString()}원</strong>`;
     })()}</td>
     <td style="color:var(--green);font-weight:600">${calcRewardForLearner(l).toLocaleString()}원</td>
     <td><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type}</span></td>
