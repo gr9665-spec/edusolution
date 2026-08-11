@@ -1302,6 +1302,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         반액 입력 대상 <span style="font-size:11px;font-weight:400;color:var(--text2)">(영어영문·기계·전기·소방 등)</span>
       </label>
     </div>
+    <div class="fg">
+      <label>보고서 반영금액 <span style="font-size:10px;font-weight:400;color:var(--text2)">(직접 입력 시 자동계산 무시)</span></label>
+      <input type="number" id="l-report-amt" placeholder="비워두면 자동계산" oninput="autoCalcTotal()">
+    </div>
     <div class="fg"><label>승인코드</label><input type="text" id="l-approve" placeholder="eds"></div>
     <div class="fg"><label>학점 *</label><input type="number" id="l-credit" placeholder="21" min="1" oninput="autoCalcTotal()"></div>
     <div class="fg"><label>학점당 금액 *</label><input type="number" id="l-unitprice" placeholder="40000" oninput="autoCalcTotal()"></div>
@@ -2561,6 +2565,8 @@ function rewardLabel(l){
 }
 
 function calcExportTotal(l){
+  // 보고서 반영금액 직접 입력 시 우선 사용
+  if(l.reportAmt && parseInt(l.reportAmt) > 0) return parseInt(l.reportAmt);
   // 반액 입력 대상: 뉴엠, 영어IT, 대면, 또는 반액 체크박스
   const code = l.code||'';
   const course = l.course||'';
@@ -2664,9 +2670,12 @@ function autoCalcTotal(){
   const code=document.getElementById('l-code').value;
   const course=document.getElementById('l-course').value;
   const total=credit*unit;
+  const reportAmtVal=(document.getElementById('l-report-amt')?.value||'').trim();
   const rType=document.getElementById('l-reward-type').value;
   const rVal=parseFloat(document.getElementById('l-reward-value').value)||0;
-  const tmpL={code,credit,total,course,rewardType:rType,rewardValue:rVal};
+  const tmpL={code,credit,total,course,rewardType:rType,rewardValue:rVal,
+    half:document.getElementById('l-half')?.checked||false,
+    reportAmt:reportAmtVal};
   const reward=calcRewardForLearner(tmpL);
   const exportTotal=calcExportTotal(tmpL);
   let desc='';
@@ -2676,8 +2685,9 @@ function autoCalcTotal(){
   else if(rType==='fixed') desc=`고정 ${rVal.toLocaleString()}원`;
   document.getElementById('reward-preview').textContent=desc?`→ ${desc} = ${reward.toLocaleString()}원`:'';
   const isHalfChk=document.getElementById('l-half')?.checked||false;
-  const halfMark=(isHalfChk||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문'))?' <span style="font-size:11px;color:var(--amber);background:var(--amber-bg);border-radius:4px;padding:1px 6px">반액입력</span>':'';
-  document.getElementById('modal-calc').innerHTML=`총매출: <strong>${total.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;예상수당: <strong style="color:var(--green)">${reward.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;보고서입력금액: <strong style="color:var(--blue)">${exportTotal.toLocaleString()}원</strong>${halfMark}`;
+  const reportMark=reportAmtVal?` <span style="font-size:11px;color:#7048e8;background:#f3f0ff;border-radius:4px;padding:1px 6px">직접입력</span>`:'';
+  const halfMark=(!reportAmtVal&&(isHalfChk||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문')))?' <span style="font-size:11px;color:var(--amber);background:var(--amber-bg);border-radius:4px;padding:1px 6px">반액입력</span>':'';
+  document.getElementById('modal-calc').innerHTML=`총매출: <strong>${total.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;예상수당: <strong style="color:var(--green)">${reward.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;보고서입력금액: <strong style="color:var(--blue)">${exportTotal.toLocaleString()}원</strong>${reportMark}${halfMark}`;
 }
 
 // ── 입금확인 이미지 기능 ──────────────────────────────────────────────
@@ -3003,6 +3013,7 @@ function openLearnerModal(idx){
     document.getElementById('l-reward-type').value=l.rewardType||'per_credit';
     document.getElementById('l-reward-value').value=l.rewardValue!=null?l.rewardValue:'';
     const halfEl=document.getElementById('l-half'); if(halfEl) halfEl.checked=l.half||false;
+    const reportAmtEl=document.getElementById('l-report-amt'); if(reportAmtEl) reportAmtEl.value=l.reportAmt||'';
     // 기존 이미지 로드
     if(l.images&&l.images.length){
       _pendingImgs=l.images.map(img=>({id:img.id,file:null,localUrl:img.url,storagePath:img.path,downloadUrl:img.url}));
@@ -3017,6 +3028,7 @@ function openLearnerModal(idx){
     document.getElementById('l-reward-type').value='per_credit';
     document.getElementById('l-reward-value').value='';
     const halfEl2=document.getElementById('l-half'); if(halfEl2) halfEl2.checked=false;
+    const reportAmtEl2=document.getElementById('l-report-amt'); if(reportAmtEl2) reportAmtEl2.value='';
     document.getElementById('modal-calc').textContent='학점과 금액 입력 시 자동 계산됩니다';
     document.getElementById('reward-preview').textContent='';
   }
@@ -3049,6 +3061,7 @@ async function saveLearner(){
     code,approve:document.getElementById('l-approve').value.trim(),
     credit,unitprice,total,reward,course,rewardType,rewardValue,
     half:document.getElementById('l-half')?.checked||false,
+    reportAmt:document.getElementById('l-report-amt')?.value.trim()||'',
     type:document.getElementById('l-type').value,
     note:document.getElementById('l-note').value.trim(),
     addedAt:new Date().toISOString()
