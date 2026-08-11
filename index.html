@@ -2936,41 +2936,74 @@ function applyLearnerCopyKisu(){
     prev.style.color='var(--green)';
   }
 }
-function addLearnerSchedRow(presetType,presetDate,presetNote){
+function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTime,presetLabel){
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const wrap=document.getElementById('learner-sched-rows');
   const rowId='sr'+Date.now()+Math.floor(Math.random()*1000);
+  const type=presetType||'개강일';
+  const showEnd=HAS_END.includes(type);
+  const showTime=HAS_TIME.includes(type);
   const row=document.createElement('div');
   row.id=rowId;
-  row.style.cssText='display:flex;gap:6px;align-items:center';
+  row.style.cssText='margin-bottom:4px';
   row.innerHTML=`
-    <select class="ls-type" style="flex:1;font-size:12px;padding:5px 7px">
-      <option${presetType==='개강일'?' selected':''}>개강일</option>
-      <option${presetType==='쪽지시험'?' selected':''}>쪽지시험</option>
-      <option${presetType==='쪽지시험마감'?' selected':''}>쪽지시험마감</option>
-      <option${presetType==='토론'?' selected':''}>토론</option>
-      <option${presetType==='토론마감'?' selected':''}>토론마감</option>
-      <option${presetType==='과제'?' selected':''}>과제</option>
-      <option${presetType==='과제마감'?' selected':''}>과제마감</option>
-      <option${presetType==='중간고사'?' selected':''}>중간고사</option>
-      <option${presetType==='중간고사마감'?' selected':''}>중간고사마감</option>
-      <option${presetType==='기말고사'?' selected':''}>기말고사</option>
-      <option${presetType==='기말고사마감'?' selected':''}>기말고사마감</option>
-      <option${presetType==='기타'?' selected':''}>기타</option>
-    </select>
-    <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;font-size:12px;padding:5px 7px">
-    <input type="hidden" class="ls-note" value="${(presetNote||'').replace(/"/g,'&quot;')}">
-    <button type="button" class="btn btn-icon" style="width:26px;height:26px;color:var(--red)" onclick="document.getElementById('${rowId}').remove()"><i class="ti ti-x" style="font-size:12px"></i></button>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <select class="ls-type" style="flex:0 0 110px;font-size:12px;padding:5px 7px" onchange="onLearnerSchedTypeChange('${rowId}')">
+        <option${type==='개강일'?' selected':''}>개강일</option>
+        <option${type==='쪽지시험'?' selected':''}>쪽지시험</option>
+        <option${type==='토론'?' selected':''}>토론</option>
+        <option${type==='과제'?' selected':''}>과제</option>
+        <option${type==='중간고사'?' selected':''}>중간고사</option>
+        <option${type==='기말고사'?' selected':''}>기말고사</option>
+        <option${type==='기타'?' selected':''}>기타</option>
+      </select>
+      <input type="date" class="ls-date" value="${presetDate||''}" style="flex:1;min-width:110px;font-size:12px;padding:5px 7px" placeholder="시작일">
+      <input type="date" class="ls-end" value="${presetEnd||''}" style="flex:1;min-width:110px;font-size:12px;padding:5px 7px;display:${showEnd?'block':'none'}" placeholder="마감일">
+      <input type="time" class="ls-time" value="${presetTime||''}" style="flex:0 0 80px;font-size:12px;padding:5px 7px;display:${showTime?'block':'none'}">
+      <input type="hidden" class="ls-note" value="${(presetNote||'').replace(/"/g,'&quot;')}">
+      <button type="button" class="btn btn-icon" style="width:26px;height:26px;color:var(--red)" onclick="document.getElementById('${rowId}').remove()"><i class="ti ti-x" style="font-size:12px"></i></button>
+    </div>
+    <div class="ls-label-wrap" style="display:${type==='기타'?'flex':'none'};margin-top:4px">
+      <input type="text" class="ls-label" value="${(presetLabel||'').replace(/"/g,'&quot;')}" placeholder="기타 일정 내용 직접 입력" style="width:100%;font-size:12px;padding:5px 8px">
+    </div>
   `;
   wrap.appendChild(row);
 }
+
+function onLearnerSchedTypeChange(rowId){
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_TIME=['쪽지시험','중간고사','기말고사'];
+  const row=document.getElementById(rowId);
+  if(!row) return;
+  const type=row.querySelector('.ls-type').value;
+  const endEl=row.querySelector('.ls-end');
+  const timeEl=row.querySelector('.ls-time');
+  let labelWrap=row.querySelector('.ls-label-wrap');
+  if(endEl) endEl.style.display=HAS_END.includes(type)?'block':'none';
+  if(timeEl) timeEl.style.display=HAS_TIME.includes(type)?'block':'none';
+  if(type==='기타'){
+    if(!labelWrap){
+      labelWrap=document.createElement('div');
+      labelWrap.className='ls-label-wrap';
+      labelWrap.style.cssText='display:flex;margin-top:4px';
+      labelWrap.innerHTML=`<input type="text" class="ls-label" placeholder="기타 일정 내용 직접 입력" style="width:100%;font-size:12px;padding:5px 8px">`;
+      row.appendChild(labelWrap);
+    } else { labelWrap.style.display='flex'; }
+  } else if(labelWrap){ labelWrap.style.display='none'; }
+}
+
 function collectLearnerSchedRows(){
   const rows=document.querySelectorAll('#learner-sched-rows > div');
   const result=[];
   rows.forEach(r=>{
-    const type=r.querySelector('.ls-type').value;
-    const date=r.querySelector('.ls-date').value;
+    const type=r.querySelector('.ls-type')?.value||'';
+    const date=r.querySelector('.ls-date')?.value||'';
+    const endDate=r.querySelector('.ls-end')?.value||'';
+    const time=r.querySelector('.ls-time')?.value||'';
+    const label=r.querySelector('.ls-label')?.value||'';
     const note=r.querySelector('.ls-note')?.value||'';
-    if(date) result.push({type,date,note});
+    if(date) result.push({type,date,endDate,time,label,note});
   });
   return result;
 }
@@ -3080,7 +3113,7 @@ async function saveLearner(){
     if(!sr.date) return; // date 없으면 절대 등록 안 함 (안전장치)
     // sr.note가 'edu kisu | 날짜범위' 형태이면 그대로, 아니면 noteBase 사용
     const finalNote=sr.note||noteBase;
-    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
+    schedules.push({id:Date.now()+'-'+si+'-'+Math.floor(Math.random()*1000),learnerName:name,learnerId:l.id||'',type:sr.type,label:sr.type==='기타'?(sr.label||''):'',date:sr.date,endDate:sr.endDate||'',time:sr.time||'',sent:'false',note:finalNote});
     schedAddedCount++;
   });
 
