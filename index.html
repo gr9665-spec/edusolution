@@ -8,19 +8,19 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#ffffff;--bg2:#f5f5f0;--bg3:#eeeee8;
-  --text:#1a1a1a;--text2:#666;--text3:#999;
-  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.22);
-  --r:8px;--rl:12px;--navy:#1e3a5f;
-  --blue:#1a5fa8;--blue-bg:#e8f0fb;
-  --green:#2e6e10;--green-bg:#e8f3de;
-  --amber:#7a4b08;--amber-bg:#faeeda;
-  --red:#8f2020;--red-bg:#fce8e8;
+  --bg:#ffffff;--bg2:#f4f6fb;--bg3:#eef0f7;
+  --text:#1a2340;--text2:#6b7a99;--text3:#9ba8c0;
+  --border:rgba(58,90,150,0.12);--border2:rgba(58,90,150,0.22);
+  --r:8px;--rl:14px;--navy:#3a5a96;
+  --blue:#3a5a96;--blue-bg:#e6ecf5;
+  --green:#2f9e44;--green-bg:#ebfbee;
+  --amber:#e67700;--amber-bg:#fff9db;
+  --red:#c92a2a;--red-bg:#fff5f5;
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;font-size:14px;color:var(--text);background:var(--bg3);min-height:100vh}
 .app{max-width:1150px;margin:0 auto;background:var(--bg);min-height:100vh;box-shadow:0 0 40px rgba(0,0,0,.08)}
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--navy);color:#fff;position:sticky;top:0;z-index:50;gap:8px}
-.topbar h1{font-size:15px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;color:var(--text);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;gap:8px}
+.topbar h1{font-size:15px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .topbar-logo{display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow:hidden}
 .topbar-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
 @media(max-width:480px){
@@ -28,7 +28,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
   .topbar h1{font-size:13px}
   .topbar-title{display:none}
 }
-.badge{font-size:12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:var(--r);padding:4px 10px;color:#fff;white-space:nowrap;display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:200px}
+.badge{font-size:12px;background:var(--blue-bg);border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;color:var(--navy);white-space:nowrap;display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:200px}
 .tabs{display:flex;background:var(--bg);border-bottom:1px solid var(--border);padding:0 24px;position:sticky;top:53px;z-index:40;overflow-x:auto}
 .tab{padding:11px 16px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;transition:color .15s;white-space:nowrap}
 .tab.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:600}
@@ -50,8 +50,8 @@ tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg2)}
 .btn{background:transparent;border:1px solid var(--border2);border-radius:var(--r);padding:6px 13px;font-size:12px;cursor:pointer;color:var(--text);transition:background .12s;display:inline-flex;align-items:center;gap:5px}
 .btn:hover{background:var(--bg2)}
-.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}.btn-primary:hover{background:#16305a}
-.btn-green{background:var(--green);color:#fff;border-color:var(--green)}.btn-green:hover{background:#235309}
+.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy)}.btn-primary:hover{background:#2e4d82}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green)}.btn-green:hover{background:#267a37}
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-icon{padding:5px;width:30px;height:30px;justify-content:center}
 .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500}
@@ -61,7 +61,7 @@ tr:hover td{background:var(--bg2)}
 .pill-red{background:var(--red-bg);color:var(--red)}
 .pill-gray{background:var(--bg2);color:var(--text2)}
 input,select,textarea{background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px;font-size:13px;color:var(--text);width:100%;font-family:inherit;transition:border-color .15s}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(58,90,150,.1)}
 .fg{display:flex;flex-direction:column;gap:4px}
 .fg label{font-size:11px;color:var(--text2);font-weight:600}
 .fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -121,19 +121,19 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <style>
     /* 로그인 화면 */
-    #login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2563b0 100%);
+    #login-screen{position:fixed;inset:0;background:linear-gradient(135deg,#3a5a96 0%,#5c7cfa 100%);
       display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column}
     #login-box{background:#fff;border-radius:16px;padding:36px 32px;width:min(380px,92vw);
       box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}
-    #login-box h1{font-size:20px;font-weight:700;color:#1e3a5f;margin-bottom:4px}
+    #login-box h1{font-size:20px;font-weight:700;color:var(--navy);margin-bottom:4px}
     #login-box p{font-size:13px;color:#888;margin-bottom:24px}
     .login-input{width:100%;padding:11px 14px;border:1px solid #ddd;border-radius:8px;
       font-size:14px;margin-bottom:10px;box-sizing:border-box;font-family:inherit}
-    .login-input:focus{outline:none;border-color:#1e3a5f}
-    .login-btn{width:100%;padding:12px;background:#1e3a5f;color:#fff;border:none;
+    .login-input:focus{outline:none;border-color:var(--navy)}
+    .login-btn{width:100%;padding:12px;background:var(--navy);color:#fff;border:none;
       border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-top:4px;font-family:inherit}
     .login-btn:hover{background:#16305a}
-    .login-btn.secondary{background:#f0f0e8;color:#1e3a5f;margin-top:8px;font-size:13px;font-weight:500}
+    .login-btn.secondary{background:var(--bg2);color:var(--navy);margin-top:8px;font-size:13px;font-weight:500}
     .login-btn.secondary:hover{background:#e0e0d8}
     #login-error{color:#c0392b;font-size:12px;margin-top:8px;min-height:18px}
     .login-divider{border:none;border-top:1px solid #eee;margin:16px 0}
@@ -145,6 +145,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     #panel-admin{display:none}
     #panel-admin.active{display:block}
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -183,12 +184,12 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <div class="app">
 <div class="topbar">
   <div class="topbar-logo">
-    <i class="ti ti-school" style="font-size:20px;flex-shrink:0"></i>
+    <i class="ti ti-school" style="font-size:20px;flex-shrink:0;color:var(--navy)"></i>
     <h1 class="topbar-title">학점은행제 플래너 허브</h1>
   </div>
   <div class="topbar-right">
     <span class="badge" id="user-badge"><i class="ti ti-user" style="font-size:12px"></i> 상희경 주임</span>
-    <button class="btn btn-sm" onclick="switchTab('settings',null)" style="margin-left:8px;background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35)" onmouseover="this.style.background='rgba(255,255,255,.22)'" onmouseout="this.style.background='rgba(255,255,255,.12)'"><i class="ti ti-settings"></i> 수당 세팅</button>
+    <button class="btn btn-sm" onclick="switchTab('settings',null)" style="margin-left:8px"><i class="ti ti-settings"></i> 수당 세팅</button>
   </div>
 </div>
 
@@ -999,14 +1000,14 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 </div>
 
 <!-- 승인 대기 화면 -->
-<div id="pending-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e3a5f 0%,#2563b0 100%);display:none;align-items:center;justify-content:center;z-index:9998;flex-direction:column">
+<div id="pending-screen" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#3a5a96 0%,#5c7cfa 100%);display:none;align-items:center;justify-content:center;z-index:9998;flex-direction:column">
   <div style="background:#fff;border-radius:16px;padding:36px 32px;width:min(380px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center">
     <i class="ti ti-clock" style="font-size:48px;color:#f59e0b;display:block;margin-bottom:16px"></i>
-    <h2 style="font-size:20px;font-weight:700;color:#1e3a5f;margin-bottom:8px">승인 대기 중</h2>
+    <h2 style="font-size:20px;font-weight:700;color:var(--navy);margin-bottom:8px">승인 대기 중</h2>
     <p style="font-size:13px;color:#666;margin-bottom:20px;line-height:1.6">가입 신청이 완료됐어요.<br>관리자 승인 후 사용할 수 있어요.</p>
     <p id="pending-email" style="font-size:12px;color:#888;margin-bottom:20px"></p>
     <button onclick="firebase.auth().signOut().then(()=>{document.getElementById('pending-screen').style.display='none';showLoginScreen()})" 
-      style="width:100%;padding:11px;background:#f0f0e8;color:#1e3a5f;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">
+      style="width:100%;padding:11px;background:var(--bg2);color:var(--navy);border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">
       로그아웃
     </button>
   </div>
@@ -1181,6 +1182,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div style="display:flex;gap:8px;justify-content:flex-end;flex-shrink:0">
     <button class="btn" onclick="closeModal('modal-plan-print')">닫기</button>
+    <button class="btn" onclick="savePlanAsImage()" id="btn-save-img" style="background:#7048e8;color:#fff;border-color:#7048e8"><i class="ti ti-camera"></i> 이미지 저장</button>
     <button class="btn btn-primary" onclick="printPlan()"><i class="ti ti-printer"></i> 인쇄 / PDF</button>
   </div>
 </div>
@@ -2491,24 +2493,17 @@ function findSchedulesForLearnerThisTerm(l){
   const kisu=(l.kisu||'').trim();
   const eduTrim=(l.edu||'').trim();
 
-  // learnerId로 정확히 매칭된 일정이 있다면: 그 학습자 row 자체의 일정이므로
-  // ID가 같은 한 같은 학습자(같은 등록 건)로 보고 그대로 사용 (기수 추가 필터 불필요)
-  if(l.id && all.length && all.every(s=>s.learnerId===l.id)){
-    return all;
+  if(!all.length) return [];
+  if(kisu){
+    let kisuMatches=all.filter(s=>(s.note||'').includes(kisu));
+    if(kisuMatches.length && eduTrim){
+      const eduKisuMatches=kisuMatches.filter(s=>(s.note||'').includes(eduTrim));
+      if(eduKisuMatches.length) kisuMatches=eduKisuMatches;
+    }
+    return kisuMatches;
   }
-
-  if(!kisu){
-    // 기수 정보가 없는데 ID 매칭도 안 됐다면 비교 불가 → 빈 배열(=일정없음으로 간주, 안전)
-    return l.id ? [] : all;
-  }
-
-  let kisuMatches=all.filter(s=>(s.note||'').includes(kisu));
-  if(kisuMatches.length && eduTrim){
-    const eduKisuMatches=kisuMatches.filter(s=>(s.note||'').includes(eduTrim));
-    if(eduKisuMatches.length) kisuMatches=eduKisuMatches;
-  }
-  // 기수로 좁혀지는 일정이 하나도 없으면 → 이 학습자는 일정 미등록으로 간주 (전체로 폴백하지 않음)
-  return kisuMatches;
+  if(l.id && all.every(s=>s.learnerId===l.id)) return all;
+  return l.id ? [] : all;
 }
 function getLearnerStartDate(l){
   const cands=findSchedulesForLearnerThisTerm(l).filter(s=>s.type==='개강일');
@@ -3097,7 +3092,7 @@ async function saveLearner(){
   const eduCustom=document.getElementById('l-edu-custom').value.trim();
   const edu=eduSel==='기타'?(eduCustom||'기타'):eduSel;
   const l={
-    name,id:document.getElementById('l-id').value.trim(),
+    name,id:document.getElementById('l-id').value.trim()||('L'+Date.now()+Math.random().toString(36).slice(2,7)),
     phone:document.getElementById('l-phone').value.trim(),
     email:document.getElementById('l-email').value.trim(),
     edu, kisu:document.getElementById('l-kisu').value.trim(),
@@ -3127,7 +3122,7 @@ async function saveLearner(){
     schedAddedCount++;
   });
 
-  save();closeModal('modal-learner');renderLearners();renderDashboard();renderSchedule();
+  save();closeModal('modal-learner');renderLearners();renderSales();renderDashboard();renderSchedule();
   if(schedAddedCount) showToast(`학습자 저장 + 학사일정 ${schedAddedCount}건 등록 완료!`);
 }
 
@@ -3231,7 +3226,7 @@ function renderLearners(){
       <td style="font-size:12px;white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
       <td><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type||''}</span></td>
       <td>${l.credit||0}학점</td><td>${(l.unitprice||0).toLocaleString()}원</td>
-      <td><strong>${(l.total||0).toLocaleString()}원</strong></td>
+      <td><strong>${calcExportTotal(l).toLocaleString()}원</strong></td>
       <td style="color:var(--green);font-weight:600">${reward.toLocaleString()}원${badge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
@@ -3849,7 +3844,10 @@ function renderSales(){
     <td>
       <strong style="cursor:pointer;color:var(--navy);text-decoration:underline;text-decoration-style:dotted" onclick="goToLearnerSearch('${l.name.replace(/'/g,"\\'")}')" title="학습자 관리에서 보기">${l.name}</strong>
       ${!hasNonStartSchedule(l)?`<br><span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;font-weight:600" title="시험/과제/토론 등 일정이 등록되지 않았어요"><i class="ti ti-alert-triangle" style="font-size:10px"></i> 일정없음</span>`:''}
-    </td><td>${l.edu}</td>
+    </td><td>
+      ${l.edu}
+      ${l.kisu?`<br><span style="font-size:10px;color:var(--text3);font-weight:500">${l.kisu}</span>`:''}
+    </td>
     <td><span class="pill pill-gray">${l.code||''}</span></td>
     <td style="font-size:12px;color:var(--text2)">${l.paydate||''}</td>
     <td style="font-size:12px;color:var(--text2);white-space:nowrap">${(()=>{const sd=getLearnerStartDate(l);return sd?sd.slice(5).replace('-','/'):'<span style="color:var(--text3)">-</span>';})()}</td>
@@ -4699,6 +4697,23 @@ function fixMissingScheduleDates(){
 
 renderDashboard();calcReward();
 
+// ── 중복 과목 헬퍼 (전역) ─────────────────────────────────────────────
+function getDupSubjects(p){
+  const freq={};
+  (p.semesters||[]).forEach(sem=>{
+    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
+      if(r&&r.subject){ const s=r.subject.trim(); freq[s]=(freq[s]||0)+1; }
+    });
+  });
+  return new Set(Object.keys(freq).filter(s=>freq[s]>1));
+}
+function ds(subject,dupSet){
+  if(!subject) return '';
+  return dupSet&&dupSet.has(subject.trim())
+    ? '<span style="color:#e53935;font-weight:700" title="중복 과목">'+subject+'</span>'
+    : subject;
+}
+
 // ── 플랜표 ───────────────────────────────────────────────────────────
 const DEG_REQ = {
   '학사':           {total:140, req:60,  elec:0,  gen:35, lib:30, major:60,  note:'전공60 · 교양30 · 총140학점'},
@@ -5206,7 +5221,7 @@ function planTotals(p){
   return {ownReq,ownElec,ownGen,ownLib,ownAll,semReq,semElec,semGen,semLib,specReq,specElec,specGen,specLib,totReq,totElec,totGen,totLib,grand};
 }
 
-const PLAN_BLUE='#2563b0', PLAN_LBLUE='#dce6f5', PLAN_YELLOW='#fffbe6', PLAN_DYELLOW='#fff3cd', PLAN_RED='#c0392b', PLAN_LRED='#fff0f0', PLAN_GRAY='#f5f5f0';
+const PLAN_BLUE='#3a5a96', PLAN_LBLUE='#e6ecf5', PLAN_YELLOW='#fffbe6', PLAN_DYELLOW='#fff3cd', PLAN_RED='#c92a2a', PLAN_LRED='#fff5f5', PLAN_GRAY='#f4f6fb';
 
 function renderPlanEditor(p){
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
@@ -5214,21 +5229,7 @@ function renderPlanEditor(p){
   const majors=['경영','사회복지','보육·아동','심리','상담','청소년','한국어교원','평생교육사','기타'];
 
   // ── 중복 과목명 계산 ──
-  const _allSubjects=[];
-  (p.semesters||[]).forEach(sem=>{
-    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
-      if(r&&r.subject) _allSubjects.push(r.subject.trim());
-    });
-  });
-  const _subjectFreq={};
-  _allSubjects.forEach(s=>{ _subjectFreq[s]=(_subjectFreq[s]||0)+1; });
-  const _dupSubjects=new Set(Object.keys(_subjectFreq).filter(s=>_subjectFreq[s]>1));
-  // 과목명 표시 헬퍼: 중복이면 빨간색
-  const _ds=(subject)=>subject
-    ? (_dupSubjects.has(subject.trim())
-        ? `<span style="color:#e53935;font-weight:700" title="중복 과목">${subject}</span>`
-        : subject)
-    : '';
+  const _dupSubjects=getDupSubjects(p);
   // 중복 학습자 제거 (이름+전화번호 동일하면 하나만 표시)
   const seenLearners=new Set();
   const uniqueLearners=learners.filter(l=>{
@@ -5293,6 +5294,29 @@ function renderPlanEditor(p){
       </div>
     </div>
 
+    <!-- ── 학점 요약 카드 ── -->
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
+      ${(()=>{
+        const items=[
+          {label:'총 취득학점',val:t.grand,need:dr.total,color:'var(--navy)'},
+          {label:'전공학점',val:t.totReq+t.totElec,need:dr.major!=null?dr.major:dr.req+(dr.elec||0),color:'var(--navy)'},
+          {label:'교양학점',val:t.totLib,need:dr.lib||0,color:'#7048e8'},
+          {label:'일반학점',val:t.totGen,need:null,color:'var(--text2)'},
+          {label:'보유학점',val:t.ownAll||0,need:null,color:'var(--green)'},
+        ];
+        return items.map(item=>{
+          const pct=item.need?(Math.min(100,Math.round((item.val/item.need)*100))):null;
+          const ok=item.need&&item.val>=item.need;
+          return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--rl);padding:12px 14px;text-align:center">'
+            +'<div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px">'+item.label+'</div>'
+            +'<div style="font-size:22px;font-weight:700;color:'+(ok?'var(--green)':item.color)+';line-height:1">'+item.val+'</div>'
+            +(item.need?'<div style="font-size:10px;color:var(--text3);margin-top:2px">/ '+item.need+'학점</div>':'<div style="font-size:10px;color:var(--text3);margin-top:2px">학점</div>')
+            +(pct!==null?'<div style="height:4px;background:var(--bg2);border-radius:99px;margin-top:8px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:'+(ok?'var(--green)':item.color)+';border-radius:99px;transition:width .3s"></div></div>':'')
+            +'</div>';
+        }).join('');
+      })()}
+    </div>
+
     <div class="tw">${buildOwnedTableUI(p,t)}</div>
     <div class="tw">${buildPlanTableUI(p,t)}</div>
 
@@ -5333,6 +5357,7 @@ function renderPlanEditor(p){
 }
 
 function buildOwnedTableUI(p,t){
+  const _dupSubjects=getDupSubjects(p);
   const o=p.owned;
   if(!o.specials) o.specials=[];
   const maxR=Math.max(1,(o.req||[]).length,(o.elec||[]).length,(o.gen||[]).length,(o.lib||[]).length);
@@ -5342,13 +5367,13 @@ function buildOwnedTableUI(p,t){
     rows+=`<tr>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+      <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
     </tr>`;
   }
 
@@ -5372,13 +5397,13 @@ function buildOwnedTableUI(p,t){
       specRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
       </tr>`;
     }
     specRows+=`<tr><td colspan="9" style="padding:0;border:none">
@@ -5426,6 +5451,7 @@ function buildOwnedTableUI(p,t){
 }
 
 function buildPlanTableUI(p,t){
+  const _dupSubjects=getDupSubjects(p);
   const th=(s,c='')=>`<th style="padding:6px 5px;border:1px solid #aaa;text-align:center;background:${PLAN_LBLUE};font-size:11px;color:${c||'#222'}">${s}</th>`;
   let body='';
 
@@ -5436,7 +5462,7 @@ function buildPlanTableUI(p,t){
   p.semesters.forEach((sem,si)=>{
     const maxR=Math.max(1,(sem.req||[]).length,(sem.elec||[]).length,(sem.gen||[]).length,(sem.lib||[]).length);
     const semTot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
-    body+=`<tr style="background:#f0f0e8">
+    body+=`<tr style="background:var(--bg2)">
       <td colspan="9" style="padding:8px 10px;border:1px solid #ccc">
         <div class="sem-info-form" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
           <input id="sem-name-${si}" type="text" value="${sem.name||''}" placeholder="학기명"
@@ -5461,13 +5487,13 @@ function buildPlanTableUI(p,t){
       body+=`<tr style="${sem.completed?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?(sem.completed?'<span style=\"color:#2e7d32;font-weight:700\">✓ 이수</span>':sem.name||''): ''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 6px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
       </tr>`;
     }
     body+=`<tr style="background:${sem.completed?'#e8e8e8':'#eaeae4'}">
@@ -5504,13 +5530,13 @@ function buildPlanTableUI(p,t){
       body+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${PLAN_RED};font-weight:600">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
       </tr>`;
     }
     body+=`<tr><td colspan="9" style="padding:0;border:none">
@@ -5630,8 +5656,33 @@ function buildSemLimitWarning(p){
   </div>`;
 }
 
+const REQUIRED_SUBJECTS={
+  '경영_학사':{label:'경영학 학사 — 전공필수 9과목',subjects:['경영정보시스템','경영학개론','경제학개론','국제경영','마케팅원론','인적자원관리','회계원리','생산관리','재무관리'],subCreditMin:27},
+  '경영_전문학사':{label:'경영 전문학사 — 전공필수 7과목',subjects:['경영학개론','경제학개론','경영통계학','마케팅원론','인적자원관리','회계원리','재무관리'],subCreditMin:21}
+};
+function buildRequiredSubjectCheck(p,t){
+  const major=p.major==='기타'?(p.majorCustom||''):p.major,degree=p.degree;
+  let reqKey=null;
+  if(major.includes('경영')&&degree==='학사') reqKey='경영_학사';
+  else if(major.includes('경영')&&degree==='전문학사') reqKey='경영_전문학사';
+  if(!reqKey) return '';
+  const db=REQUIRED_SUBJECTS[reqKey];
+  const entered=new Set();
+  (p.semesters||[]).forEach(sem=>{[...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{if(r&&r.subject)entered.add(r.subject.trim());});});
+  if(p.owned){[...(p.owned.req||[]),...(p.owned.elec||[]),...(p.owned.gen||[]),...(p.owned.lib||[])].forEach(r=>{if(r&&r.subject)entered.add(r.subject.trim());});(p.owned.specials||[]).forEach(sp=>{[...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])].forEach(r=>{if(r&&r.subject)entered.add(r.subject.trim());});});}
+  const ok=[],missing=[];
+  db.subjects.forEach(s=>{const m=[...entered].some(e=>e===s||e.includes(s.slice(0,Math.min(5,s.length)))||s.includes(e.slice(0,Math.min(5,e.length))));if(m)ok.push(s);else missing.push(s);});
+  const totalMajorCredit=t?t.totReq:planTotals(p).totReq;
+  const allSubjOk=missing.length===0,creditOk=totalMajorCredit>=db.subCreditMin;
+  const passBy=allSubjOk?'subject':(creditOk?'credit':'fail');
+  const hc=passBy==='fail'?'#c92a2a':'#00695c',hb=passBy==='fail'?'#fff5f5':'#e0f2f1',bc=passBy==='fail'?'#ffc9c9':'#b2dfdb';
+  const st=passBy==='subject'?`✅ 전공필수 ${ok.length}/${db.subjects.length}과목 이수 완료`:passBy==='credit'?`✅ 전공학점 ${totalMajorCredit}학점 (${db.subCreditMin}학점 이상) — 자격증/독학사 대체 충족`:`❌ 미충족 — 필수과목 ${missing.length}개 미이수 · 전공학점 ${totalMajorCredit}/${db.subCreditMin}학점`;
+  return `<div style="border:1px solid ${bc};border-radius:var(--r);margin-top:12px;overflow:hidden"><div style="background:${hb};padding:8px 14px;display:flex;align-items:center;justify-content:space-between"><div style="font-size:12px;font-weight:700;color:${hc}"><i class="ti ti-checklist"></i> ${db.label} 이수 체크</div><div style="font-size:12px;font-weight:700;color:${hc}">${st}</div></div>${passBy==='credit'?'<div style="padding:8px 14px;background:#f0fdf4;font-size:11px;color:#2e7d32;border-bottom:1px solid #b2dfdb"><i class="ti ti-info-circle"></i> 전공자격증 또는 전공독학사 합격과목으로 '+db.subCreditMin+'학점 이상 충족 시 필수과목 이수 대체 가능</div>':''}<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:5px">${db.subjects.map(s=>{const m=[...entered].some(e=>e===s||e.includes(s.slice(0,Math.min(5,s.length)))||s.includes(e.slice(0,Math.min(5,e.length))));return '<span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:'+(m?'#e0f2f1':'#fff5f5')+';color:'+(m?'#00695c':'#c92a2a')+';border:1px solid '+(m?'#b2dfdb':'#ffc9c9')+'">'+(m?'✓':'✗')+' '+s+'</span>';}).join('')}</div>${passBy==='fail'?'<div style="padding:4px 14px 10px;font-size:11px;color:#c92a2a">미이수 '+missing.length+'과목: '+missing.join(', ')+'</div>':''}${passBy==='fail'?'<div style="padding:4px 14px 10px;font-size:11px;color:#e67700">또는 전공학점 '+db.subCreditMin+'학점 이상이면 대체 가능 (현재 '+totalMajorCredit+'학점)</div>':''}</div>`;
+}
+
 // ── 학위취득 가능여부 체커 (내부 전용) ────────────────────────────────
 function buildDegreeChecker(p,t,dr){
+  if(p.degree==='기타') return '';
   const totalMajor=t.totReq+t.totElec;
   const needMajor=dr.major!=null ? dr.major : dr.req+(dr.elec||0);
   const isTaJeon=dr.total===0; // 타전공: 전공학점만 체크
@@ -6082,6 +6133,7 @@ function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; LS.set('hk_pl
 function openPrintPreview(pid){
   const p=plans[pid||curPid]; if(!p) return;
   _curPrintPid=pid||curPid;
+  const _dupSubjects=getDupSubjects(p);
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const BL=PLAN_BLUE, LBL=PLAN_LBLUE, YL=PLAN_YELLOW, DYL=PLAN_DYELLOW, RD=PLAN_RED;
@@ -6111,13 +6163,13 @@ function openPrintPreview(pid){
     ownRows+=`<tr>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?'인정학점':''}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(rq&&rq.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(rq&&rq.subject,_dupSubjects)}}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
       <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+      <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
     </tr>`;
   }
   // owned specials (자격증/독학사 보유분)
@@ -6132,13 +6184,13 @@ function openPrintPreview(pid){
       ownRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
       </tr>`;
     }
   });
@@ -6160,13 +6212,13 @@ function openPrintPreview(pid){
       planRows+=`<tr style="${done?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
       </tr>`;
     }
     planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
@@ -6187,13 +6239,13 @@ function openPrintPreview(pid){
       planRows+=`<tr>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?label:''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;background:#fff;color:${RD};font-weight:700">${rq&&rq.credit?rq.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${_ds(rq&&rq.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${el&&el.credit?el.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(el&&el.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(el&&el.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${gn&&gn.credit?gn.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(gn&&gn.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(gn&&gn.subject,_dupSubjects)}}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center">${lb&&lb.credit?lb.credit:''}</td>
-        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${_ds(lb&&lb.subject)}</td>
+        <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}}</td>
       </tr>`;
     }
   });
@@ -6292,6 +6344,27 @@ function openPrintPreview(pid){
   openModal('modal-plan-print');
 }
 
+function savePlanAsImage(){
+  const el=document.getElementById('plan-print-content');
+  if(!el) return;
+  const btn=document.getElementById('btn-save-img');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> 변환 중...';}
+  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  html2canvas(el,{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,windowWidth:el.scrollWidth+40}).then(canvas=>{
+    const p=plans[_curPrintPid||curPid];
+    const name=p?(p.clientName||'플랜표'):'플랜표';
+    const url=canvas.toDataURL('image/png');
+    const w=window.open('','_blank');
+    if(w){
+      const guide=isMobile?'📷 이미지를 <b>길게 눌러</b> 저장하세요':'🖱️ 이미지 우클릭 → <b>이미지 복사</b> 또는 <b>이미지를 다른 이름으로 저장</b>';
+      w.document.write('<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+name+'_플랜표</title><style>body{margin:0;background:#555;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px}img{max-width:100%;height:auto;box-shadow:0 4px 20px rgba(0,0,0,.4)}p{color:#fff;font-size:13px;font-family:sans-serif;margin:0;background:rgba(0,0,0,.4);padding:8px 16px;border-radius:8px}a{color:#adf;font-size:12px;font-family:sans-serif}</style></head><body><p>'+guide+'</p><img src="'+url+'" alt="플랜표"><a href="'+url+'" download="'+name+'_플랜표.png">⬇ 다운로드</a></body></html>');
+      w.document.close();
+    }
+    showToast(isMobile?'새 탭에서 이미지를 길게 눌러 저장하세요!':'새 탭에서 우클릭 → 이미지 복사하세요!');
+  }).catch(err=>alert('이미지 변환 실패: '+err.message))
+  .finally(()=>{if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-camera"></i> 이미지 저장';}});
+}
+
 function printPlan(){
   const content=document.getElementById('plan-print-content').innerHTML;
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>플랜표</title>
@@ -6318,6 +6391,7 @@ function printPlan(){
 
 function openMobilePlanPage(){
   const p=plans[_curPrintPid||curPid]; if(!p) return;
+  const _dupSubjects=getDupSubjects(p);
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const RD=PLAN_RED, BL=PLAN_BLUE;
@@ -6475,6 +6549,7 @@ function switchPrintView(mode){
 
 function renderMobilePlan(pid){
   const p=plans[pid||curPid]; if(!p) return;
+  const _dupSubjects=getDupSubjects(p);
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
   const RD=PLAN_RED, BL=PLAN_BLUE;
