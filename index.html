@@ -294,6 +294,12 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <div id="blog-keyword-list" style="max-height:400px;overflow-y:auto"></div>
     </div>
   </div>
+
+  <!-- 이번달 유입경로 -->
+  <div class="card">
+    <div class="card-head"><h3><i class="ti ti-chart-bar"></i>이번달 유입경로</h3></div>
+    <div id="source-stats-list"></div>
+  </div>
 </div>
 
 <!-- 블로그 키워드 추가/수정 모달 -->
@@ -1597,6 +1603,7 @@ const ADMIN_EMAIL = ADMIN_EMAILS[0]; // 하위 호환용
 let fbApp, fbAuth, fbDb;
 let currentUser = null;
 let isAdmin = false;
+let _loadedLastUpdated = null; // 마지막으로 불러온 서버 데이터의 lastUpdated (동시저장 충돌 감지용)
 let currentUserRank = '주임';
 let memos = [];
 let DEFAULT_REWARDS_CURRENT = null;
@@ -1800,9 +1807,11 @@ async function loadUserData(){
       if(d.blogKeywords) blogKeywords=d.blogKeywords;
       else { const lb=LS.get('hk_blog'); if(lb) blogKeywords=lb; }
       if(d.plans)  plans=d.plans;
+      _loadedLastUpdated = d.lastUpdated || null;
     } else {
       // 첫 로그인 — 직급 기본값 적용
       rewardTable = Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
+      _loadedLastUpdated = null;
     }
   } catch(e){ console.warn('데이터 로드 실패, 로컬 사용:', e); }
 }
@@ -2200,13 +2209,27 @@ let _saveTimer = null;
 function saveToFirebase(){
   if(!currentUser||!fbDb) return;
   clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(()=>{
-    fbDb.collection('userData').doc(currentUser.uid).set({
-      learners, schedules, mktActivities, mktGoals,
-      rewardTable, todos, plans,
-      memos, memoCategories, blogKeywords,
-      lastUpdated: new Date().toISOString()
-    }, {merge:true}).catch(e=>console.warn('Firebase 저장 실패:', e));
+  _saveTimer=setTimeout(async ()=>{
+    const docRef=fbDb.collection('userData').doc(currentUser.uid);
+    try{
+      // 다른 기기/탭에서 먼저 저장한 변경사항이 있는지 확인 (동시저장 덮어쓰기 방지)
+      const snap=await docRef.get({source:'server'}).catch(()=>null);
+      if(snap && snap.exists){
+        const serverLastUpdated=snap.data().lastUpdated||null;
+        if(_loadedLastUpdated && serverLastUpdated && serverLastUpdated!==_loadedLastUpdated){
+          const ok=confirm('다른 기기(또는 탭)에서 먼저 저장한 변경사항이 있어요.\n지금 저장하면 그 변경사항이 덮어써질 수 있어요.\n\n계속 저장할까요?\n(취소 후 새로고침하면 최신 데이터를 먼저 확인할 수 있어요)');
+          if(!ok) return;
+        }
+      }
+      const newLastUpdated=new Date().toISOString();
+      await docRef.set({
+        learners, schedules, mktActivities, mktGoals,
+        rewardTable, todos, plans,
+        memos, memoCategories, blogKeywords,
+        lastUpdated: newLastUpdated
+      }, {merge:true});
+      _loadedLastUpdated=newLastUpdated;
+    } catch(e){ console.warn('Firebase 저장 실패:', e); }
   }, 800);
 }
 
@@ -2335,14 +2358,14 @@ async function approveMember(uid){
   }catch(e){alert('승인 실패: '+e.message);}
 }
 async function rejectMember(uid){
-  if(!confirm('이 멤버를 거절할까요? 계정이 삭제돼요.')) return;
+  if(!confirm('이 멤버의 가입 승인을 거절할까요?')) return;
   if(!fbDb) return;
   try{
     await fbDb.collection('userData').doc(uid).set({approved:false},{merge:true});
     await fbDb.collection('users').doc(uid).set({approved:false},{merge:true}).catch(()=>{});
     delete allMembersData[uid];
     renderAdminMembers();
-    alert('거절됐어요.');
+    alert('승인이 거절되었습니다.');
   }catch(e){alert('거절 실패: '+e.message);}
 }
 
@@ -3430,8 +3453,50 @@ function renderDashboard(){
 
   // 블로그 키워드
   renderBlogKeywords();
+
+  // 이번달 유입경로
+  renderSourceStats();
 }
 
+// ── 이번달 유입경로(문의경로) 통계 ────────────────────────────────────
+function renderSourceStats(){
+  const el=document.getElementById('source-stats-list');
+  if(!el) return;
+  // 한국 시간 기준 이번달(YYYY-MM)
+  const kst=new Date(new Date().getTime()+9*60*60*1000);
+  const ym=`${kst.getUTCFullYear()}-${String(kst.getUTCMonth()+1).padStart(2,'0')}`;
+
+  const thisMonthPlans=Object.values(plans).filter(p=>(p.counselDate||'').startsWith(ym));
+  if(!thisMonthPlans.length){
+    el.innerHTML='<div class="empty"><i class="ti ti-chart-bar"></i>이번달 상담 등록 건이 없어요</div>';
+    return;
+  }
+
+  const counts={};
+  thisMonthPlans.forEach(p=>{
+    const label=p.source==='기타'?(p.sourceCustom||'기타'):(p.source||'미입력');
+    counts[label]=(counts[label]||0)+1;
+  });
+  const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const max=Math.max(...entries.map(e=>e[1]));
+  const total=thisMonthPlans.length;
+  const colors=['var(--navy)','#5c7cfa','#7048e8','#e67700','#2f9e44','#c92a2a','#1a5fa8'];
+
+  el.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:10px">총 ${total}건</div>`
+    + entries.map(([label,count],i)=>{
+        const pct=Math.round((count/max)*100);
+        const pctOfTotal=Math.round((count/total)*100);
+        return `<div style="margin-bottom:9px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="font-weight:600">${label}</span>
+            <span style="color:var(--text2)">${count}건 (${pctOfTotal}%)</span>
+          </div>
+          <div style="height:9px;background:var(--bg2);border-radius:99px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${colors[i%colors.length]};border-radius:99px;transition:width .4s"></div>
+          </div>
+        </div>`;
+      }).join('');
+}
 
 // ── 투두리스트 ─────────────────────────────────────────────────────────
 let todos = LS.get('hk_todos')||[];
@@ -4742,6 +4807,7 @@ function blankPlan(){
     id:'p'+Date.now(),
     clientName:'', phone:'', counselDate:new Date().toISOString().split('T')[0],
     degree:'학사', major:'경영', majorCustom:'', degreeCustom:'',
+    source:'', sourceCustom:'',
     linkedLearner:'',
     owned:{ req:[], elec:[], gen:[], lib:[], specials:[] },
     semesters:[],
@@ -5277,6 +5343,15 @@ function renderPlanEditor(p){
             <option ${(p.status||'가망')==='가망'?'selected':''}>가망</option>
             <option ${p.status==='결제완료'?'selected':''}>결제완료</option>
           </select>
+        </div>
+        <div class="fg"><label>문의경로</label>
+          <select onchange="upP('source',this.value);document.getElementById('source-custom-wrap').style.display=this.value==='기타'?'block':'none'">
+            <option value="" ${!p.source?'selected':''}>선택</option>
+            ${['블로그','카페','유튜브','소개','선임','기타'].map(s=>`<option ${p.source===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+          <div id="source-custom-wrap" style="margin-top:4px;display:${p.source==='기타'?'block':'none'}">
+            <input type="text" value="${p.sourceCustom||''}" placeholder="문의경로 직접 입력 (예: 지인 소개)" onchange="upP('sourceCustom',this.value)" style="font-size:12px;padding:5px 8px">
+          </div>
         </div>
         <div class="fg"><label>목표 학위</label>
           <select onchange="upP('degree',this.value);document.getElementById('degree-custom-wrap').style.display=this.value==='기타'?'block':'none';renderPlanEditor(plans[curPid])">
