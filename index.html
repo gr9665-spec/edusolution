@@ -2502,6 +2502,13 @@ let mktActivities = LS.get('hk_mkt')||[];
 let mktGoals = LS.get('hk_goals')||[];
 let rewardTable = LS.get('hk_rewards') || Object.assign({}, DEFAULT_REWARDS);
 let editIdx = -1;
+// plans/curPid/subjCtx는 원래 플랜표 섹션(스크립트 후반부)에 선언돼 있었는데,
+// showApp()이 Firebase 초기화 실패 시 동기적으로(스크립트 실행 도중) 호출되면서
+// 아직 선언 전인 plans를 참조해 TDZ(ReferenceError)가 나던 문제가 있어 앞으로 옮김
+let plans = LS.get('hk_plans')||{};
+let curPid = null;
+let subjCtx = null;
+let todos = LS.get('hk_todos')||[];
 
 
 
@@ -3499,7 +3506,6 @@ function renderSourceStats(){
 }
 
 // ── 투두리스트 ─────────────────────────────────────────────────────────
-let todos = LS.get('hk_todos')||[];
 
 function toggleTodo(id){
   const t=todos.find(x=>x.id===id);if(t){t.done=!t.done;saveTodos();renderTodos();}
@@ -4797,10 +4803,6 @@ const DEG_REQ = {
   '타전공 학사':    {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:48,  note:'전공48학점 (복수전공)'},
   '기타':           {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:0,   note:''},
 };
-
-let plans = LS.get('hk_plans')||{};
-let curPid = null;
-let subjCtx = null;
 
 function blankPlan(){
   return {
