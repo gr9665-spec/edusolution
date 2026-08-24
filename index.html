@@ -5179,7 +5179,8 @@ function addPlanVersion(){
   if(!p.versions){
     // 1안 생성 시 현재 데이터를 즉시 스냅샷 (data:null 방지)
     p.versions=[{label:'1안', data:JSON.parse(JSON.stringify({
-      semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo
+      semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo,
+      degree:p.degree, degreeCustom:p.degreeCustom, major:p.major, majorCustom:p.majorCustom
     }))}];
     p.curVersion=0;
   }
@@ -5189,7 +5190,8 @@ function addPlanVersion(){
   if(!label) return;
   // 현재 플랜을 복사해서 새 버전 생성
   const newVer={label:label.trim(), data:JSON.parse(JSON.stringify({
-    semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo
+    semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo,
+    degree:p.degree, degreeCustom:p.degreeCustom, major:p.major, majorCustom:p.majorCustom
   }))};
   p.versions.push(newVer);
   p.curVersion=(p.versions.length-1);
@@ -5215,7 +5217,8 @@ function saveCurVersionData(p){
   const vi=p.curVersion||0;
   if(!p.versions[vi]) return;
   p.versions[vi].data=JSON.parse(JSON.stringify({
-    semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo
+    semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo,
+    degree:p.degree, degreeCustom:p.degreeCustom, major:p.major, majorCustom:p.majorCustom
   }));
   // 버전 이름 변경 버튼
 }
