@@ -5230,6 +5230,24 @@ function renamePlanVersion(vi){
   LS.set('hk_plans',plans); saveToFirebase();
   renderPlanEditor(p);
 }
+function deleteVersion(vi){
+  const p=plans[curPid]; if(!p||!p.versions||p.versions.length<=1) return;
+  const label=p.versions[vi].label;
+  showDeleteModal(`버전 <strong>${label}</strong>을 삭제할까요?`,()=>{
+    const curVi=p.curVersion||0;
+    const wasCurrent=vi===curVi;
+    p.versions.splice(vi,1);
+    const newCur = wasCurrent ? Math.max(0,vi-1) : (vi<curVi ? curVi-1 : curVi);
+    p.curVersion=newCur;
+    if(wasCurrent){
+      const ver=p.versions[newCur];
+      if(ver&&ver.data) Object.assign(p, ver.data);
+    }
+    LS.set('hk_plans',plans); saveToFirebase();
+    renderPlanEditor(p);
+    showToast('버전이 삭제됐어요');
+  });
+}
 
 function copyPlan(){
   const p=plans[curPid]; if(!p) return;
@@ -5328,10 +5346,13 @@ function renderPlanEditor(p){
       <div style="width:1px;background:var(--border);margin:0 2px;height:22px"></div>
       <span style="font-size:11px;color:var(--text2)">플랜 버전:</span>
       ${(p.versions||[{label:'기본'}]).map((v,vi)=>`
-        <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;${vi===(p.curVersion||0)?'background:var(--navy);color:#fff;':''}"
-          onclick="switchPlanVersion(${vi})"
-          ondblclick="renamePlanVersion(${vi})"
-          title="클릭: 전환 / 더블클릭: 이름변경">${v.label}</button>`).join('')}
+        <span style="display:inline-flex;align-items:stretch">
+          <button class="btn btn-sm" style="font-size:11px;padding:2px 8px;${(p.versions&&p.versions.length>1)?'border-top-right-radius:0;border-bottom-right-radius:0;border-right:none;':''}${vi===(p.curVersion||0)?'background:var(--navy);color:#fff;':''}"
+            onclick="switchPlanVersion(${vi})"
+            ondblclick="renamePlanVersion(${vi})"
+            title="클릭: 전환 / 더블클릭: 이름변경">${v.label}</button>
+          ${(p.versions&&p.versions.length>1)?`<button class="btn btn-sm" style="font-size:10px;padding:2px 6px;border-top-left-radius:0;border-bottom-left-radius:0;color:var(--red)" onclick="deleteVersion(${vi})" title="이 버전 삭제"><i class="ti ti-x" style="font-size:10px"></i></button>`:''}
+        </span>`).join('')}
       <button class="btn btn-sm" style="font-size:11px;padding:2px 6px;color:var(--navy)" onclick="addPlanVersion()" title="버전 추가">+</button>
       <div style="flex:1"></div>
       <button class="btn btn-sm" style="color:var(--red)" onclick="deleteCurPlan()"><i class="ti ti-trash"></i>삭제</button>
