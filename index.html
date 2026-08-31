@@ -3684,6 +3684,19 @@ function importScheduleFile(input){
           if(/[12]차/.test(s)){
             const rounds=s.split(/(?=[12]차)/).filter(x=>x.trim());
             rounds.forEach((seg,i)=>{const clean=seg.replace(/^[12]차\s*/,'').trim();const r=parseSingleRange(clean,year);if(r&&r.start)results.push({...r,round:i+1});});
+          } else if(/[,，]/.test(s)){
+            // "1차/2차" 글자 라벨 없이 쉼표로만 여러 구간이 나뉜 경우 (예: 라인원격 "1/5~1/21 23시, 2/2~2/18 23시")
+            const segs=s.split(/[,，]/).map(x=>x.trim()).filter(Boolean);
+            segs.forEach((seg,i)=>{
+              const segYear=guessYear(seg,year);
+              const clean=seg.replace(/\d{2,4}년도?\s*/g,'').trim();
+              const r=parseSingleRange(clean,segYear);
+              if(r&&r.start) results.push({...r,round:i+1});
+            });
+            if(!results.length){
+              const r=parseSingleRange(s,year);
+              if(r&&r.start) results.push({...r,round:0});
+            }
           } else {
             const r=parseSingleRange(s,year);
             if(r&&r.start){results.push({...r,round:0});}
