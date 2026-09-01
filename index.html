@@ -3645,6 +3645,18 @@ function importScheduleFile(input){
         const INVALID=new Set(['ㅡ','—','-','x','X','없음','해당없음','','ㅡ']);
         const isInv=s=>{const t=String(s||'').trim();return !t||INVALID.has(t)||t.length<3;};
         const guessYear=(s,fb=2026)=>{const m=s.match(/(\d{2,4})년/);if(m){const y=parseInt(m[1]);return y<100?2000+y:y;}return fb;};
+        const hasExplicitYear=s=>/\d{2,4}년/.test(s);
+        // 연도가 명시 안 된 구간이, 개강월보다 이른 달(예: 개강 12월인데 일정이 1월)이면
+        // 해가 넘어간 것으로 보고 연도를 +1 보정 (예: 라인원격 12월 개강 → 다음해 1월 쪽지시험)
+        const fixRollover=(r,hadExplicitYear,startMonth)=>{
+          if(!r||!r.start||hadExplicitYear||startMonth==null) return r;
+          const mm=parseInt(r.start.slice(5,7));
+          if(mm<startMonth){
+            const ny=parseInt(r.start.slice(0,4))+1;
+            return {...r, start:String(ny)+r.start.slice(4), end:r.end?String(ny)+r.end.slice(4):r.end};
+          }
+          return r;
+        };
         const toDate=(mm,dd,year)=>{if(isNaN(mm)||isNaN(dd)||mm<1||mm>12||dd<1||dd>31)return '';return `${year}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;};
         const parseSlash=p=>{p=p.trim().replace(/[^0-9\/]/g,'');const sl=p.split('/');if(sl.length>=2)return{mm:parseInt(sl[0]),dd:parseInt(sl[1])};return null;};
         const parseKorDate=s=>{const m=s.match(/(\d{1,2})월\s*(\d{1,2})일/);return m?{mm:parseInt(m[1]),dd:parseInt(m[2])}:null;};
@@ -3677,13 +3689,13 @@ function importScheduleFile(input){
           const endMM=s1&&s1.mm?s1.mm:s0.mm; const endDD=s1&&s1.dd?s1.dd:s0.dd;
           return{start:toDate(s0.mm,s0.dd,year),end:toDate(endMM,endDD,year),time:extractedTime};
         };
-        const parseRanges=(raw,fb=2026)=>{
+        const parseRanges=(raw,fb=2026,startMonth=null)=>{
           if(isInv(raw))return[];
           let s=String(raw).trim(); const year=guessYear(s,fb);
           const results=[];
           if(/[12]차/.test(s)){
             const rounds=s.split(/(?=[12]차)/).filter(x=>x.trim());
-            rounds.forEach((seg,i)=>{const clean=seg.replace(/^[12]차\s*/,'').trim();const r=parseSingleRange(clean,year);if(r&&r.start)results.push({...r,round:i+1});});
+            rounds.forEach((seg,i)=>{const clean=seg.replace(/^[12]차\s*/,'').trim();const r=parseSingleRange(clean,year);if(r&&r.start)results.push({...fixRollover(r,hasExplicitYear(clean),startMonth),round:i+1});});
           } else if(/[,，]/.test(s)){
             // "1차/2차" 글자 라벨 없이 쉼표로만 여러 구간이 나뉜 경우 (예: 라인원격 "1/5~1/21 23시, 2/2~2/18 23시")
             const segs=s.split(/[,，]/).map(x=>x.trim()).filter(Boolean);
@@ -3691,19 +3703,19 @@ function importScheduleFile(input){
               const segYear=guessYear(seg,year);
               const clean=seg.replace(/\d{2,4}년도?\s*/g,'').trim();
               const r=parseSingleRange(clean,segYear);
-              if(r&&r.start) results.push({...r,round:i+1});
+              if(r&&r.start) results.push({...fixRollover(r,hasExplicitYear(seg),startMonth),round:i+1});
             });
             if(!results.length){
               const r=parseSingleRange(s,year);
-              if(r&&r.start) results.push({...r,round:0});
+              if(r&&r.start) results.push({...fixRollover(r,hasExplicitYear(s),startMonth),round:0});
             }
           } else {
             const r=parseSingleRange(s,year);
-            if(r&&r.start){results.push({...r,round:0});}
+            if(r&&r.start){results.push({...fixRollover(r,hasExplicitYear(s),startMonth),round:0});}
             else{
               const clean=s.replace(/\d{2,4}년도?\s*/g,'');
               const rm=[...clean.matchAll(/(\d+\/\d+)\s*[~\-]\s*(\d+\/?\d*)/g)];
-              if(rm.length>0){const r2=parseSingleRange(rm[rm.length-1][0],year);if(r2&&r2.start)results.push({...r2,round:0});}
+              if(rm.length>0){const r2=parseSingleRange(rm[rm.length-1][0],year);if(r2&&r2.start)results.push({...fixRollover(r2,hasExplicitYear(s),startMonth),round:0});}
             }
           }
           return results;
@@ -3741,9 +3753,10 @@ function importScheduleFile(input){
           const matchedLearner=learners.find(l=>l.name===name);
           if(startDate&&startDate.length===10)items.push({id:String(++ts),learnerName:name,learnerId:matchedLearner?.id||'',type:'개강일',date:startDate,sent:'false',note:noteBase});
           const baseYear=startDate?parseInt(startDate.slice(0,4)):2026;
+          const startMonth=startDate?parseInt(startDate.slice(5,7)):null;
           [{col:C.quiz,type:'쪽지시험'},{col:C.disc,type:'토론'},{col:C.task,type:'과제'},{col:C.mid,type:'중간고사'},{col:C.final,type:'기말고사'}].forEach(({col,type})=>{
             const val=String(row[col]||'').trim(); if(isInv(val))return;
-            parseRanges(val,baseYear).forEach(r=>{
+            parseRanges(val,baseYear,startMonth).forEach(r=>{
               if(r.start&&r.start.length===10){const label=r.round>0?`${type} ${r.round}차`:type;items.push({id:String(++ts),learnerName:name,learnerId:matchedLearner?.id||'',type:label,date:r.start,endDate:r.end||'',time:r.time||'',sent:'false',note:`${noteBase} | ${val}`});}
             });
           });
