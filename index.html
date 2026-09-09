@@ -6291,6 +6291,10 @@ function openPrintPreview(pid){
   const hasOwned = tOAll > 0;
   const totMajor = t.totReq + t.totElec;
   const needMajor = dr.major!=null ? dr.major : dr.req+(dr.elec||0);  // 보유학점 있는지 여부
+  // "타전공 학사/전문학사"(전공요건만 존재)와 "기타"(자유입력, 실제로는 총학점이 중요)를
+  // dr.total===0 하나로 뭉뚱그리면 "기타"에서도 "전공 X학점"으로 잘못 표시되므로 분리
+  const isTaJeon = dr.total===0 && (dr.major||0)>0;
+  const isEtcDegree = dr.total===0 && !(dr.major>0);
 
   // 보유학점 행 (owned specials 포함)
   const ownMax=Math.max(1,(p.owned.req||[]).length,(p.owned.elec||[]).length,(p.owned.gen||[]).length,(p.owned.lib||[]).length);
@@ -6458,9 +6462,9 @@ function openPrintPreview(pid){
           <td colspan="2" style="padding:6px;border:1px solid #aaa;text-align:center">교양 ${t.totLib}</td>
         </tr>
         <tr style="background:${DYL};font-weight:700;font-size:14px">
-          <td style="padding:8px;border:1px solid #aaa;text-align:center;background:#ffe0b2">총학점</td>
-          <td colspan="8" style="padding:8px;border:1px solid #aaa;text-align:center;background:#ffe0b2;color:${(dr.total===0?totMajor>=needMajor:t.grand>=dr.total)?'#1a6e1a':RD};font-size:16px">
-            ${dr.total===0?("전공 "+totMajor+"학점"):t.grand+" / "+dr.total}
+          <td style="padding:8px;border:1px solid #aaa;text-align:center;background:#ffe0b2">${isTaJeon?'전공학점':'총학점'}</td>
+          <td colspan="8" style="padding:8px;border:1px solid #aaa;text-align:center;background:#ffe0b2;color:${isTaJeon?(totMajor>=needMajor?'#1a6e1a':RD):(isEtcDegree?'#1a6e1a':(t.grand>=dr.total?'#1a6e1a':RD))};font-size:16px">
+            ${isTaJeon?("전공 "+totMajor+" / "+needMajor+"학점"):(isEtcDegree?(t.grand+"학점"):(t.grand+" / "+dr.total))}
           </td>
         </tr>
       </tfoot>
