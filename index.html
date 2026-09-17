@@ -822,7 +822,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 
 <!-- 멘트 메모장 -->
 <div id="panel-memo" class="panel">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
     <div style="display:flex;gap:8px;align-items:center;flex:1;flex-wrap:wrap">
       <input type="text" id="memo-search" placeholder="🔍 멘트 검색..." style="flex:1;min-width:180px;padding:8px 12px;font-size:13px" oninput="renderMemoList()">
       <select id="memo-cat-filter" onchange="renderMemoList()" style="width:130px;font-size:13px">
@@ -831,6 +831,19 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     </div>
     <button class="btn btn-primary" onclick="openMemoEditModal()"><i class="ti ti-plus"></i> 멘트 추가</button>
     <button class="btn btn-sm" onclick="openMemoCatManager()" title="카테고리 관리"><i class="ti ti-tag"></i> 카테고리</button>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
+      <input type="checkbox" id="memo-select-all" style="width:auto;cursor:pointer" onchange="toggleAllMemoSel(this.checked)">
+      전체선택 <span id="memo-sel-count" style="color:var(--navy);font-weight:600"></span>
+    </label>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="exportMemos()" title="선택한 멘트만, 아무것도 선택 안 하면 전체"><i class="ti ti-download"></i> 내보내기</button>
+      <label class="btn btn-sm" style="cursor:pointer;margin:0" title="JSON 파일로 멘트 불러오기">
+        <i class="ti ti-upload"></i> 가져오기
+        <input type="file" accept=".json" style="display:none" onchange="importMemos(event)">
+      </label>
+    </div>
   </div>
   <div id="memo-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
 </div>
@@ -1917,10 +1930,11 @@ function renderMemoList(){
       </div>
       <div id="memo-cat-body-${c.replace(/[^a-zA-Z0-9가-힣]/g,'_')}" style="display:${collapsed?'none':'grid'};grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:8px;padding:0 4px">
         ${items.map(m=>`
-          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;cursor:pointer;transition:all .15s;position:relative"
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px 10px 30px;cursor:pointer;transition:all .15s;position:relative"
             onclick="copyMemo('${m.id}')"
             onmouseenter="this.style.borderColor='var(--navy)';this.style.background='var(--bg2)'"
             onmouseleave="this.style.borderColor='';this.style.background='var(--bg)'">
+            <input type="checkbox" class="memo-chk" data-id="${m.id}" style="position:absolute;top:12px;left:9px;width:auto;cursor:pointer" onclick="event.stopPropagation()" onchange="updateMemoSelCount()">
             ${m.name?`<div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:5px;padding-right:40px">${m.name}</div>`:''}
             <div style="font-size:12px;color:var(--text2);line-height:1.6;white-space:pre-wrap;max-height:80px;overflow:hidden">${m.content||''}</div>
             <div style="position:absolute;top:8px;right:8px;display:flex;gap:4px">
@@ -1932,6 +1946,7 @@ function renderMemoList(){
       </div>
     </div>`;
   }).join('');
+  updateMemoSelCount();
 }
 
 function toggleMemoCat(cat){
@@ -1939,6 +1954,76 @@ function toggleMemoCat(cat){
   window._memoCatCollapsed[cat]=!window._memoCatCollapsed[cat];
   try{ localStorage.setItem('hk_memo_collapsed', JSON.stringify(window._memoCatCollapsed)); }catch(e){}
   renderMemoList();
+}
+
+// ── 메모 선택 / 내보내기 / 가져오기 ─────────────────────────────────
+function toggleAllMemoSel(checked){
+  document.querySelectorAll('.memo-chk').forEach(c=>c.checked=checked);
+  updateMemoSelCount();
+}
+function updateMemoSelCount(){
+  const all=document.querySelectorAll('.memo-chk');
+  const checked=document.querySelectorAll('.memo-chk:checked');
+  const countEl=document.getElementById('memo-sel-count');
+  if(countEl) countEl.textContent=checked.length?`(${checked.length}개 선택됨)`:'';
+  const allBox=document.getElementById('memo-select-all');
+  if(allBox) allBox.checked = all.length>0 && checked.length===all.length;
+}
+function exportMemos(){
+  const selectedIds=[...document.querySelectorAll('.memo-chk:checked')].map(c=>c.dataset.id);
+  const target = selectedIds.length ? memos.filter(m=>selectedIds.includes(m.id)) : memos;
+  if(!target.length){ alert('내보낼 멘트가 없어요'); return; }
+  const data={
+    type:'edusolution_memos',
+    exportedAt:new Date().toISOString(),
+    memos:target,
+    memoCategories:getMemoCategories(),
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date();
+  const suffix=selectedIds.length?`선택${target.length}건`:'전체';
+  a.href=url;
+  a.download=`멘트메모장_${suffix}_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  showToast(`✓ 멘트 ${target.length}건 내보내기 완료!`);
+}
+function importMemos(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      const incoming=Array.isArray(d.memos)?d.memos:(Array.isArray(d)?d:null);
+      if(!incoming){ alert('올바른 멘트 백업 파일이 아니에요.\n(memos 배열을 찾을 수 없어요)'); event.target.value=''; return; }
+      const validIncoming=incoming.filter(m=>m&&m.content);
+      if(!validIncoming.length){ alert('가져올 멘트가 없어요'); event.target.value=''; return; }
+      const existingIds=new Set(memos.map(m=>m.id));
+      const willUpdate=validIncoming.filter(m=>m.id&&existingIds.has(m.id)).length;
+      const willAdd=validIncoming.length-willUpdate;
+      if(!confirm(`멘트 ${validIncoming.length}건을 가져올까요?\n(신규 ${willAdd}건 추가 · 동일 항목 ${willUpdate}건 덮어쓰기)`)){
+        event.target.value=''; return;
+      }
+      validIncoming.forEach(m=>{
+        const idx = m.id ? memos.findIndex(x=>x.id===m.id) : -1;
+        if(idx>=0){ memos[idx]={...memos[idx],...m}; }
+        else { memos.unshift({...m, id:m.id||('m'+Date.now()+Math.random().toString(36).slice(2,7))}); }
+      });
+      if(Array.isArray(d.memoCategories)&&d.memoCategories.length){
+        memoCategories=[...new Set([...getMemoCategories(),...d.memoCategories])];
+        saveMemoCategories();
+      }
+      saveMemos(); renderMemoList();
+      showToast(`✅ 멘트 ${validIncoming.length}건 가져오기 완료! (신규 ${willAdd} · 덮어쓰기 ${willUpdate})`);
+    }catch(err){
+      alert('파일 읽기 실패: '+err.message);
+    }
+    event.target.value='';
+  };
+  reader.readAsText(file,'utf-8');
 }
 
 function copyMemo(id){
