@@ -2410,7 +2410,7 @@ function buildPortalData(l){
     out.owned=t.ownAll;
     out.specials=t.specReq+t.specElec+t.specGen+t.specLib;
     out.sems=(p.semesters||[]).map(s=>({
-      name:s.name||'', ...portalSemDates(s),
+      name:s.name||'', ...portalSemDates(s), done:!!s.completed, // 플랜표 '이수완료' 체크
       credits:sumC(s.req)+sumC(s.elec)+sumC(s.gen)+sumC(s.lib)
     }));
   }
@@ -2443,7 +2443,7 @@ async function issuePortalLink(idx){
   } else {
     const pl=portalPlanFor(l);
     if(!pl&&!confirm(`${l.name}님은 연결된 플랜표가 없어서 학점 현황이 비어 보여요.\n그래도 링크를 발급할까요?`)) return;
-    const noDate=pl?(pl.semesters||[]).filter(s=>!portalSemDates(s).start).map(s=>s.name||'(이름없음)'):[];
+    const noDate=pl?(pl.semesters||[]).filter(s=>!s.completed&&!portalSemDates(s).start).map(s=>s.name||'(이름없음)'):[];
     if(noDate.length&&!confirm(`플랜표에 일자가 비어 있거나 읽을 수 없는 학기가 있어요:\n${noDate.join(', ')}\n\n이 학기들은 학습자 화면에서 '아직 안 들은 학기'로 계산돼요.\n그래도 링크를 발급할까요?`)) return;
     token=genPortalToken();
     group.forEach(g=>g.portalToken=token);

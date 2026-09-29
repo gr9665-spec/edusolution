@@ -177,11 +177,12 @@ function derive(r){
     if(s.start&&!end){const e=new Date(s.start+'T00:00:00');e.setDate(e.getDate()+SEM_DAYS);end=iso(e);} // 종료일 없을 때만 16주로 추정
     return {...s,end,credits:+s.credits||0};
   });
-  const dated=sems.filter(s=>s.start);
-  const finished=dated.filter(s=>s.end<today);
-  const current=dated.find(s=>s.start<=today&&today<=s.end);
-  const upcoming=dated.filter(s=>s.start>today).sort((a,b)=>a.start.localeCompare(b.start))[0];
-  const allDone=sems.length>0&&finished.length===sems.length;
+  // 이수완료 체크(done)된 학기는 일자와 상관없이 완료, 나머지는 일자로 판단
+  const finished=sems.filter(s=>s.done||(s.start&&s.end<today));
+  const remaining=sems.filter(s=>!finished.includes(s));
+  const current=remaining.find(s=>s.start&&s.start<=today&&today<=s.end);
+  const upcoming=remaining.filter(s=>s.start>today).sort((a,b)=>a.start.localeCompare(b.start))[0];
+  const allDone=sems.length>0&&remaining.length===0;
 
   const target=+r.target||0;
   let earned=(+r.owned||0)+finished.reduce((a,s)=>a+s.credits,0)+(allDone?(+r.specials||0):0);
@@ -194,8 +195,9 @@ function derive(r){
 
   // 예상 완료: 마지막 학기 종료 → 8월(후기) 또는 다음해 2월(전기) 학위
   let expected='-';
-  const last=dated.slice().sort((a,b)=>a.end.localeCompare(b.end)).pop();
-  if(last&&target&&planned>=target&&dated.length===sems.length){ // 일자 빈 학기가 있으면 '-'
+  // 남은 학기 중 일자 빈 학기가 있으면 '-'
+  const last=remaining.filter(s=>s.start).sort((a,b)=>a.end.localeCompare(b.end)).pop();
+  if(last&&target&&planned>=target&&remaining.every(s=>s.start)){
     const e=new Date(last.end+'T00:00:00');
     expected=e.getMonth()+1<=8?`${e.getFullYear()}.08`:`${e.getFullYear()+1}.02`;
   }
