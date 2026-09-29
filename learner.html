@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#eef4fd">
+<title>나의 학습 현황</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --bg1:#f3f8ff; --bg2:#dfeafc;
+  --card:#ffffff; --line:#e6ebf2; --soft:#f6f8fb;
+  --ink:#1f2a44; --ink2:#5b6478; --ink3:#8a93a6;
+  --teal:#5fd3bf; --blue:#6aa5f5; --yellow:#f2c94c; --purple:#a78bfa;
+  --green-bg:#eaf8f2; --green-line:#c9ecdc; --green-ink:#2f9e73;
+  --blue-bg:#e9efff; --blue-line:#cdd9fb; --blue-ink:#4c6fe0;
+  --r:22px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{
+  font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+  color:var(--ink);
+  background:linear-gradient(135deg,var(--bg1),var(--bg2)) fixed;
+  -webkit-font-smoothing:antialiased;
+  padding:20px 16px 40px;
+}
+.wrap{max-width:1180px;margin:0 auto}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 4px 18px}
+.top .brand{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--ink3)}
+.top h1{font-size:22px;font-weight:800;margin-top:4px}
+.top .upd{font-size:12px;color:var(--ink3);white-space:nowrap}
+
+.grid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:18px;align-items:stretch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;box-shadow:0 10px 30px -18px rgba(60,90,150,.35)}
+.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--ink3)}
+.ctitle{font-size:20px;font-weight:800;margin-top:6px}
+.chead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+.pill{font-size:12px;font-weight:700;padding:8px 14px;border-radius:999px;background:var(--green-bg);color:var(--green-ink);display:inline-flex;align-items:center;gap:6px}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--teal)}
+.pill.done{background:var(--blue-bg);color:var(--blue-ink)}
+.pill.done::before{background:var(--blue)}
+.count{width:36px;height:36px;border-radius:50%;background:#eef3fd;color:var(--blue-ink);font-weight:700;font-size:14px;display:grid;place-items:center}
+
+/* progress */
+.prog{display:grid;grid-template-columns:170px 1fr;gap:28px;align-items:center}
+.ring{position:relative;width:170px;height:170px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .mid small{font-size:11px;color:var(--ink2)}
+.ring .mid b{font-size:44px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.ring .mid span{font-size:11.5px;color:var(--ink2)}
+.stats{border-top:1px solid var(--line)}
+.stats div{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.stats dt{font-size:12.5px;color:var(--ink2)}
+.stats dd{font-size:18px;font-weight:700}
+.sep{height:1px;background:var(--line);margin:24px 0 18px}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.step{border-radius:16px;padding:16px;border:1px solid var(--line);background:#f8fafc;min-height:96px}
+.step .n{font-size:11px;font-weight:700;color:var(--ink3)}
+.step .t{font-size:15px;font-weight:700;margin:10px 0 8px}
+.step .s{font-size:11.5px;color:var(--ink3)}
+.step.done{background:var(--green-bg);border-color:var(--green-line)}
+.step.done .n,.step.done .s{color:var(--green-ink)}
+.step.doing{background:linear-gradient(135deg,#eef2ff,#e6ecff);border-color:var(--blue-line)}
+.step.doing .n,.step.doing .s{color:var(--blue-ink)}
+
+/* schedule */
+.sched{list-style:none}
+.sched li{display:grid;grid-template-columns:52px 1fr 10px;gap:12px;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}
+.sched .d{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.04em;line-height:1.5}
+.sched .d em{display:block;font-style:normal;font-weight:600;font-size:10.5px;color:var(--ink3);letter-spacing:0}
+.sched .t{font-size:14.5px;font-weight:700}
+.sched .s{font-size:11.5px;color:var(--ink3);margin-top:6px}
+.sched .dot{width:9px;height:9px;border-radius:50%}
+.sched li.today .d{color:var(--blue-ink)}
+.empty{padding:40px 0;text-align:center;color:var(--ink3);font-size:13px;line-height:1.7}
+
+/* goals */
+.goals{display:flex;flex-direction:column;gap:14px;margin-top:40px}
+.goal{display:grid;grid-template-columns:40px 1fr;gap:18px;align-items:center;border:1px solid var(--line);background:var(--soft);border-radius:16px;padding:20px}
+.goal .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
+.goal .t{font-size:14.5px;font-weight:700}
+.goal .s{font-size:11.5px;color:var(--ink2);margin:6px 0 10px}
+.goal .tag{display:inline-block;font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;background:#eceff4;color:var(--ink2)}
+
+.foot{margin:22px 4px 0;font-size:11.5px;color:var(--ink3);line-height:1.7}
+.state{max-width:420px;margin:15vh auto;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:36px 24px}
+.state h2{font-size:18px;margin-bottom:10px}
+.state p{font-size:13.5px;color:var(--ink2);line-height:1.7}
+.demo{display:inline-block;font-size:11px;font-weight:700;color:#b7791f;background:#fff6e0;border-radius:999px;padding:4px 10px;margin-left:8px;vertical-align:middle}
+
+@media (max-width:1020px){
+  .grid{grid-template-columns:1fr 1fr}
+  .card.p{grid-column:1/-1}
+}
+@media (max-width:680px){
+  body{padding:16px 16px 32px}
+  .top h1{font-size:19px}
+  .grid{grid-template-columns:1fr;gap:14px}
+  .card{padding:22px 18px}
+  .prog{grid-template-columns:1fr;gap:18px;justify-items:center}
+  .stats{width:100%}
+  .goals{margin-top:6px}
+  .sched li{padding:16px 0}
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="state"><p>불러오는 중…</p></div></div>
+
+<script>
+/* 데이터: 허브(index.html)가 learnerPortal/{토큰} 문서로 내보냄 (buildPortalData)
+   결제·수당·메모 등 내부 정보는 포함하지 않음. 이수학점 등은 derive()가 오늘 날짜 기준으로 계산 */
+const FIREBASE_CONFIG = {
+  apiKey:"AIzaSyBcxBmx_PbZQ47xDXlEDIaFMejOLnb-TBw",
+  authDomain:"edusolution-f2778.firebaseapp.com",
+  projectId:"edusolution-f2778",
+  appId:"1:671414743520:web:5e445c99617b171abafb85"
+};
+
+function iso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return iso(d)}
+
+// 예시 데이터 (주소에 ?t= 가 없을 때)
+const DEMO = {
+  name:'김하늘', degree:'전문학사', major:'사회복지', hasPlan:true,
+  target:80, owned:6, specials:0,
+  sems:[
+    {name:'25-2학기',start:'2025-09-16',end:'2025-12-29',credits:18},
+    {name:'26-1학기',start:'2026-03-03',end:'2026-06-20',credits:18},
+    {name:'26-2학기',start:'2026-09-16',end:'2026-12-29',credits:18},
+    {name:'27-1학기',start:'2027-05-01',end:'2027-09-30',credits:20}
+  ],
+  sched:[
+    {date:addDays(1),title:'쪽지시험',sub:'시험',kind:'exam'},
+    {date:addDays(3),title:'과제 제출 마감',sub:'과제 관리',kind:'task'},
+    {date:addDays(5),title:'토론 마감',sub:'토론 참여',kind:'discuss'},
+    {date:addDays(9),title:'중간고사',sub:'시험',kind:'exam'}
+  ],
+  updatedAt:iso(new Date())
+};
+
+// 전공 → 연계 자격 (확실한 것만)
+const MAJOR_CERT={'사회복지':'사회복지사 2급','보육·아동':'보육교사 2급','평생교육사':'평생교육사 2급','한국어교원':'한국어교원 2급'};
+const SEM_DAYS=112; // 종료일이 없을 때만 쓰는 추정치(약 16주)
+
+// 허브가 보낸 원본 값 → 화면용 값 (오늘 날짜 기준으로 계산)
+function derive(r){
+  const today=iso(new Date());
+  const sems=(r.sems||[]).map(s=>{
+    let end=s.end||'';
+    if(s.start&&!end){const e=new Date(s.start+'T00:00:00');e.setDate(e.getDate()+SEM_DAYS);end=iso(e);} // 종료일 없을 때만 16주로 추정
+    return {...s,end,credits:+s.credits||0};
+  });
+  const dated=sems.filter(s=>s.start);
+  const finished=dated.filter(s=>s.end<today);
+  const current=dated.find(s=>s.start<=today&&today<=s.end);
+  const upcoming=dated.filter(s=>s.start>today).sort((a,b)=>a.start.localeCompare(b.start))[0];
+  const allDone=sems.length>0&&finished.length===sems.length;
+
+  const target=+r.target||0;
+  let earned=(+r.owned||0)+finished.reduce((a,s)=>a+s.credits,0)+(allDone?(+r.specials||0):0);
+  const planned=(+r.owned||0)+sems.reduce((a,s)=>a+s.credits,0)+(+r.specials||0);
+
+  let thisSem=0, thisSemName='';
+  if(current){thisSem=current.credits;thisSemName=current.name;}
+  else if(upcoming){thisSem=upcoming.credits;thisSemName=upcoming.name+' 예정';}
+  else if(!r.hasPlan){thisSem=+r.thisSemFallback||0;}
+
+  // 예상 완료: 마지막 학기 종료 → 8월(후기) 또는 다음해 2월(전기) 학위
+  let expected='-';
+  const last=dated.slice().sort((a,b)=>a.end.localeCompare(b.end)).pop();
+  if(last&&target&&planned>=target&&dated.length===sems.length){ // 일자 빈 학기가 있으면 '-'
+    const e=new Date(last.end+'T00:00:00');
+    expected=e.getMonth()+1<=8?`${e.getFullYear()}.08`:`${e.getFullYear()+1}.02`;
+  }
+
+  const reached=target>0&&earned>=target;
+  const steps=[
+    {label:'상담',status:'done'},
+    {label:'학습설계',status:r.hasPlan&&sems.length?'done':'doing'},
+    {label:'과정진행',status:allDone?'done':(finished.length||current?'doing':'todo')},
+    {label:'학위·자격',status:reached?'doing':'todo'}
+  ];
+  if(!r.hasPlan){steps[2].status=current||finished.length?'doing':'todo';}
+
+  const goals=[];
+  if(r.degree||target) goals.push({icon:'D',title:'학위취득',
+    desc:[r.major,r.degree].filter(Boolean).join(' ')+(target?` · 목표 ${target}학점`:''),
+    status:reached?'학점 충족':'진행 중',color:'teal'});
+  const cert=MAJOR_CERT[r.major];
+  if(cert) goals.push({icon:'Q',title:'자격 활용',desc:cert,status:reached?'취득 준비':'과정 진행 중',color:'blue'});
+  goals.push({icon:'A',title:'행정 절차',desc:'학점인정·학위신청',status:reached?'진행 예정':'예정',color:'purple'});
+
+  return {name:r.name,target,earned:Math.min(earned,target||earned),thisSem,thisSemName,expected,steps,
+    schedules:r.sched||[],goals,updatedAt:r.updatedAt};
+}
+
+const KIND_COLOR={class:'var(--teal)',task:'var(--blue)',exam:'var(--yellow)',discuss:'var(--teal)',admin:'var(--purple)',etc:'var(--purple)'};
+const GOAL_BG={
+  teal:'linear-gradient(135deg,#6fdcc4,#45b99f)',
+  blue:'linear-gradient(135deg,#76b0ff,#4f7fe6)',
+  purple:'linear-gradient(135deg,#b69bff,#8a63e8)'
+};
+const DOW=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function weekStart(d){const x=new Date(d);x.setHours(0,0,0,0);const w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return x}
+
+function schedRows(list){
+  const today=new Date();today.setHours(0,0,0,0);
+  const ws=weekStart(today), nextWs=new Date(ws);nextWs.setDate(ws.getDate()+7);
+  const limit=new Date(ws);limit.setDate(ws.getDate()+14);
+  const rows=(list||[])
+    .map(s=>({...s,_d:new Date(s.date+'T00:00:00')}))
+    .filter(s=>s._d>=today&&s._d<limit)
+    .sort((a,b)=>a._d-b._d)
+    .slice(0,6);
+  return rows.map(s=>{
+    const isNext=s._d>=nextWs;
+    const md=`${s._d.getMonth()+1}.${s._d.getDate()}`;
+    const isToday=+s._d===+today;
+    return `<li class="${isToday?'today':''}">
+      <div class="d">${isToday?'TODAY':(isNext?'NEXT':DOW[s._d.getDay()])}<em>${md}</em></div>
+      <div><div class="t">${esc(s.title)}</div><div class="s">${esc(s.sub||'')}</div></div>
+      <span class="dot" style="background:${KIND_COLOR[s.kind]||KIND_COLOR.etc}"></span>
+    </li>`;
+  });
+}
+
+function render(d,isDemo){
+  const target=+d.target||0, earned=Math.min(+d.earned||0,target||Infinity);
+  const pct=target?Math.round(earned/target*100):0;
+  const remain=Math.max(target-earned,0);
+  const C=2*Math.PI*70, off=C*(1-Math.min(pct,100)/100);
+  const doneAll=target&&earned>=target;
+  const rows=schedRows(d.schedules);
+  const upd=d.updatedAt?new Date(d.updatedAt):null;
+  const statusTxt=['완료','진행 중','예정'];
+  const stepCls={done:'done',doing:'doing',todo:''};
+  const stepTxt={done:'완료',doing:'진행 중',todo:'예정'};
+
+  document.title=`${d.name||''}님의 학습 현황`;
+  document.getElementById('app').innerHTML=`
+  <header class="top">
+    <div>
+      <div class="brand">EDUSOLUTION · 학점은행제 희경쌤</div>
+      <h1>${esc(d.name)}님의 학습 현황${isDemo?'<span class="demo">예시 화면</span>':''}</h1>
+    </div>
+    ${upd?`<div class="upd">${upd.getMonth()+1}월 ${upd.getDate()}일 업데이트</div>`:''}
+  </header>
+
+  <main class="grid">
+    <section class="card p">
+      <div class="chead">
+        <div><div class="eyebrow">MY PROGRESS</div><div class="ctitle">학점 진행 현황</div></div>
+        <span class="pill ${doneAll?'done':''}">${doneAll?'이수 완료':'진행 중'}</span>
+      </div>
+      <div class="prog">
+        <div class="ring">
+          <svg viewBox="0 0 170 170" aria-hidden="true">
+            <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#a78bfa"/><stop offset=".55" stop-color="#6aa5f5"/><stop offset="1" stop-color="#5fd3bf"/>
+            </linearGradient></defs>
+            <circle cx="85" cy="85" r="70" fill="none" stroke="#e9eef5" stroke-width="16"/>
+            <circle cx="85" cy="85" r="70" fill="none" stroke="url(#g)" stroke-width="16" stroke-linecap="round"
+              stroke-dasharray="${C}" stroke-dashoffset="${off}"/>
+          </svg>
+          <div class="mid"><small>현재</small><b>${earned}</b><span>/ ${target}학점</span></div>
+        </div>
+        <dl class="stats">
+          <div><dt>진행률</dt><dd>${pct}%</dd></div>
+          <div><dt>이번 학기${d.thisSemName?` (${esc(d.thisSemName)})`:''}</dt><dd>${+d.thisSem||0}학점</dd></div>
+          <div><dt>남은 학점</dt><dd>${remain}학점</dd></div>
+          <div><dt>예상 완료</dt><dd>${esc(d.expected||'-')}</dd></div>
+        </dl>
+      </div>
+      <div class="sep"></div>
+      <div class="steps">
+        ${(d.steps||[]).slice(0,4).map((s,i)=>`
+          <div class="step ${stepCls[s.status]||''}">
+            <div class="n">0${i+1}</div><div class="t">${esc(s.label)}</div><div class="s">${stepTxt[s.status]||'예정'}</div>
+          </div>`).join('')}
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="chead">
+        <div><div class="eyebrow">THIS WEEK</div><div class="ctitle">이번 주 일정</div></div>
+        <span class="count">${rows.length}</span>
+      </div>
+      ${rows.length?`<ul class="sched">${rows.join('')}</ul>`:`<div class="empty">앞으로 2주 안에 예정된 일정이 없어요.<br>새 일정이 생기면 여기에 표시돼요.</div>`}
+    </section>
+
+    <section class="card">
+      <div class="chead" style="margin-bottom:0">
+        <div><div class="eyebrow">GOAL ROADMAP</div><div class="ctitle">나의 목표</div></div>
+      </div>
+      <div class="goals">
+        ${(d.goals||[]).map(g=>`
+          <div class="goal">
+            <div class="ic" style="background:${GOAL_BG[g.color]||GOAL_BG.blue}">${esc(g.icon)}</div>
+            <div><div class="t">${esc(g.title)}</div><div class="s">${esc(g.desc)}</div><span class="tag">${esc(g.status)}</span></div>
+          </div>`).join('')}
+      </div>
+    </section>
+  </main>
+
+  <p class="foot">※ 이 화면은 담당 선생님이 관리하는 학습 계획 기준이에요. 공식 학점은 학점은행제 누리집에서 확인할 수 있어요.<br>궁금한 점은 담당 선생님께 편하게 연락 주세요.</p>`;
+}
+
+function showState(title,msg){
+  document.getElementById('app').innerHTML=`<div class="state"><h2>${esc(title)}</h2><p>${esc(msg)}</p></div>`;
+}
+
+function loadScript(src){return new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)})}
+
+(async()=>{
+  const q=new URLSearchParams(location.search);
+  const token=q.get('t');
+  if(!token){ render(derive(DEMO),true); return; }
+  if(!/^[A-Za-z0-9_-]{16,64}$/.test(token)){ showState('링크를 확인해주세요','주소가 올바르지 않아요. 받은 링크를 다시 눌러주세요.'); return; }
+  try{
+    const v='10.12.0';
+    await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-app-compat.js`);
+    await loadScript(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore-compat.js`);
+    firebase.initializeApp(FIREBASE_CONFIG);
+    const snap=await firebase.firestore().collection('learnerPortal').doc(token).get();
+    if(!snap.exists){ showState('정보를 찾을 수 없어요','링크가 만료됐거나 아직 준비 중이에요. 담당 선생님께 문의해주세요.'); return; }
+    render(derive(snap.data()),false);
+  }catch(e){
+    console.error(e);
+    showState('잠시 후 다시 시도해주세요','정보를 불러오지 못했어요. 인터넷 연결을 확인한 뒤 새로고침 해주세요.');
+  }
+})();
+</script>
+</body>
+</html>

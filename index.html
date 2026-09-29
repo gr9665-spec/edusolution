@@ -2314,8 +2314,163 @@ function saveToFirebase(){
         lastUpdated: newLastUpdated
       }, {merge:true});
       _loadedLastUpdated=newLastUpdated;
+      syncLearnerPortals();
     } catch(e){ console.warn('Firebase 저장 실패:', e); }
   }, 800);
+}
+
+// ── 학습자 포털 (학습자용 조회 페이지 learner.html) ──────────────
+// learnerPortal/{토큰} 문서에 "학습자에게 보여줘도 되는 값"만 내보냄
+// ※ 결제금액·단가·수당·메모 등 내부 정보는 절대 넣지 말 것
+const PORTAL_URL='https://gr9665-spec.github.io/edusolution/learner.html?t=';
+const _portalCache={}; // 토큰 → 마지막으로 올린 JSON (변경분만 저장)
+
+function genPortalToken(){
+  const b=new Uint8Array(18); crypto.getRandomValues(b);
+  return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function portalGroup(l){
+  return learners.filter(x=>(x.name||'')===(l.name||'')&&(x.phone||'')===(l.phone||''));
+}
+function portalPlanFor(l){
+  const list=Object.values(plans||{});
+  return list.find(p=>p.linkedLearner===l.name)||list.find(p=>p.clientName&&p.clientName===l.name)||null;
+}
+// 플랜표 학기 "일자" → {start,end} (YYYY-MM-DD)
+// 예: "27년 5월 - 9월", "9/16 - 12/29"(연도는 학기명 26-2학기에서), "2026.09.07 ~ 2026.12.20"
+// 일자가 비어 있거나 못 읽으면 빈 값 → 학습자 화면에서 '아직 안 들은 학기'로 처리
+function portalSemDates(sem){
+  const txt=String(sem.date||'').trim();
+  if(!txt) return {start:'',end:''};
+  const nm=String(sem.name||'').match(/(\d{2,4})\s*-\s*\d/);
+  let baseY=nm?2000+(parseInt(nm[1])%100):new Date().getFullYear();
+  const norm=txt.replace(/년/g,'.').replace(/월/g,'.').replace(/일/g,'').replace(/\//g,'.');
+  const sides=norm.split(/\s*[~～–—]\s*|\s+-\s+|-(?=\s*\d{1,2}\.)/).filter(x=>/\d/.test(x)).slice(0,2);
+  const parse=side=>{
+    const n=(side.match(/\d+/g)||[]).map(Number);
+    if(n.length>=3) return {y:n[0]<100?2000+n[0]:n[0],m:n[1],d:n[2]};
+    if(n.length===2) return n[0]>12?{y:n[0]<100?2000+n[0]:n[0],m:n[1]}:{m:n[0],d:n[1]};
+    if(n.length===1) return {m:n[0]};
+    return null;
+  };
+  const a=sides[0]?parse(sides[0]):null, b=sides[1]?parse(sides[1]):null;
+  if(!a||!(a.m>=1&&a.m<=12)) return {start:'',end:''};
+  const pad=v=>String(v).padStart(2,'0');
+  const sy=a.y||baseY;
+  const start=`${sy}-${pad(a.m)}-${pad(a.d||1)}`;
+  let end='';
+  if(b&&b.m>=1&&b.m<=12){
+    const ey=b.y||(b.m<a.m?sy+1:sy);
+    const ed=b.d||new Date(ey,b.m,0).getDate(); // 일 없으면 그 달 말일
+    end=`${ey}-${pad(b.m)}-${pad(ed)}`;
+  }
+  return {start,end};
+}
+const PORTAL_SCHED={
+  '개강일':['개강','학습 일정','class'],
+  '쪽지시험':['쪽지시험','시험','exam'],'쪽지시험마감':['쪽지시험 마감','시험','exam'],
+  '중간고사':['중간고사','시험','exam'],'중간고사마감':['중간고사 마감','시험','exam'],
+  '기말고사':['기말고사','시험','exam'],'기말고사마감':['기말고사 마감','시험','exam'],
+  '토론':['토론','토론 참여','discuss'],'토론마감':['토론 마감','토론 참여','discuss'],
+  '과제':['과제','과제 관리','task'],'과제마감':['과제 제출 마감','과제 관리','task'],
+};
+function buildPortalData(l){
+  const group=portalGroup(l);
+  const ids=new Set(group.map(g=>g.id).filter(Boolean));
+  const p=portalPlanFor(l);
+  const today=new Date().toISOString().slice(0,10);
+  const from=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const to=new Date(Date.now()+90*864e5).toISOString().slice(0,10);
+  const multiEdu=new Set(group.map(g=>g.edu||'')).size>1;
+
+  const sched=schedules
+    .filter(s=>(s.learnerId?ids.has(s.learnerId):s.learnerName===l.name)&&s.date>=from&&s.date<=to)
+    .map(s=>{
+      const m=PORTAL_SCHED[s.type]||[s.label||s.type||'일정','기타 일정','etc'];
+      const g=group.find(x=>x.id===s.learnerId);
+      let sub=m[1];
+      if(s.endDate&&s.endDate!==s.date) sub+=` · ~${+s.endDate.slice(5,7)}.${+s.endDate.slice(8,10)}`;
+      if(s.time) sub+=` · ${s.time}`;
+      if(multiEdu&&g&&g.edu) sub=`${g.edu} · `+sub;
+      return {date:s.date,title:m[0],sub,kind:m[2]};
+    })
+    .sort((a,b)=>a.date.localeCompare(b.date));
+
+  const out={
+    name:l.name||'', sched, updatedAt:new Date().toISOString().slice(0,10),
+    degree:'', major:'', target:0, owned:0, specials:0, sems:[],
+    thisSemFallback:parseInt(l.credit)||0, hasPlan:!!p
+  };
+  if(p){
+    const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
+    const t=planTotals(p);
+    out.degree=p.degree==='기타'?(p.degreeCustom||''):(p.degree||'');
+    out.major=p.major==='기타'?(p.majorCustom||''):(p.major||'');
+    out.target=dr.total||dr.major||0;
+    out.owned=t.ownAll;
+    out.specials=t.specReq+t.specElec+t.specGen+t.specLib;
+    out.sems=(p.semesters||[]).map(s=>({
+      name:s.name||'', ...portalSemDates(s),
+      credits:sumC(s.req)+sumC(s.elec)+sumC(s.gen)+sumC(s.lib)
+    }));
+  }
+  return out;
+}
+async function publishPortal(token,l){
+  const data=buildPortalData(l);
+  const json=JSON.stringify(data);
+  if(_portalCache[token]===json) return;
+  await fbDb.collection('learnerPortal').doc(token).set({...data,ownerUid:currentUser.uid});
+  _portalCache[token]=json;
+}
+function syncLearnerPortals(){
+  if(!currentUser||!fbDb) return;
+  const seen=new Set();
+  learners.forEach(l=>{
+    if(!l.portalToken||seen.has(l.portalToken)) return;
+    seen.add(l.portalToken);
+    publishPortal(l.portalToken,l).catch(e=>console.warn('학습자 포털 반영 실패:',e));
+  });
+}
+async function issuePortalLink(idx){
+  const l=learners[idx]; if(!l) return;
+  if(!currentUser||!fbDb){alert('로그인 후 사용할 수 있어요');return;}
+  const group=portalGroup(l);
+  let token=group.map(g=>g.portalToken).find(Boolean);
+  if(token){
+    const again=confirm(`${l.name}님 학습자 링크가 이미 있어요.\n\n[확인] 기존 링크 복사\n[취소] 다른 작업 (링크 끊기)`);
+    if(!again){ revokePortalLink(idx); return; }
+  } else {
+    const pl=portalPlanFor(l);
+    if(!pl&&!confirm(`${l.name}님은 연결된 플랜표가 없어서 학점 현황이 비어 보여요.\n그래도 링크를 발급할까요?`)) return;
+    const noDate=pl?(pl.semesters||[]).filter(s=>!portalSemDates(s).start).map(s=>s.name||'(이름없음)'):[];
+    if(noDate.length&&!confirm(`플랜표에 일자가 비어 있거나 읽을 수 없는 학기가 있어요:\n${noDate.join(', ')}\n\n이 학기들은 학습자 화면에서 '아직 안 들은 학기'로 계산돼요.\n그래도 링크를 발급할까요?`)) return;
+    token=genPortalToken();
+    group.forEach(g=>g.portalToken=token);
+    try{ await publishPortal(token,l); }
+    catch(e){
+      group.forEach(g=>delete g.portalToken);
+      alert('링크 발급에 실패했어요. Firebase 보안 규칙(learnerPortal)을 확인해주세요.\n\n'+e.message);
+      return;
+    }
+    save(); renderLearners();
+  }
+  const url=PORTAL_URL+token;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(()=>alert(`✓ ${l.name}님 학습자 링크가 복사됐어요!\n카톡에 붙여넣어 보내주세요.\n\n${url}`))
+      .catch(()=>prompt('복사하세요 (Ctrl+A → Ctrl+C)',url));
+  } else prompt('복사하세요 (Ctrl+A → Ctrl+C)',url);
+}
+async function revokePortalLink(idx){
+  const l=learners[idx]; if(!l) return;
+  const group=portalGroup(l);
+  const token=group.map(g=>g.portalToken).find(Boolean);
+  if(!token){alert('발급된 링크가 없어요');return;}
+  if(!confirm(`${l.name}님 학습자 링크를 끊을까요?\n기존 링크로는 더 이상 볼 수 없게 돼요.`)) return;
+  try{ await fbDb.collection('learnerPortal').doc(token).delete(); }catch(e){ console.warn(e); }
+  delete _portalCache[token];
+  group.forEach(g=>delete g.portalToken);
+  save(); renderLearners();
 }
 
 // ── 관리자: 팀원 전체 데이터 조회 ────────────────────────
@@ -3232,6 +3387,7 @@ async function saveLearner(){
   // 이미지 업로드 후 저장
   await uploadPendingImgs(name);
   l.images=_pendingImgs.filter(i=>i.downloadUrl).map(i=>({id:i.id,url:i.downloadUrl,path:i.storagePath}));
+  if(editIdx>=0&&learners[editIdx]&&learners[editIdx].portalToken) l.portalToken=learners[editIdx].portalToken;
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
 
   // 학사일정 동시 등록
@@ -3356,6 +3512,7 @@ function renderLearners(){
         <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
         <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'플랜 바로가기':'플랜 연결'}" style="color:${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'var(--green)':'var(--navy)'}"><i class="ti ti-clipboard-list"></i></button>
         <button class="btn btn-icon btn-sm" onclick="goToSalesFilter('${l.name.replace(/'/g,"\\'")}')" title="매출에서 보기" style="color:var(--amber)"><i class="ti ti-chart-bar"></i></button>
+        <button class="btn btn-icon btn-sm" onclick="issuePortalLink(${origIdx})" title="${group.some(g=>g.portalToken)?'학습자 링크 복사 / 끊기':'학습자 링크 발급'}" style="color:${group.some(g=>g.portalToken)?'var(--green)':'var(--text3)'}"><i class="ti ti-link"></i></button>
         <button class="btn btn-icon btn-sm" onclick="deleteLearner(${origIdx})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
       </td></tr>`;
 
