@@ -98,6 +98,8 @@ body{
 .planin{min-width:680px}
 .swipe{display:none;margin-top:14px;font-size:11.5px;color:var(--ink3)}
 @media (max-width:720px){ .swipe{display:block} }
+/* goal link */
+.goal .glink{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:6px 10px;text-decoration:none}
 /* notice */
 .notice{margin-top:18px}
 .nrows{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -168,6 +170,7 @@ const DEMO = {
     {name:'26-2학기',start:'2026-09-16',end:'2026-12-29',credits:18},
     {name:'27-1학기',start:'2027-05-01',end:'2027-09-30',credits:20}
   ],
+  certs:[{name:'매경테스트 우수',credits:18,kind:'cert',due:'26년 10월',dueDate:addDays(20),done:false,url:'https://exam.mk.co.kr/online_main.php?MM=2'}],
   sched:[
     {date:addDays(1),title:'쪽지시험',sub:'시험',kind:'exam'},
     {date:addDays(3),title:'과제 제출 마감',sub:'과제 관리',kind:'task'},
@@ -196,8 +199,13 @@ function derive(r){
   const upcoming=remaining.filter(s=>s.start>today).sort((a,b)=>a.start.localeCompare(b.start))[0];
   const allDone=sems.length>0&&remaining.length===0;
 
+  // 자격증·독학사: 허브에서 '취득완료' 체크한 것만 완료 학점 (예전 데이터는 모든 학기 끝나면 반영)
+  const certs=Array.isArray(r.certs)?r.certs:null;
+  const pendingCerts=(certs||[]).filter(c=>!c.done);
+  const specEarned=certs?certs.filter(c=>c.done).reduce((a,c)=>a+(+c.credits||0),0):(allDone?(+r.specials||0):0);
+
   const target=+r.target||0;
-  let earned=(+r.owned||0)+finished.reduce((a,s)=>a+s.credits,0)+(allDone?(+r.specials||0):0);
+  let earned=(+r.owned||0)+finished.reduce((a,s)=>a+s.credits,0)+specEarned;
   const planned=(+r.owned||0)+sems.reduce((a,s)=>a+s.credits,0)+(+r.specials||0);
 
   let thisSem=0, thisSemName='';
@@ -208,9 +216,11 @@ function derive(r){
   // 예상 완료: 마지막 학기 종료 → 8월(후기) 또는 다음해 2월(전기) 학위
   let expected='-';
   // 남은 학기 중 일자 빈 학기가 있으면 '-'
-  const last=remaining.filter(s=>s.start).sort((a,b)=>a.end.localeCompare(b.end)).pop();
+  // 아직 안 딴 자격증의 목표 시기도 포함
+  const ends=[...remaining.filter(s=>s.start).map(s=>s.end),...pendingCerts.map(c=>c.dueDate).filter(Boolean)].sort();
+  const last=ends.pop();
   if(last&&target&&planned>=target&&remaining.every(s=>s.start)){
-    const e=new Date(last.end+'T00:00:00');
+    const e=new Date(last+'T00:00:00');
     expected=e.getMonth()+1<=8?`${e.getFullYear()}.08`:`${e.getFullYear()+1}.02`;
   }
 
@@ -218,7 +228,7 @@ function derive(r){
   const steps=[
     {label:'상담',status:'done'},
     {label:'학습설계',status:r.hasPlan&&sems.length?'done':'doing'},
-    {label:'과정진행',status:allDone?'done':(finished.length||current?'doing':'todo')},
+    {label:'과정진행',status:allDone&&!pendingCerts.length?'done':(finished.length||current?'doing':'todo')},
     {label:'학위·자격',status:reached?'doing':'todo'}
   ];
   if(!r.hasPlan){steps[2].status=current||finished.length?'doing':'todo';}
@@ -227,12 +237,23 @@ function derive(r){
   if(r.degree||target) goals.push({icon:'D',title:'학위취득',
     desc:[r.major,r.degree].filter(Boolean).join(' ')+(target?` · 목표 ${target}학점`:''),
     status:reached?'학점 충족':'진행 중',color:'teal'});
+  (certs||[]).forEach(c=>{
+    const word=c.kind==='doksa'?'합격':'취득';
+    const dd=c.dueDate?Math.round((new Date(c.dueDate+'T00:00:00')-new Date(today+'T00:00:00'))/864e5):null;
+    goals.push({icon:c.kind==='doksa'?'E':'Q',title:c.name,
+      desc:[c.due?`${c.due}까지 ${word}`:'',c.credits?`${c.credits}학점 인정`:''].filter(Boolean).join(' · '),
+      status:c.done?`${word} 완료`:(dd!=null?(dd>=0?`${word} 목표 D-${dd}`:`${word} 목표일 지남`):`${word} 예정`),
+      color:c.done?'teal':'blue',url:c.url||''});
+  });
+  const sched=[...(r.sched||[])];
+  pendingCerts.filter(c=>c.dueDate).forEach(c=>sched.push({date:c.dueDate,title:`${c.name} ${c.kind==='doksa'?'합격':'취득'} 목표`,sub:'자격증',kind:'admin'}));
+  sched.sort((a,b)=>a.date.localeCompare(b.date));
   const cert=MAJOR_CERT[r.major];
   if(cert) goals.push({icon:'Q',title:'자격 활용',desc:cert,status:reached?'취득 준비':'과정 진행 중',color:'blue'});
   goals.push({icon:'A',title:'행정 절차',desc:'학점인정·학위신청',status:reached?'진행 예정':'예정',color:'purple'});
 
   return {reached,planHtml:r.planHtml||'',name:r.name,target,earned:Math.min(earned,target||earned),thisSem,thisSemName,expected,steps,
-    schedules:r.sched||[],goals,updatedAt:r.updatedAt};
+    schedules:sched,goals,updatedAt:r.updatedAt};
 }
 
 const KIND_COLOR={class:'var(--teal)',task:'var(--blue)',exam:'var(--yellow)',discuss:'var(--teal)',admin:'var(--purple)',etc:'var(--purple)'};
@@ -340,7 +361,7 @@ function render(d,isDemo){
         ${(d.goals||[]).map(g=>`
           <div class="goal">
             <div class="ic" style="background:${GOAL_BG[g.color]||GOAL_BG.blue}">${esc(g.icon)}</div>
-            <div><div class="t">${esc(g.title)}</div><div class="s">${esc(g.desc)}</div><span class="tag">${esc(g.status)}</span></div>
+            <div><div class="t">${esc(g.title)}</div><div class="s">${esc(g.desc)}</div><span class="tag">${esc(g.status)}</span>${/^https?:\/\//.test(g.url||'')?`<a class="glink" href="${esc(g.url)}" target="_blank" rel="noopener">시험 일정 보기 ↗</a>`:''}</div>
           </div>`).join('')}
       </div>
     </section>

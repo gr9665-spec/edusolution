@@ -2410,6 +2410,12 @@ function buildPortalData(l){
     out.owned=t.ownAll;
     out.specials=t.specReq+t.specElec+t.specGen+t.specLib;
     out.planHtml=buildPlanPrintHtml(p); // 학생에게 보내는 플랜표 이미지와 같은 표
+    out.certs=[];
+    (p.specials||[]).forEach(sp=>certSubjects(sp).forEach(c=>{
+      const g=certGoal(sp,c.name);
+      out.certs.push({name:c.name,credits:c.credits,kind:sp.type==='cert'?'cert':'doksa',
+        due:g.due||'',dueDate:portalDueDate(g.due),done:!!g.done,url:g.url||certDefaultUrl(c.name)});
+    }));
     out.sems=(p.semesters||[]).map(s=>({
       name:s.name||'', ...portalSemDates(s), done:!!s.completed, // 플랜표 '이수완료' 체크
       credits:sumC(s.req)+sumC(s.elec)+sumC(s.gen)+sumC(s.lib)
@@ -2472,6 +2478,59 @@ async function revokePortalLink(idx){
   delete _portalCache[token];
   group.forEach(g=>delete g.portalToken);
   save(); renderLearners(); refreshPlanPortalBtn();
+}
+// ── 자격증/독학사 취득 목표 (학습자 포털 '나의 목표'에 표시) ──
+// 플랜표 이수계획의 자격증/독학사 과목별로 sp.goals[과목명]={due,url,done} 저장
+// 일정 확인 링크: 과목명에 키워드가 들어 있으면 자동 사용 (직접 입력한 링크가 우선)
+const CERT_LINKS=[
+  {kw:'매경', url:'https://exam.mk.co.kr/online_main.php?MM=2'},
+];
+function certSubjects(sp){
+  return [...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])]
+    .filter(r=>r&&r.subject&&r.subject.trim())
+    .map(r=>({name:r.subject.trim(),credits:parseInt(r.credit)||0}));
+}
+function certDefaultUrl(name){ const m=CERT_LINKS.find(c=>name.includes(c.kw)); return m?m.url:''; }
+function certGoal(sp,name){ return (sp.goals&&sp.goals[name])||{}; }
+function upCertGoal(spi,ci,key,val){
+  const p=plans[curPid]; if(!p||!p.specials[spi]) return;
+  const sp=p.specials[spi]; const c=certSubjects(sp)[ci]; if(!c) return;
+  if(!sp.goals) sp.goals={};
+  sp.goals[c.name]={...(sp.goals[c.name]||{}),[key]:val};
+  LS.set('hk_plans',plans); saveToFirebase();
+  if(key==='done') renderPlanEditor(p);
+}
+function certGoalEditorRows(sp,spi){
+  const list=certSubjects(sp); if(!list.length) return '';
+  const esc=v=>String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const word=sp.type==='cert'?'취득':'합격';
+  return list.map((c,ci)=>{
+    const g=certGoal(sp,c.name), def=certDefaultUrl(c.name);
+    return `<tr><td colspan="9" style="padding:5px 8px;border:1px solid #ccc;background:#fafcff">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px">
+        <b style="min-width:110px">🎯 ${esc(c.name)}</b>
+        <span style="color:var(--text2)">${word} 목표</span>
+        <input type="text" value="${esc(g.due)}" placeholder="예: 26년 10월" onchange="upCertGoal(${spi},${ci},'due',this.value.trim())" style="width:110px;padding:3px 6px;font-size:11px">
+        <span style="color:var(--text2)">일정 링크</span>
+        <input type="text" value="${esc(g.url)}" placeholder="${def?'자동: '+esc(def):'시험 일정 페이지 주소'}" onchange="upCertGoal(${spi},${ci},'url',this.value.trim())" style="flex:1;min-width:160px;padding:3px 6px;font-size:11px">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:600;color:${g.done?'#2e7d32':'var(--text2)'}"><input type="checkbox" ${g.done?'checked':''} onchange="upCertGoal(${spi},${ci},'done',this.checked)" style="width:auto"> ${word}완료</label>
+      </div>
+    </td></tr>`;
+  }).join('');
+}
+// "26년 10월" → 2026-10-31, "2026.10.15" → 2026-10-15
+function portalDueDate(txt){
+  const n=(String(txt||'').match(/\d+/g)||[]).map(Number); if(!n.length) return '';
+  const pad=v=>String(v).padStart(2,'0'), now=new Date();
+  let y,m,d;
+  if(n.length>=3){y=n[0];m=n[1];d=n[2];}
+  else if(n.length===2){ if(n[0]>12){y=n[0];m=n[1];} else {m=n[0];d=n[1];} }
+  else m=n[0];
+  if(y!=null&&y<100) y+=2000;
+  if(y==null) y=m<now.getMonth()+1?now.getFullYear()+1:now.getFullYear();
+  if(!(m>=1&&m<=12)) return '';
+  if(!d) d=new Date(y,m,0).getDate();
+  return `${y}-${pad(m)}-${pad(d)}`;
 }
 // 플랜표 화면에서 바로 발급/복사/끊기
 function planPortalLearnerIdx(p){
@@ -5928,7 +5987,7 @@ function buildPlanTableUI(p,t){
         <span>${label}</span>
         <button class="btn btn-sm" style="padding:2px 7px;font-size:10px;color:var(--red)" onclick="deleteSpecial(${spi})"><i class="ti ti-trash"></i> 삭제</button>
       </div>
-    </td></tr>`;
+    </td></tr>${certGoalEditorRows(sp,spi)}`;
     for(let i=0;i<maxR;i++){
       const rq=rReq[i],el=rElec[i],gn=rGen[i],lb=rLib[i];
       body+=`<tr>
