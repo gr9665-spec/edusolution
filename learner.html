@@ -202,7 +202,8 @@ function derive(r){
   // 자격증·독학사: 허브에서 '취득완료' 체크한 것만 완료 학점 (예전 데이터는 모든 학기 끝나면 반영)
   const certs=Array.isArray(r.certs)?r.certs:null;
   const pendingCerts=(certs||[]).filter(c=>!c.done);
-  const specEarned=certs?certs.filter(c=>c.done).reduce((a,c)=>a+(+c.credits||0),0):(allDone?(+r.specials||0):0);
+  const certEarned=c=>Array.isArray(c.subjects)?c.subjects.filter(x=>x.done).reduce((a,x)=>a+(+x.credits||0),0):(c.done?(+c.credits||0):0);
+  const specEarned=certs?certs.reduce((a,c)=>a+certEarned(c),0):(allDone?(+r.specials||0):0);
 
   const target=+r.target||0;
   let earned=(+r.owned||0)+finished.reduce((a,s)=>a+s.credits,0)+specEarned;
@@ -238,12 +239,18 @@ function derive(r){
     desc:[r.major,r.degree].filter(Boolean).join(' ')+(target?` · 목표 ${target}학점`:''),
     status:reached?'학점 충족':'진행 중',color:'teal'});
   (certs||[]).forEach(c=>{
-    const word=c.kind==='doksa'?'합격':'취득';
+    const isD=c.kind==='doksa', word=isD?'합격':'취득';
+    const subs=Array.isArray(c.subjects)?c.subjects:[];
+    const passed=subs.filter(x=>x.done).length;
     const dd=c.dueDate?Math.round((new Date(c.dueDate+'T00:00:00')-new Date(today+'T00:00:00'))/864e5):null;
-    goals.push({icon:c.kind==='doksa'?'E':'Q',title:c.name,
-      desc:[c.due?`${c.due}까지 ${word}`:'',c.credits?`${c.credits}학점 인정`:''].filter(Boolean).join(' · '),
-      status:c.done?`${word} 완료`:(dd!=null?(dd>=0?`${word} 목표 D-${dd}`:`${word} 목표일 지남`):`${word} 예정`),
-      color:c.done?'teal':'blue',url:c.url||''});
+    let status;
+    if(c.done) status=`${word} 완료`;
+    else status=[isD&&subs.length>1&&passed?`${passed}/${subs.length}과목 ${word}`:'',
+                 dd!=null?(dd>=0?`D-${dd}`:'목표일 지남'):''].filter(Boolean).join(' · ')||`${word} 예정`;
+    goals.push({icon:isD?'E':'Q',title:c.name,
+      desc:[isD&&subs.length?subs.map(x=>(x.done?'✓':'')+x.name).join('·'):'',
+            c.due?`${c.due}까지 ${word}`:'',c.credits?`${c.credits}학점 인정`:''].filter(Boolean).join(' · '),
+      status,color:c.done?'teal':(isD?'purple':'blue'),url:c.url||''});
   });
   const sched=[...(r.sched||[])];
   pendingCerts.filter(c=>c.dueDate).forEach(c=>sched.push({date:c.dueDate,title:`${c.name} ${c.kind==='doksa'?'합격':'취득'} 목표`,sub:'자격증',kind:'admin'}));

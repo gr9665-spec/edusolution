@@ -2356,7 +2356,8 @@ function portalSemDates(sem){
   const a=sides[0]?parse(sides[0]):null, b=sides[1]?parse(sides[1]):null;
   if(!a||!(a.m>=1&&a.m<=12)) return {start:'',end:''};
   const pad=v=>String(v).padStart(2,'0');
-  const sy=a.y||baseY;
+  // 시작에 연도가 없고 끝에만 있으면 끝 연도 기준 ("11월 - 27년 3월" → 2026.11)
+  const sy=a.y||(b&&b.y?(b.y<100?2000+b.y:b.y)-(b.m<a.m?1:0):baseY);
   const start=`${sy}-${pad(a.m)}-${pad(a.d||1)}`;
   let end='';
   if(b&&b.m>=1&&b.m<=12){
@@ -2411,10 +2412,12 @@ function buildPortalData(l){
     out.specials=t.specReq+t.specElec+t.specGen+t.specLib;
     out.planHtml=buildPlanPrintHtml(p); // 학생에게 보내는 플랜표 이미지와 같은 표
     out.certs=[];
-    (p.specials||[]).forEach(sp=>certSubjects(sp).forEach(c=>{
-      const g=certGoal(sp,c.name);
-      out.certs.push({name:c.name,credits:c.credits,kind:sp.type==='cert'?'cert':'doksa',
-        due:g.due||'',dueDate:portalDueDate(g.due),done:!!g.done,url:g.url||certDefaultUrl(c.name)});
+    (p.specials||[]).forEach(sp=>certGroups(sp).forEach(g=>{
+      const gg=certGoal(sp,g.key);
+      const subjects=g.subjects.map(x=>({name:x.name,credits:x.credits,done:!!certGoal(sp,x.key).done}));
+      out.certs.push({name:g.name,kind:sp.type==='cert'?'cert':'doksa',
+        credits:subjects.reduce((t,x)=>t+x.credits,0),done:subjects.every(x=>x.done),subjects,
+        due:gg.due||'',dueDate:portalDueDate(gg.due),url:gg.url||certDefaultUrl(sp,g.name)});
     }));
     out.sems=(p.semesters||[]).map(s=>({
       name:s.name||'', ...portalSemDates(s), done:!!s.completed, // 플랜표 '이수완료' 체크
@@ -2479,44 +2482,84 @@ async function revokePortalLink(idx){
   group.forEach(g=>delete g.portalToken);
   save(); renderLearners(); refreshPlanPortalBtn();
 }
-// ── 자격증/독학사 취득 목표 (학습자 포털 '나의 목표'에 표시) ──
-// 플랜표 이수계획의 자격증/독학사 과목별로 sp.goals[과목명]={due,url,done} 저장
-// 일정 확인 링크: 과목명에 키워드가 들어 있으면 자동 사용 (직접 입력한 링크가 우선)
+// ── 자격증/독학사 목표 (학습자 포털 '나의 목표'에 표시) ──
+// 자격증: 자격증마다 1그룹 / 독학사: 단계마다 1그룹
+//   과목명 예) "독1 - 국어", "독2 -가정학", "독학사1단계 - 영어", "''"(윗줄과 같은 단계)
+// 저장: sp.goals[그룹키]={due,url}, sp.goals[과목키]={done}  (자격증은 그룹키=과목키)
 const CERT_LINKS=[
   {kw:'매경', url:'https://exam.mk.co.kr/online_main.php?MM=2'},
 ];
-function certSubjects(sp){
-  return [...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])]
-    .filter(r=>r&&r.subject&&r.subject.trim())
-    .map(r=>({name:r.subject.trim(),credits:parseInt(r.credit)||0}));
+const DOKSA_URL='https://bdes.nile.or.kr/';
+const DOKSA_RE=/독(?:학사)?\s*(\d)\s*(?:단계)?/;
+function certGroups(sp){
+  const rows=[...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])]
+    .filter(r=>r&&((r.subject||'').trim()||parseInt(r.credit)));
+  const seen={}, groups=[], byKey={};
+  let lastStage=0;
+  rows.forEach(r=>{
+    const raw=(r.subject||'').trim();
+    let key=raw||'(미정)'; seen[key]=(seen[key]||0)+1; if(seen[key]>1) key+='#'+seen[key];
+    const sub={key,name:raw,credits:parseInt(r.credit)||0};
+    let gk,gname,stage=0;
+    if(sp.type==='doksa'){
+      const m=raw.match(DOKSA_RE);
+      if(m) lastStage=+m[1];
+      stage=m?+m[1]:lastStage;
+      sub.name=raw.replace(DOKSA_RE,'').replace(/^[\s\-–:'"`′″]+|[\s'"`′″]+$/g,'')||'과목 미정';
+      gk='@'+stage+'단계'; gname=stage?`독학사 ${stage}단계`:'독학사';
+    } else { gk=key; gname=raw||'자격증'; }
+    if(!byKey[gk]){ byKey[gk]={key:gk,name:gname,stage,subjects:[]}; groups.push(byKey[gk]); }
+    byKey[gk].subjects.push(sub);
+  });
+  return sp.type==='doksa'?groups.sort((x,y)=>(x.stage||9)-(y.stage||9)):groups;
 }
-function certDefaultUrl(name){ const m=CERT_LINKS.find(c=>name.includes(c.kw)); return m?m.url:''; }
-function certGoal(sp,name){ return (sp.goals&&sp.goals[name])||{}; }
-function upCertGoal(spi,ci,key,val){
-  const p=plans[curPid]; if(!p||!p.specials[spi]) return;
-  const sp=p.specials[spi]; const c=certSubjects(sp)[ci]; if(!c) return;
+function certDefaultUrl(sp,name){
+  if(sp.type==='doksa') return DOKSA_URL;
+  const m=CERT_LINKS.find(c=>name.includes(c.kw)); return m?m.url:'';
+}
+function certGoal(sp,key){ return (sp.goals&&sp.goals[key])||{}; }
+function setCertGoal(sp,key,patch){
   if(!sp.goals) sp.goals={};
-  sp.goals[c.name]={...(sp.goals[c.name]||{}),[key]:val};
+  sp.goals[key]={...(sp.goals[key]||{}),...patch};
   LS.set('hk_plans',plans); saveToFirebase();
-  if(key==='done') renderPlanEditor(p);
+}
+function upCertGroup(spi,gi,field,val){
+  const p=plans[curPid]; const sp=p&&p.specials[spi]; if(!sp) return;
+  const g=certGroups(sp)[gi]; if(!g) return;
+  setCertGoal(sp,g.key,{[field]:val});
+}
+function editCertLink(spi,gi){
+  const p=plans[curPid]; const sp=p&&p.specials[spi]; if(!sp) return;
+  const g=certGroups(sp)[gi]; if(!g) return;
+  const cur=certGoal(sp,g.key).url||'', def=certDefaultUrl(sp,g.name);
+  const v=prompt(`${g.name} 시험 일정 링크\n(비우면 ${def?'기본 링크: '+def:'링크 없음'})`,cur||def);
+  if(v===null) return;
+  setCertGoal(sp,g.key,{url:v.trim()===def?'':v.trim()});
+  renderPlanEditor(p);
+}
+function toggleCertSubj(spi,gi,si){
+  const p=plans[curPid]; const sp=p&&p.specials[spi]; if(!sp) return;
+  const g=certGroups(sp)[gi]; const s=g&&g.subjects[si]; if(!s) return;
+  setCertGoal(sp,s.key,{done:!certGoal(sp,s.key).done});
+  renderPlanEditor(p);
 }
 function certGoalEditorRows(sp,spi){
-  const list=certSubjects(sp); if(!list.length) return '';
+  const groups=certGroups(sp); if(!groups.length) return '';
   const esc=v=>String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  const word=sp.type==='cert'?'취득':'합격';
-  return list.map((c,ci)=>{
-    const g=certGoal(sp,c.name), def=certDefaultUrl(c.name);
-    return `<tr><td colspan="9" style="padding:5px 8px;border:1px solid #ccc;background:#fafcff">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11px">
-        <b style="min-width:110px">🎯 ${esc(c.name)}</b>
-        <span style="color:var(--text2)">${word} 목표</span>
-        <input type="text" value="${esc(g.due)}" placeholder="예: 26년 10월" onchange="upCertGoal(${spi},${ci},'due',this.value.trim())" style="width:110px;padding:3px 6px;font-size:11px">
-        <span style="color:var(--text2)">일정 링크</span>
-        <input type="text" value="${esc(g.url)}" placeholder="${def?'자동: '+esc(def):'시험 일정 페이지 주소'}" onchange="upCertGoal(${spi},${ci},'url',this.value.trim())" style="flex:1;min-width:160px;padding:3px 6px;font-size:11px">
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-weight:600;color:${g.done?'#2e7d32':'var(--text2)'}"><input type="checkbox" ${g.done?'checked':''} onchange="upCertGoal(${spi},${ci},'done',this.checked)" style="width:auto"> ${word}완료</label>
-      </div>
-    </td></tr>`;
-  }).join('');
+  const isD=sp.type==='doksa', word=isD?'합격':'취득';
+  const chip=(on,label,onclick)=>`<button type="button" onclick="${onclick}" style="font-size:11px;padding:2px 9px;border-radius:999px;cursor:pointer;border:1px solid ${on?'#9fd4a8':'#d5d9e0'};background:${on?'#e7f6ea':'#fff'};color:${on?'#2e7d32':'#666'};font-weight:${on?700:500}">${on?'✓ ':''}${label}</button>`;
+  return `<tr><td colspan="9" style="padding:4px 8px;border:1px solid #ccc;background:#fafcff">${groups.map((g,gi)=>{
+    const gg=certGoal(sp,g.key), custom=!!gg.url;
+    const chips=isD
+      ? g.subjects.map((s,si)=>chip(!!certGoal(sp,s.key).done,esc(s.name),`toggleCertSubj(${spi},${gi},${si})`)).join('')
+      : chip(!!certGoal(sp,g.subjects[0].key).done,'취득완료',`toggleCertSubj(${spi},${gi},0)`);
+    return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:3px 0;font-size:11px">
+      <b style="min-width:84px">🎯 ${esc(isD?g.name.replace('독학사 ',''):g.name)}</b>
+      <input type="text" value="${esc(gg.due)}" placeholder="${word}목표 예: 27년 2월" title="${word} 목표 시기" onchange="upCertGroup(${spi},${gi},'due',this.value.trim())" style="width:118px;padding:2px 6px;font-size:11px">
+      ${chips}
+      <button type="button" onclick="editCertLink(${spi},${gi})" title="${esc(gg.url||certDefaultUrl(sp,g.name)||'일정 링크 없음')}" style="font-size:11px;padding:2px 7px;border-radius:999px;cursor:pointer;border:1px solid #d5d9e0;background:#fff;color:${custom?'var(--blue)':'#999'}">🔗</button>
+    </div>`;
+  }).join('')}${isD?'<div style="font-size:10px;color:#999;padding:2px 0">과목을 누르면 합격 ✓ 표시돼요</div>':''}</td></tr>`;
 }
 // "26년 10월" → 2026-10-31, "2026.10.15" → 2026-10-15
 function portalDueDate(txt){
