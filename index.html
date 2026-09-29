@@ -2476,8 +2476,9 @@ async function revokePortalLink(idx){
   const group=portalGroup(l);
   const token=group.map(g=>g.portalToken).find(Boolean);
   if(!token){alert('발급된 링크가 없어요');return;}
-  if(!confirm(`${l.name}님 학습자 링크를 끊을까요?\n기존 링크로는 더 이상 볼 수 없게 돼요.`)) return;
+  if(!confirm(`${l.name}님 학습자 링크를 끊을까요?\n기존 링크로는 더 이상 볼 수 없게 되고, 학습자가 쓴 메모도 삭제돼요.`)) return;
   try{ await fbDb.collection('learnerPortal').doc(token).delete(); }catch(e){ console.warn(e); }
+  try{ await fbDb.collection('learnerMemo').doc(token).delete(); }catch(e){ console.warn(e); } // 학습자 메모도 함께 삭제
   delete _portalCache[token];
   group.forEach(g=>delete g.portalToken);
   save(); renderLearners(); refreshPlanPortalBtn();
