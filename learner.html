@@ -86,6 +86,18 @@ body{
 .goal .s{font-size:11.5px;color:var(--ink2);margin:6px 0 10px}
 .goal .tag{display:inline-block;font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;background:#eceff4;color:var(--ink2)}
 
+/* plan */
+.plancard{margin-top:18px}
+.plancard summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.plancard summary::-webkit-details-marker{display:none}
+.plancard .toggle{font-size:12px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
+.plancard .toggle .c,.plancard details[open] .toggle .o{display:none}
+.plancard details[open] .toggle .c{display:inline}
+.plancard details[open] .toggle{color:var(--ink2);background:#eceff4}
+.planwrap{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
+.planin{min-width:680px}
+.swipe{display:none;margin-top:14px;font-size:11.5px;color:var(--ink3)}
+@media (max-width:720px){ .swipe{display:block} }
 /* notice */
 .notice{margin-top:18px}
 .nrows{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -219,7 +231,7 @@ function derive(r){
   if(cert) goals.push({icon:'Q',title:'자격 활용',desc:cert,status:reached?'취득 준비':'과정 진행 중',color:'blue'});
   goals.push({icon:'A',title:'행정 절차',desc:'학점인정·학위신청',status:reached?'진행 예정':'예정',color:'purple'});
 
-  return {reached,name:r.name,target,earned:Math.min(earned,target||earned),thisSem,thisSemName,expected,steps,
+  return {reached,planHtml:r.planHtml||'',name:r.name,target,earned:Math.min(earned,target||earned),thisSem,thisSemName,expected,steps,
     schedules:r.sched||[],goals,updatedAt:r.updatedAt};
 }
 
@@ -333,6 +345,17 @@ function render(d,isDemo){
       </div>
     </section>
   </main>
+  ${d.planHtml?`
+  <section class="card plancard">
+    <details>
+      <summary>
+        <div><div class="eyebrow">MY PLAN</div><div class="ctitle">나의 플랜표</div></div>
+        <span class="toggle"><span class="o">펼쳐 보기</span><span class="c">접기</span></span>
+      </summary>
+      <p class="swipe">표가 넓어서 옆으로 밀어서 볼 수 있어요 →</p>
+      <div class="planwrap"><div class="planin">${d.planHtml}</div></div>
+    </details>
+  </section>`:''}
   ${noticeHtml(d)}
 
   <p class="foot">※ 이 화면은 담당 선생님이 관리하는 학습 계획 기준이에요. 공식 학점은 학점은행제 누리집에서 확인할 수 있어요.<br>궁금한 점은 담당 선생님께 편하게 연락 주세요.</p>`;

@@ -2409,6 +2409,7 @@ function buildPortalData(l){
     out.target=dr.total||dr.major||0;
     out.owned=t.ownAll;
     out.specials=t.specReq+t.specElec+t.specGen+t.specLib;
+    out.planHtml=buildPlanPrintHtml(p); // 학생에게 보내는 플랜표 이미지와 같은 표
     out.sems=(p.semesters||[]).map(s=>({
       name:s.name||'', ...portalSemDates(s), done:!!s.completed, // 플랜표 '이수완료' 체크
       credits:sumC(s.req)+sumC(s.elec)+sumC(s.gen)+sumC(s.lib)
@@ -6536,6 +6537,11 @@ function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; LS.set('hk_pl
 function openPrintPreview(pid){
   const p=plans[pid||curPid]; if(!p) return;
   _curPrintPid=pid||curPid;
+  document.getElementById('plan-print-content').innerHTML=buildPlanPrintHtml(p);
+  openModal('modal-plan-print');
+}
+// 플랜표 이미지/인쇄용 HTML — 학습자 포털(learner.html)에서도 같은 표로 사용
+function buildPlanPrintHtml(p){
   const _dupSubjects=getDupSubjects(p);
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
@@ -6747,8 +6753,7 @@ function openPrintPreview(pid){
     </div>`:''}
   </div>`;
 
-  document.getElementById('plan-print-content').innerHTML=content;
-  openModal('modal-plan-print');
+  return content;
 }
 
 function savePlanAsImage(){
