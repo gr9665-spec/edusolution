@@ -2453,7 +2453,7 @@ async function issuePortalLink(idx){
       alert('링크 발급에 실패했어요. Firebase 보안 규칙(learnerPortal)을 확인해주세요.\n\n'+e.message);
       return;
     }
-    save(); renderLearners();
+    save(); renderLearners(); refreshPlanPortalBtn();
   }
   const url=PORTAL_URL+token;
   if(navigator.clipboard){
@@ -2470,7 +2470,30 @@ async function revokePortalLink(idx){
   try{ await fbDb.collection('learnerPortal').doc(token).delete(); }catch(e){ console.warn(e); }
   delete _portalCache[token];
   group.forEach(g=>delete g.portalToken);
-  save(); renderLearners();
+  save(); renderLearners(); refreshPlanPortalBtn();
+}
+// 플랜표 화면에서 바로 발급/복사/끊기
+function planPortalLearnerIdx(p){
+  if(!p) return -1;
+  let i=p.linkedLearner?learners.findIndex(l=>l.name===p.linkedLearner):-1;
+  if(i<0&&p.clientName) i=learners.findIndex(l=>l.name===p.clientName);
+  return i;
+}
+function planPortalBtnHtml(p){
+  const i=planPortalLearnerIdx(p);
+  const on=i>=0&&portalGroup(learners[i]).some(g=>g.portalToken);
+  return on?'<i class="ti ti-link" style="color:var(--green)"></i><span style="color:var(--green)">학습자 링크 복사</span>'
+           :'<i class="ti ti-link"></i>학습자 링크 발급';
+}
+function refreshPlanPortalBtn(){
+  const b=document.getElementById('plan-portal-btn');
+  if(b&&curPid&&plans[curPid]) b.innerHTML=planPortalBtnHtml(plans[curPid]);
+}
+function issuePortalFromPlan(pid){
+  const p=plans[pid]; if(!p) return;
+  const i=planPortalLearnerIdx(p);
+  if(i<0){alert('먼저 이 플랜표에 "학습자 연결"을 해주세요.\n(학습자 등록 탭에 있는 학습자와 연결돼야 링크를 만들 수 있어요)');return;}
+  issuePortalLink(i);
 }
 
 // ── 관리자: 팀원 전체 데이터 조회 ────────────────────────
@@ -5611,6 +5634,7 @@ function renderPlanEditor(p){
       <button class="btn btn-primary" onclick="savePlan()"><i class="ti ti-device-floppy"></i>저장</button>
       <button class="btn btn-green" onclick="openPrintPreview('${p.id}')"><i class="ti ti-printer"></i>인쇄 / 캡처</button>
       <button class="btn btn-sm" onclick="exportPlan('${p.id}')"><i class="ti ti-download"></i>내보내기</button>
+      <button class="btn btn-sm" id="plan-portal-btn" onclick="issuePortalFromPlan('${p.id}')">${planPortalBtnHtml(p)}</button>
       <div style="width:1px;background:var(--border);margin:0 2px;height:22px"></div>
       <span style="font-size:11px;color:var(--text2)">플랜 버전:</span>
       ${(p.versions||[{label:'기본'}]).map((v,vi)=>`
@@ -5664,7 +5688,7 @@ function renderPlanEditor(p){
         </div>
         <div class="fg"><label>학습자 연결</label>
           <input type="text" id="plan-learner-search" placeholder="이름 검색..." style="margin-bottom:4px;font-size:12px" oninput="filterPlanLearnerSelect(this.value,'${p.id}')">
-          <select id="plan-learner-select" onchange="upP('linkedLearner',this.value)" style="width:100%">
+          <select id="plan-learner-select" onchange="upP('linkedLearner',this.value);refreshPlanPortalBtn()" style="width:100%">
             <option value="">연결 안 함</option>${learnerOpts}
           </select></div>
       </div>
