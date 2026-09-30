@@ -4,45 +4,47 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#eef4fd">
+<meta name="theme-color" content="#f3f4f6">
 <title>나의 학습 현황</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
 :root{
-  --bg1:#f3f8ff; --bg2:#dfeafc;
-  --card:#ffffff; --line:#e6ebf2; --soft:#f6f8fb;
-  --ink:#1f2a44; --ink2:#5b6478; --ink3:#8a93a6;
-  --teal:#5fd3bf; --blue:#6aa5f5; --yellow:#f2c94c; --purple:#a78bfa;
-  --green-bg:#eaf8f2; --green-line:#c9ecdc; --green-ink:#2f9e73;
-  --blue-bg:#e9efff; --blue-line:#cdd9fb; --blue-ink:#4c6fe0;
-  --r:22px;
+  /* 차분한 톤: 남색(주) + 세이지(완료) + 머스터드(주의) + 슬레이트(보조) */
+  --bg:#f3f4f6;
+  --card:#ffffff; --line:#e3e6eb; --soft:#f7f8fa; --mute:#eef0f3;
+  --ink:#1b2432; --ink2:#566073; --ink3:#8a92a1;
+  --teal:#6b9e8c; --blue:#2e4a70; --yellow:#c49a45; --purple:#8591a8;
+  --green-bg:#f0f6f3; --green-line:#d3e5dc; --green-ink:#3f7a67;
+  --blue-bg:#eef2f7; --blue-line:#d4dce7; --blue-ink:#2e4a70;
+  --warn-bg:#fbf6ec; --warn-line:#ecdcbc; --warn-ink:#8a6420;
+  --r:16px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%}
 body{
   font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;
   color:var(--ink);
-  background:linear-gradient(135deg,var(--bg1),var(--bg2)) fixed;
+  background:var(--bg);
   -webkit-font-smoothing:antialiased;
   padding:20px 16px 40px;
 }
 .wrap{max-width:1180px;margin:0 auto}
 .top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 4px 18px}
 .top .brand{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--ink3)}
-.top h1{font-size:22px;font-weight:800;margin-top:4px}
+.top h1{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.01em}
 .top .upd{font-size:12px;color:var(--ink3);white-space:nowrap}
 
 .grid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:18px;align-items:stretch}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;box-shadow:0 10px 30px -18px rgba(60,90,150,.35)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
 .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--ink3)}
-.ctitle{font-size:20px;font-weight:800;margin-top:6px}
+.ctitle{font-size:19px;font-weight:700;margin-top:6px;letter-spacing:-.01em}
 .chead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
 .pill{font-size:12px;font-weight:700;padding:8px 14px;border-radius:999px;background:var(--green-bg);color:var(--green-ink);display:inline-flex;align-items:center;gap:6px}
 .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--teal)}
 .pill.done{background:var(--blue-bg);color:var(--blue-ink)}
 .pill.done::before{background:var(--blue)}
-.count{width:36px;height:36px;border-radius:50%;background:#eef3fd;color:var(--blue-ink);font-weight:700;font-size:14px;display:grid;place-items:center}
+.count{width:36px;height:36px;border-radius:50%;background:var(--blue-bg);color:var(--blue-ink);font-weight:700;font-size:14px;display:grid;place-items:center}
 
 /* progress */
 .prog{display:grid;grid-template-columns:170px 1fr;gap:28px;align-items:center}
@@ -50,7 +52,7 @@ body{
 .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .ring .mid small{font-size:11px;color:var(--ink2)}
-.ring .mid b{font-size:44px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.ring .mid b{font-size:44px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
 .ring .mid span{font-size:11.5px;color:var(--ink2)}
 .stats{border-top:1px solid var(--line)}
 .stats div{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
@@ -58,13 +60,13 @@ body{
 .stats dd{font-size:18px;font-weight:700}
 .sep{height:1px;background:var(--line);margin:24px 0 18px}
 .steps{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.step{border-radius:16px;padding:16px;border:1px solid var(--line);background:#f8fafc;min-height:96px}
+.step{border-radius:12px;padding:16px;border:1px solid var(--line);background:var(--soft);min-height:96px}
 .step .n{font-size:11px;font-weight:700;color:var(--ink3)}
 .step .t{font-size:15px;font-weight:700;margin:10px 0 8px}
 .step .s{font-size:11.5px;color:var(--ink3)}
 .step.done{background:var(--green-bg);border-color:var(--green-line)}
 .step.done .n,.step.done .s{color:var(--green-ink)}
-.step.doing{background:linear-gradient(135deg,#eef2ff,#e6ecff);border-color:var(--blue-line)}
+.step.doing{background:var(--blue-bg);border-color:var(--blue-line);box-shadow:inset 3px 0 0 var(--blue)}
 .step.doing .n,.step.doing .s{color:var(--blue-ink)}
 
 /* schedule */
@@ -80,11 +82,11 @@ body{
 
 /* goals */
 .goals{display:flex;flex-direction:column;gap:14px;margin-top:40px}
-.goal{display:grid;grid-template-columns:40px 1fr;gap:18px;align-items:center;border:1px solid var(--line);background:var(--soft);border-radius:16px;padding:20px}
-.goal .ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
+.goal{display:grid;grid-template-columns:40px 1fr;gap:18px;align-items:center;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:20px}
+.goal .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
 .goal .t{font-size:14.5px;font-weight:700}
 .goal .s{font-size:11.5px;color:var(--ink2);margin:6px 0 10px}
-.goal .tag{display:inline-block;font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;background:#eceff4;color:var(--ink2)}
+.goal .tag{display:inline-block;font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;background:var(--mute);color:var(--ink2)}
 
 /* memo */
 .memo{margin-top:18px}
@@ -99,7 +101,7 @@ body{
 .plancard .toggle{font-size:12px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
 .plancard .toggle .c,.plancard details[open] .toggle .o{display:none}
 .plancard details[open] .toggle .c{display:inline}
-.plancard details[open] .toggle{color:var(--ink2);background:#eceff4}
+.plancard details[open] .toggle{color:var(--ink2);background:var(--mute)}
 .planwrap{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
 .planin{min-width:680px}
 .swipe{display:none;margin-top:14px;font-size:11.5px;color:var(--ink3)}
@@ -113,16 +115,16 @@ body{
 .check .toggle{font-size:12px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
 .check .toggle .c,.check details[open] .toggle .o{display:none}
 .check details[open] .toggle .c{display:inline}
-.check details[open] .toggle{color:var(--ink2);background:#eceff4}
+.check details[open] .toggle{color:var(--ink2);background:var(--mute)}
 .mine{margin-top:16px;border-radius:14px;padding:14px 16px;background:var(--blue-bg);border:1px solid var(--blue-line)}
-.mine.warn{background:#fff7e6;border-color:#f5d9a3}
+.mine.warn{background:var(--warn-bg);border-color:var(--warn-line)}
 .mine .mh{font-size:13.5px;font-weight:800;margin-bottom:6px}
 .mine ul{padding-left:18px}
 .mine li{font-size:13px;line-height:1.7;color:var(--ink)}
-.mine li.warn{font-weight:700;color:#9a5b00}
+.mine li.warn{font-weight:600;color:var(--warn-ink)}
 .mine .mf{margin-top:6px;font-size:12px;color:var(--ink2)}
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
-.cbox{border:1px solid var(--line);background:var(--soft);border-radius:16px;padding:16px 18px}
+.cbox{border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:16px 18px}
 .cbox .ch{font-size:14.5px;font-weight:800;margin-bottom:8px}
 .cbox ul{padding-left:18px}
 .cbox li{font-size:12.5px;line-height:1.75;color:var(--ink2);margin-bottom:4px}
@@ -132,13 +134,13 @@ body{
 /* notice */
 .notice{margin-top:18px}
 .nrows{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.nrow{border:1px solid var(--line);background:var(--soft);border-radius:16px;padding:18px}
+.nrow{border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:18px}
 .nrow.open{background:var(--green-bg);border-color:var(--green-line)}
 .nrow .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .nrow .t{font-size:15px;font-weight:700}
 .nrow .when{font-size:20px;font-weight:800;margin:12px 0 6px;letter-spacing:-.01em}
 .nrow .s{font-size:12px;color:var(--ink2);line-height:1.6}
-.chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:#eceff4;color:var(--ink2);white-space:nowrap}
+.chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--mute);color:var(--ink2);white-space:nowrap}
 .chip.on{background:#fff;color:var(--green-ink);box-shadow:0 0 0 1px var(--green-line) inset}
 .tip{margin-top:10px;font-size:12px;font-weight:600;color:var(--blue-ink);background:var(--blue-bg);border-radius:10px;padding:8px 10px;line-height:1.5}
 .months{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-top:20px}
@@ -340,11 +342,7 @@ function derive(r){
 }
 
 const KIND_COLOR={class:'var(--teal)',task:'var(--blue)',exam:'var(--yellow)',discuss:'var(--teal)',admin:'var(--purple)',etc:'var(--purple)'};
-const GOAL_BG={
-  teal:'linear-gradient(135deg,#6fdcc4,#45b99f)',
-  blue:'linear-gradient(135deg,#76b0ff,#4f7fe6)',
-  purple:'linear-gradient(135deg,#b69bff,#8a63e8)'
-};
+const GOAL_BG={teal:'#6b9e8c',blue:'#2e4a70',purple:'#8591a8'};
 const DOW=['SUN','MON','TUE','WED','THU','FRI','SAT'];
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -404,9 +402,9 @@ function render(d,isDemo){
         <div class="ring">
           <svg viewBox="0 0 170 170" aria-hidden="true">
             <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#a78bfa"/><stop offset=".55" stop-color="#6aa5f5"/><stop offset="1" stop-color="#5fd3bf"/>
+              <stop offset="0" stop-color="#2e4a70"/><stop offset="1" stop-color="#4f6d96"/>
             </linearGradient></defs>
-            <circle cx="85" cy="85" r="70" fill="none" stroke="#e9eef5" stroke-width="16"/>
+            <circle cx="85" cy="85" r="70" fill="none" stroke="#edf0f4" stroke-width="16"/>
             <circle cx="85" cy="85" r="70" fill="none" stroke="url(#g)" stroke-width="16" stroke-linecap="round"
               stroke-dasharray="${C}" stroke-dashoffset="${off}"/>
           </svg>
@@ -449,14 +447,6 @@ function render(d,isDemo){
       </div>
     </section>
   </main>
-  <section class="card memo">
-    <div class="chead" style="margin-bottom:12px">
-      <div><div class="eyebrow">MY MEMO</div><div class="ctitle">나의 메모</div></div>
-      <span class="msave" id="memo-state"></span>
-    </div>
-    <textarea id="memo" maxlength="${MEMO_MAX}" placeholder="${isDemo?'예시 화면에서는 저장되지 않아요.':'공부 계획, 체크할 것, 궁금한 점을 자유롭게 적어두세요.&#10;적은 내용은 자동으로 저장돼요.'}"></textarea>
-    <p class="mnote">담당 선생님도 이 메모를 함께 볼 수 있어요.</p>
-  </section>
   ${d.planHtml?`
   <section class="card plancard">
     <details>
@@ -468,6 +458,14 @@ function render(d,isDemo){
       <div class="planwrap"><div class="planin">${d.planHtml}</div></div>
     </details>
   </section>`:''}
+  <section class="card memo">
+    <div class="chead" style="margin-bottom:12px">
+      <div><div class="eyebrow">MY MEMO</div><div class="ctitle">나의 메모</div></div>
+      <span class="msave" id="memo-state"></span>
+    </div>
+    <textarea id="memo" maxlength="${MEMO_MAX}" placeholder="${isDemo?'예시 화면에서는 저장되지 않아요.':'공부 계획, 체크할 것, 궁금한 점을 자유롭게 적어두세요.&#10;적은 내용은 자동으로 저장돼요.'}"></textarea>
+    <p class="mnote">담당 선생님도 이 메모를 함께 볼 수 있어요.</p>
+  </section>
   ${noticeHtml(d)}
   ${checklistHtml(d)}
 
