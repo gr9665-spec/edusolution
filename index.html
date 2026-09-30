@@ -199,6 +199,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
   <div class="tab" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
+  <div class="tab" onclick="switchTab('prospect',this)"><i class="ti ti-address-book"></i>가망노트</div>
   <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>메모</div>
   <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격증/편입정보</div>
   <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
@@ -1105,6 +1106,91 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
 </div>
 <!-- 플랜표 -->
+<!-- ═══ 가망노트 ═══ -->
+<div id="panel-prospect" class="panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:6px">
+      <button class="btn btn-sm" onclick="pmMove(-1)"><i class="ti ti-chevron-left"></i></button>
+      <div id="pm-label" style="font-size:16px;font-weight:700;min-width:110px;text-align:center"></div>
+      <button class="btn btn-sm" onclick="pmMove(1)"><i class="ti ti-chevron-right"></i></button>
+      <button class="btn btn-sm" onclick="pmMove(0)" style="margin-left:4px">이번 달</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="pm-search" placeholder="이름·연락처 검색" style="width:150px" oninput="renderProspects()">
+      <select id="pm-filter" onchange="renderProspects()" style="width:130px">
+        <option value="">전체</option>
+        <option value="noplan">플랜안내 안 함</option>
+        <option value="nopay">결제안내 안 함</option>
+        <option value="nomat">자료배포 안 함</option>
+        <option value="nolearner">학습자 등록 전</option>
+      </select>
+      <button class="btn btn-sm" onclick="downloadProspectTemplate()"><i class="ti ti-download"></i> 양식</button>
+      <label class="btn btn-sm" style="cursor:pointer"><i class="ti ti-file-import"></i> 엑셀 가져오기<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importProspectFile(this)"></label>
+      <button class="btn btn-primary btn-sm" onclick="openProspectModal()"><i class="ti ti-plus"></i> 가망 추가</button>
+    </div>
+  </div>
+  <div class="card" style="padding:12px 14px;margin-bottom:12px" id="pm-summary"></div>
+  <div class="card" style="padding:0;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:920px">
+      <thead><tr style="background:var(--bg2)">
+        <th style="padding:8px 6px;text-align:center;width:62px">날짜</th>
+        <th style="padding:8px 6px;text-align:center;width:70px">소스</th>
+        <th style="padding:8px 6px;text-align:left">성함/닉네임</th>
+        <th style="padding:8px 6px;text-align:center;width:90px">최종학력</th>
+        <th style="padding:8px 6px;text-align:center;width:54px">단가</th>
+        <th style="padding:8px 6px;text-align:center;width:140px">연락처</th>
+        <th style="padding:8px 6px;text-align:center;width:52px">플랜<br>안내</th>
+        <th style="padding:8px 6px;text-align:center;width:52px">결제<br>안내</th>
+        <th style="padding:8px 6px;text-align:center;width:52px">자료<br>배포</th>
+        <th style="padding:8px 6px;text-align:center;width:150px">연결</th>
+        <th style="padding:8px 6px;text-align:center;width:64px">관리</th>
+      </tr></thead>
+      <tbody id="pm-tbody"></tbody>
+    </table>
+    <div id="pm-empty" class="empty" style="display:none"><i class="ti ti-address-book"></i>이 달에 등록된 가망 고객이 없어요</div>
+  </div>
+  <div style="font-size:11px;color:var(--text2);margin-top:8px">O/X 칸은 누를 때마다 O → X → 빈칸으로 바뀌어요.</div>
+</div>
+
+<div class="overlay" id="modal-prospect">
+<div class="modal" style="max-width:560px">
+  <div class="modal-head">
+    <h2 id="pm-modal-title">가망 추가</h2>
+    <button class="btn btn-icon" onclick="closeModal('modal-prospect')"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="fg2">
+    <div class="fg"><label>날짜 *</label><input type="date" id="pm-date"></div>
+    <div class="fg"><label>성함/닉네임 *</label><input type="text" id="pm-name" placeholder="홍길동"></div>
+  </div>
+  <div class="fg"><label>소스 (문의경로)</label>
+    <div id="pm-src-btns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <input type="text" id="pm-src-custom" placeholder="기타 문의경로 직접 입력" style="margin-top:6px;display:none">
+  </div>
+  <div class="fg2">
+    <div class="fg"><label>최종학력</label><input type="text" id="pm-edu" list="pm-edu-list" placeholder="예: 4년제졸">
+      <datalist id="pm-edu-list"><option>고졸</option><option>전문대중퇴</option><option>전문대졸</option><option>4년제중퇴</option><option>4년제졸</option><option>대학원졸</option></datalist></div>
+    <div class="fg"><label>단가</label><input type="text" id="pm-price" placeholder="예: 40"></div>
+  </div>
+  <div class="fg2">
+    <div class="fg"><label>연락처</label><input type="text" id="pm-contact" placeholder="010-0000-0000"></div>
+    <div class="fg"><label>연락 방식</label><select id="pm-ctype"><option value="">선택</option><option>전화</option><option>카톡</option><option>전화·카톡</option></select></div>
+  </div>
+  <div class="fg2" style="grid-template-columns:repeat(3,1fr)">
+    <div class="fg"><label>플랜안내</label><select id="pm-plan"><option value="">-</option><option>O</option><option>X</option></select></div>
+    <div class="fg"><label>결제안내</label><select id="pm-pay"><option value="">-</option><option>O</option><option>X</option></select></div>
+    <div class="fg"><label>자료배포</label><select id="pm-mat"><option value="">-</option><option>O</option><option>X</option></select></div>
+  </div>
+  <div class="fg"><label>상담내용 / 특이사항</label><textarea id="pm-note" rows="4" placeholder="상담 내용, 특이사항"></textarea></div>
+  <div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px">
+    <button class="btn btn-sm" id="pm-del-btn" style="color:var(--red)" onclick="deleteProspect()"><i class="ti ti-trash"></i> 삭제</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn" onclick="closeModal('modal-prospect')">취소</button>
+      <button class="btn btn-primary" onclick="saveProspect()">저장</button>
+    </div>
+  </div>
+</div>
+</div>
+
 <div id="panel-plan" class="panel">
   <!-- 모바일에서 플랜 목록 토글 버튼 -->
   <div id="plan-list-toggle-bar" style="display:none;margin-bottom:10px">
@@ -1243,10 +1329,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <!-- 매출 현황 -->
   <div id="admin-tab-stats" style="display:none">
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-      <select id="admin-year-filter" style="width:80px" onchange="renderAdminStats()">
+      <select id="admin-year-filter" style="width:80px" onchange="renderAdminStats();renderAdminProspects()">
         <option value="">전체년도</option>
       </select>
-      <select id="admin-month-filter" style="width:80px" onchange="renderAdminStats()">
+      <select id="admin-month-filter" style="width:80px" onchange="renderAdminStats();renderAdminProspects()">
         <option value="">전체월</option>
         <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
         <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
@@ -1257,6 +1343,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     </div>
     <div class="metrics" id="admin-metrics"></div>
     <div id="admin-members"></div>
+    <div id="admin-prospects" style="margin-top:18px"></div>
   </div>
 </div>
 </div><!-- .app -->
@@ -1815,6 +1902,7 @@ async function loadUserData(){
       }
       if(d.mktActivities) mktActivities=d.mktActivities;
       if(d.mktGoals)    mktGoals=d.mktGoals;
+      if(d.prospects)   prospects=d.prospects;
       // 수당 테이블: 커스텀 저장값 있으면 사용, 없으면 직급 기본값
       rewardTable = d.rewardTable || Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
       if(d.todos)  todos=d.todos;
@@ -1839,7 +1927,7 @@ const _origSave = null;
 function save(){
   // 로컬스토리지 백업
   LS.set('hk_learners',learners);LS.set('hk_schedules',schedules);
-  LS.set('hk_mkt',mktActivities);LS.set('hk_goals',mktGoals);
+  LS.set('hk_mkt',mktActivities);LS.set('hk_goals',mktGoals);LS.set('hk_prospects',prospects);
   LS.set('hk_rewards',rewardTable);
   // Firebase 저장
   saveToFirebase();
@@ -2313,7 +2401,7 @@ function saveToFirebase(){
       }
       const newLastUpdated=new Date().toISOString();
       await docRef.set({
-        learners, schedules, mktActivities, mktGoals,
+        learners, schedules, mktActivities, mktGoals, prospects,
         rewardTable, todos, plans,
         memos, memoCategories, blogKeywords,
         lastUpdated: newLastUpdated
@@ -2660,6 +2748,7 @@ async function loadAllMembersData(){
 
     renderAdminMembers();
     renderAdminStats();
+    renderAdminProspects();
   } catch(e){
     console.error('loadAllMembersData 오류:', e);
     adminEl.innerHTML=`<div class="notice" style="background:var(--red-bg);border-color:var(--red)"><i class="ti ti-alert-circle"></i> 데이터 로드 실패: <b>${e.message}</b><br><small style="color:var(--text2)">Firebase Console → Firestore → 규칙 탭에서 관리자 권한 확인 필요</small></div>`;
@@ -2672,7 +2761,7 @@ function switchAdminTab(tab){
     document.getElementById(`atab-${t}`).style.borderBottom=t===tab?'2px solid var(--navy)':'2px solid transparent';
     document.getElementById(`admin-tab-${t}`).style.display=t===tab?'block':'none';
   });
-  if(tab==='stats') renderAdminStats();
+  if(tab==='stats'){ renderAdminStats(); renderAdminProspects(); }
   if(tab==='members') renderAdminMembers();
 }
 
@@ -2988,6 +3077,13 @@ let learners = LS.get('hk_learners')||[];
 let schedules = LS.get('hk_schedules')||[];
 let mktActivities = LS.get('hk_mkt')||[];
 let mktGoals = LS.get('hk_goals')||[];
+let prospects = LS.get('hk_prospects')||[]; // 가망노트
+const PROSPECT_SOURCES=[
+  {k:'K',label:'오카'},{k:'Y',label:'예림'},{k:'H',label:'희경'},{k:'P',label:'파컨'},
+  {k:'B',label:'블로그'},{k:'U',label:'유튜브'},{k:'G',label:'기타'}
+];
+const PSRC_COLOR={K:'#e67700',Y:'#7048e8',H:'#2f9e44',P:'#1a5fa8',B:'#0b7285',U:'#c92a2a',G:'#495057'};
+let _pmMonth=null, _pmEditId=null, _pmSrc='', _pendingProspectId=null;
 let rewardTable = LS.get('hk_rewards') || Object.assign({}, DEFAULT_REWARDS);
 let editIdx = -1;
 // plans/curPid/subjCtx는 원래 플랜표 섹션(스크립트 후반부)에 선언돼 있었는데,
@@ -3146,6 +3242,7 @@ function switchTab(name,el){
   if(name==='import') initImportPanel();
   if(name==='admin'){loadAllMembersData();}
   if(name==='plan') initPlanTab();
+  if(name==='prospect') renderProspects();
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -3554,6 +3651,7 @@ function showToast(msg){
 }
 function openLearnerModal(idx){
   editIdx=idx!==undefined?idx:-1;
+  _pendingProspectId=null;
   document.getElementById('learner-modal-title').textContent=editIdx>=0?'학습자 수정':'학습자 추가';
   // 이미지 초기화
   _pendingImgs=[];
@@ -3637,6 +3735,8 @@ async function saveLearner(){
   l.images=_pendingImgs.filter(i=>i.downloadUrl).map(i=>({id:i.id,url:i.downloadUrl,path:i.storagePath}));
   if(editIdx>=0&&learners[editIdx]&&learners[editIdx].portalToken) l.portalToken=learners[editIdx].portalToken;
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
+  if(editIdx<0&&_pendingProspectId){ const pr=prospects.find(x=>x.id===_pendingProspectId); if(pr){ pr.learnerId=l.id; pr.learnerName=l.name; } }
+  _pendingProspectId=null;
 
   // 학사일정 동시 등록
   const schedRows=collectLearnerSchedRows();
@@ -3955,6 +4055,238 @@ function renderDashboard(){
   renderSourceStats();
 }
 
+// ══ 가망노트 ══════════════════════════════════════════════════════
+// prospects: [{id,date,src,srcCustom,name,edu,price,contact,ctype,plan,pay,mat,note,planId,learnerId,createdAt}]
+// src는 PROSPECT_SOURCES의 key(K/Y/H/P/B/U/G). 플랜표 '문의경로'도 같은 label 사용
+function prospectSrcLabel(x){
+  const s=PROSPECT_SOURCES.find(v=>v.k===x.src);
+  if(!s) return '미입력';
+  return s.k==='G'&&x.srcCustom?`기타(${x.srcCustom})`:s.label;
+}
+function pmYm(){
+  if(!_pmMonth){ const k=new Date(Date.now()+9*3600e3); _pmMonth=`${k.getUTCFullYear()}-${String(k.getUTCMonth()+1).padStart(2,'0')}`; }
+  return _pmMonth;
+}
+function pmMove(d){
+  if(d===0){ _pmMonth=null; pmYm(); }
+  else{ let [y,m]=pmYm().split('-').map(Number); m+=d; if(m<1){m=12;y--;} if(m>12){m=1;y++;} _pmMonth=`${y}-${String(m).padStart(2,'0')}`; }
+  renderProspects();
+}
+function pmEsc(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function renderProspects(){
+  const ym=pmYm(), [y,m]=ym.split('-');
+  const lab=document.getElementById('pm-label'); if(!lab) return;
+  lab.textContent=`${y}년 ${+m}월`;
+  const month=prospects.filter(x=>(x.date||'').startsWith(ym));
+  // 요약: 한 달 유입량 + 소스별
+  const cnt={}; month.forEach(x=>cnt[x.src||'']=(cnt[x.src||'']||0)+1);
+  const done=k=>month.filter(x=>x[k]==='O').length;
+  document.getElementById('pm-summary').innerHTML=`
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+      <div style="text-align:center;min-width:86px"><div style="font-size:11px;color:var(--text2)">한 달 유입</div><div style="font-size:24px;font-weight:800;color:var(--red)">${month.length}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
+        ${PROSPECT_SOURCES.map(v=>`<div style="border:1px solid var(--border);border-radius:8px;padding:6px 10px;text-align:center;min-width:64px">
+          <div style="font-size:11px;color:${PSRC_COLOR[v.k]};font-weight:700">${v.k}(${v.label})</div>
+          <div style="font-size:16px;font-weight:700">${cnt[v.k]||0}</div></div>`).join('')}
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7">플랜안내 <b>${done('plan')}</b> · 결제안내 <b>${done('pay')}</b> · 자료배포 <b>${done('mat')}</b><br>학습자 등록 <b>${month.filter(x=>x.learnerId).length}</b></div>
+    </div>`;
+  // 목록
+  const q=(document.getElementById('pm-search')?.value||'').trim().toLowerCase();
+  const f=document.getElementById('pm-filter')?.value||'';
+  let list=month.filter(x=>!q||(x.name||'').toLowerCase().includes(q)||(x.contact||'').includes(q));
+  if(f==='noplan') list=list.filter(x=>x.plan!=='O');
+  if(f==='nopay') list=list.filter(x=>x.pay!=='O');
+  if(f==='nomat') list=list.filter(x=>x.mat!=='O');
+  if(f==='nolearner') list=list.filter(x=>!x.learnerId);
+  list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''));
+  const tb=document.getElementById('pm-tbody'), em=document.getElementById('pm-empty');
+  if(!list.length){ tb.innerHTML=''; em.style.display='block'; return; }
+  em.style.display='none';
+  const ox=(x,k)=>{const v=x[k]||''; return `<td style="padding:6px;text-align:center;cursor:pointer;font-weight:700;color:${v==='O'?'var(--green)':v==='X'?'var(--red)':'var(--text3)'}" onclick="cycleProspectOX('${x.id}','${k}')" title="눌러서 변경">${v||'·'}</td>`;};
+  tb.innerHTML=list.map(x=>{
+    const plan=x.planId&&plans[x.planId];
+    const lr=x.learnerId&&learners.some(l=>l.id===x.learnerId);
+    const sc=PSRC_COLOR[x.src]||'#868e96';
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px;text-align:center;font-size:12px">${(x.date||'').slice(5).replace('-','/')}</td>
+      <td style="padding:6px;text-align:center"><span style="font-size:11px;font-weight:700;color:${sc};background:${sc}14;border:1px solid ${sc}33;border-radius:99px;padding:2px 8px;white-space:nowrap">${pmEsc(prospectSrcLabel(x))}</span></td>
+      <td style="padding:6px;font-weight:600">${pmEsc(x.name)}</td>
+      <td style="padding:6px;text-align:center;font-size:12px">${pmEsc(x.edu)}</td>
+      <td style="padding:6px;text-align:center;font-size:12px">${pmEsc(x.price)}</td>
+      <td style="padding:6px;text-align:center;font-size:12px">${pmEsc(x.contact)}${x.ctype?`<div style="font-size:10px;color:var(--text2)">${pmEsc(x.ctype)}</div>`:''}</td>
+      ${ox(x,'plan')}${ox(x,'pay')}${ox(x,'mat')}
+      <td style="padding:6px;text-align:center;white-space:nowrap">
+        ${plan?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="goProspectPlan('${x.id}')"><i class="ti ti-clipboard-check"></i> 플랜</button>`
+              :`<button class="btn btn-sm" style="font-size:11px" onclick="prospectToPlan('${x.id}')"><i class="ti ti-clipboard-plus"></i> 플랜</button>`}
+        ${lr?`<span style="font-size:11px;color:var(--green);font-weight:700;margin-left:2px">✓ 학습자</span>`
+            :`<button class="btn btn-sm" style="font-size:11px" onclick="prospectToLearner('${x.id}')"><i class="ti ti-user-plus"></i> 학습자</button>`}
+      </td>
+      <td style="padding:6px;text-align:center"><button class="btn btn-icon btn-sm" onclick="openProspectModal('${x.id}')" title="수정"><i class="ti ti-edit"></i></button></td>
+    </tr>
+    ${x.note?`<tr><td style="padding:2px 6px 8px;font-size:11px;color:var(--text2);text-align:center;vertical-align:top">상담내용</td><td colspan="10" style="padding:2px 6px 8px;font-size:12px;color:var(--text2);white-space:pre-wrap">${pmEsc(x.note)}</td></tr>`:''}`;
+  }).join('');
+}
+function cycleProspectOX(id,k){
+  const x=prospects.find(v=>v.id===id); if(!x) return;
+  x[k]=x[k]==='O'?'X':x[k]==='X'?'':'O';
+  save(); renderProspects();
+}
+function pmRenderSrcBtns(){
+  document.getElementById('pm-src-btns').innerHTML=PROSPECT_SOURCES.map(v=>{
+    const on=_pmSrc===v.k, c=PSRC_COLOR[v.k];
+    return `<button type="button" class="btn btn-sm" onclick="_pmSrc='${v.k}';pmRenderSrcBtns()" style="font-size:12px;${on?`background:${c};color:#fff;border-color:${c}`:''}">${v.k}(${v.label})</button>`;
+  }).join('');
+  document.getElementById('pm-src-custom').style.display=_pmSrc==='G'?'block':'none';
+}
+function openProspectModal(id){
+  _pmEditId=id||null;
+  const x=id?prospects.find(v=>v.id===id):null;
+  document.getElementById('pm-modal-title').textContent=x?'가망 수정':'가망 추가';
+  document.getElementById('pm-del-btn').style.visibility=x?'visible':'hidden';
+  const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+  const def=pmYm()===today.slice(0,7)?today:pmYm()+'-01';
+  const set=(f,v)=>{document.getElementById('pm-'+f).value=v??'';};
+  set('date',x?x.date:def); set('name',x?.name); set('edu',x?.edu); set('price',x?.price);
+  set('contact',x?.contact); set('ctype',x?.ctype); set('plan',x?.plan); set('pay',x?.pay); set('mat',x?.mat);
+  set('note',x?.note); set('src-custom',x?.srcCustom);
+  _pmSrc=x?.src||''; pmRenderSrcBtns();
+  openModal('modal-prospect');
+}
+function saveProspect(){
+  const g=f=>document.getElementById('pm-'+f).value.trim();
+  const date=g('date'), name=g('name');
+  if(!date||!name){ alert('날짜와 성함은 꼭 입력해주세요'); return; }
+  const data={date,name,src:_pmSrc,srcCustom:_pmSrc==='G'?g('src-custom'):'',edu:g('edu'),price:g('price'),
+    contact:g('contact'),ctype:g('ctype'),plan:g('plan'),pay:g('pay'),mat:g('mat'),note:document.getElementById('pm-note').value.trim()};
+  if(_pmEditId){ const x=prospects.find(v=>v.id===_pmEditId); if(x) Object.assign(x,data); }
+  else prospects.push({id:'pr'+Date.now()+Math.random().toString(36).slice(2,6),createdAt:new Date().toISOString(),...data});
+  _pmMonth=date.slice(0,7);
+  save(); closeModal('modal-prospect'); renderProspects();
+}
+function deleteProspect(){
+  const x=prospects.find(v=>v.id===_pmEditId); if(!x) return;
+  if(!confirm(`${x.name}님 가망노트를 삭제할까요?\n(연결된 플랜표·학습자는 그대로 남아요)`)) return;
+  prospects=prospects.filter(v=>v.id!==_pmEditId);
+  save(); closeModal('modal-prospect'); renderProspects();
+}
+// 가망 → 플랜표
+function prospectToPlan(id){
+  const x=prospects.find(v=>v.id===id); if(!x) return;
+  const p=blankPlan();
+  p.clientName=x.name||''; p.phone=x.contact||''; p.counselDate=x.date||p.counselDate;
+  const s=PROSPECT_SOURCES.find(v=>v.k===x.src);
+  if(s){ p.source=s.label; if(s.k==='G') p.sourceCustom=x.srcCustom||''; }
+  p.status='가망';
+  plans[p.id]=p; x.planId=p.id;
+  savePlansStorage(); save();
+  goProspectPlan(id);
+}
+function goProspectPlan(id){
+  const x=prospects.find(v=>v.id===id); if(!x||!plans[x.planId]){ alert('연결된 플랜표를 찾을 수 없어요'); return; }
+  const tabEl=[...document.querySelectorAll('.tab')].find(t=>(t.getAttribute('onclick')||'').includes("'plan'"));
+  switchTab('plan',tabEl);
+  setTimeout(()=>selectPlan(x.planId),50);
+}
+// 가망 → 학습자 등록 (학습자 추가 창에 이름·연락처 채움, 저장하면 연결)
+function prospectToLearner(id){
+  const x=prospects.find(v=>v.id===id); if(!x) return;
+  openLearnerModal();
+  _pendingProspectId=id;
+  document.getElementById('l-name').value=x.name||'';
+  document.getElementById('l-phone').value=x.contact||'';
+  openModal('modal-learner');
+}
+// 엑셀 양식 / 가져오기 (시트에서 옮길 직원용)
+const PM_COLS=['날짜','소스','성함/닉네임','최종학력','단가','연락처','연락방식','플랜안내','결제안내','자료배포','상담내용'];
+function pmLoadXLSX(){
+  return new Promise((res,rej)=>{
+    if(window.XLSX){res();return;}
+    const sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    sc.onload=res; sc.onerror=rej; document.head.appendChild(sc);
+  });
+}
+function downloadProspectTemplate(){
+  pmLoadXLSX().then(()=>{
+    const ws=XLSX.utils.aoa_to_sheet([PM_COLS,['2026-09-30','H','홍길동','4년제졸','40','010-0000-0000','카톡','O','X','O','상담 내용 예시']]);
+    ws['!cols']=PM_COLS.map((c,i)=>({wch:i===10?40:i===2||i===5?16:10}));
+    const guide=XLSX.utils.aoa_to_sheet([['소스 입력값'],...PROSPECT_SOURCES.map(v=>[`${v.k} 또는 ${v.label}`]),[''],['플랜안내·결제안내·자료배포는 O 또는 X'],['날짜는 2026-09-30 또는 26-09-30 형식']]);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'가망노트');
+    XLSX.utils.book_append_sheet(wb,guide,'입력안내');
+    XLSX.writeFile(wb,'가망노트_양식.xlsx');
+  }).catch(()=>alert('엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해주세요.'));
+}
+function pmParseDate(v){
+  if(typeof v==='number'){ const d=new Date(Math.round((v-25569)*864e5)); return d.toISOString().slice(0,10); }
+  const n=String(v||'').match(/\d+/g); if(!n||n.length<3) return '';
+  let [y,m,d]=n.map(Number); if(y<100) y+=2000;
+  if(!(m>=1&&m<=12&&d>=1&&d<=31)) return '';
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function importProspectFile(input){
+  const file=input.files[0]; if(!file) return; input.value='';
+  pmLoadXLSX().then(()=>{
+    const rd=new FileReader();
+    rd.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+        const hi=rows.findIndex(r=>r.some(c=>String(c).includes('성함')));
+        if(hi<0){ alert('"성함/닉네임" 제목 줄을 찾지 못했어요. [양식] 버튼으로 받은 파일에 맞춰 입력해주세요.'); return; }
+        const H=rows[hi].map(c=>String(c).trim());
+        const ci=k=>H.findIndex(h=>h.includes(k));
+        const C={date:ci('날짜'),src:ci('소스'),name:ci('성함'),edu:ci('학력'),price:ci('단가'),contact:ci('연락처'),ctype:ci('연락방식'),plan:ci('플랜'),pay:ci('결제'),mat:ci('자료'),note:ci('상담')};
+        const val=(r,k)=>C[k]>=0?String(r[C[k]]??'').trim():'';
+        const oxv=v=>/^[oO○ㅇ]$/.test(v)?'O':/^[xX×]$/.test(v)?'X':'';
+        const srcOf=v=>{ if(!v) return ['','']; const t=v.trim(); const s=PROSPECT_SOURCES.find(p=>t===p.k||t.toUpperCase()===p.k||t.includes(p.label)); return s?[s.k,'']:['G',t]; };
+        const ex=new Set(prospects.map(x=>`${x.date}|${x.name}|${x.contact}`));
+        const items=[]; let skip=0, bad=0;
+        rows.slice(hi+1).forEach((r,i)=>{
+          const name=val(r,'name'); if(!name) return;
+          const date=C.date>=0?pmParseDate(r[C.date]):'';
+          if(!date){ bad++; return; }
+          const [src,srcCustom]=srcOf(val(r,'src'));
+          const it={id:'pr'+Date.now()+i+Math.random().toString(36).slice(2,5),createdAt:new Date().toISOString(),
+            date,name,src,srcCustom,edu:val(r,'edu'),price:val(r,'price'),contact:val(r,'contact'),ctype:val(r,'ctype'),
+            plan:oxv(val(r,'plan')),pay:oxv(val(r,'pay')),mat:oxv(val(r,'mat')),note:val(r,'note')};
+          const key=`${it.date}|${it.name}|${it.contact}`;
+          if(ex.has(key)){ skip++; return; }
+          ex.add(key); items.push(it);
+        });
+        if(!items.length){ alert(`가져올 새 가망 고객이 없어요.${skip?`\n(이미 있는 ${skip}건 제외)`:''}${bad?`\n(날짜를 읽지 못한 ${bad}건 제외)`:''}`); return; }
+        if(!confirm(`${items.length}건을 가망노트에 추가할까요?${skip?`\n이미 있는 ${skip}건은 건너뛰어요.`:''}${bad?`\n날짜를 읽지 못한 ${bad}건은 제외돼요.`:''}`)) return;
+        prospects.push(...items); save(); _pmMonth=items[0].date.slice(0,7); renderProspects();
+        alert(`✓ ${items.length}건을 가져왔어요.`);
+      }catch(err){ alert('파일을 읽지 못했어요: '+err.message); }
+    };
+    rd.readAsArrayBuffer(file);
+  }).catch(()=>alert('엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해주세요.'));
+}
+// 관리자: 팀 가망노트 (매출 현황 탭의 년/월 필터 사용)
+function renderAdminProspects(){
+  const el=document.getElementById('admin-prospects'); if(!el) return;
+  const yf=document.getElementById('admin-year-filter')?.value||'';
+  const mf=document.getElementById('admin-month-filter')?.value||'';
+  const ok=x=>{ const d=x.date||''; if(yf&&d.slice(0,4)!==yf) return false; if(mf&&+d.slice(5,7)!==+mf) return false; return true; };
+  const rows=Object.values(allMembersData).map(m=>{
+    const list=(m.prospects||[]).filter(ok);
+    const c={}; list.forEach(x=>c[x.src||'']=(c[x.src||'']||0)+1);
+    return {name:m.name||m.email||'-',list,c,pay:list.filter(x=>x.pay==='O').length,lr:list.filter(x=>x.learnerId).length};
+  }).filter(r=>r.list.length).sort((a,b)=>b.list.length-a.list.length);
+  const tot={}; rows.forEach(r=>PROSPECT_SOURCES.forEach(v=>tot[v.k]=(tot[v.k]||0)+(r.c[v.k]||0)));
+  const all=rows.reduce((a,r)=>a+r.list.length,0);
+  const th='padding:7px 8px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center;font-size:12px';
+  const td='padding:7px 8px;border-bottom:1px solid var(--border);text-align:center';
+  el.innerHTML=`<div style="font-size:14px;font-weight:700;margin-bottom:8px"><i class="ti ti-address-book"></i> 팀 가망노트 ${yf||mf?`(${yf?yf+'년 ':''}${mf?mf+'월':''})`:'(전체 기간)'} · 총 ${all}건</div>
+    ${rows.length?`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px">
+      <thead><tr><th style="${th};text-align:left">직원</th><th style="${th}">합계</th>${PROSPECT_SOURCES.map(v=>`<th style="${th};color:${PSRC_COLOR[v.k]}">${v.k}(${v.label})</th>`).join('')}<th style="${th}">결제안내 O</th><th style="${th}">학습자 등록</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td style="${td};text-align:left;font-weight:600">${pmEsc(r.name)}</td><td style="${td};font-weight:700">${r.list.length}</td>${PROSPECT_SOURCES.map(v=>`<td style="${td}">${r.c[v.k]||''}</td>`).join('')}<td style="${td}">${r.pay}</td><td style="${td}">${r.lr}</td></tr>`).join('')}
+        <tr style="background:var(--bg2);font-weight:700"><td style="${td};text-align:left">합계</td><td style="${td}">${all}</td>${PROSPECT_SOURCES.map(v=>`<td style="${td}">${tot[v.k]||''}</td>`).join('')}<td style="${td}">${rows.reduce((a,r)=>a+r.pay,0)}</td><td style="${td}">${rows.reduce((a,r)=>a+r.lr,0)}</td></tr>
+      </tbody></table></div>`:'<div class="empty">해당 기간 가망노트가 없어요</div>'}`;
+}
+
 // ── 이번달 유입경로(문의경로) 통계 ────────────────────────────────────
 function renderSourceStats(){
   const el=document.getElementById('source-stats-list');
@@ -3963,17 +4295,19 @@ function renderSourceStats(){
   const kst=new Date(new Date().getTime()+9*60*60*1000);
   const ym=`${kst.getUTCFullYear()}-${String(kst.getUTCMonth()+1).padStart(2,'0')}`;
 
-  const thisMonthPlans=Object.values(plans).filter(p=>(p.counselDate||'').startsWith(ym));
-  if(!thisMonthPlans.length){
-    el.innerHTML='<div class="empty"><i class="ti ti-chart-bar"></i>이번달 상담 등록 건이 없어요</div>';
+  // 가망노트 기준 (소스 = 문의경로)
+  const thisMonth=prospects.filter(x=>(x.date||'').startsWith(ym));
+  if(!thisMonth.length){
+    el.innerHTML='<div class="empty"><i class="ti ti-chart-bar"></i>이번달 가망노트 등록 건이 없어요</div>';
     return;
   }
 
   const counts={};
-  thisMonthPlans.forEach(p=>{
-    const label=p.source==='기타'?(p.sourceCustom||'기타'):(p.source||'미입력');
+  thisMonth.forEach(x=>{
+    const label=prospectSrcLabel(x);
     counts[label]=(counts[label]||0)+1;
   });
+  const thisMonthPlans=thisMonth;
   const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   const max=Math.max(...entries.map(e=>e[1]));
   const total=thisMonthPlans.length;
@@ -4542,13 +4876,14 @@ function importDataJson(event){
       if(d.rewardTable)    rewardTable    = d.rewardTable;
       if(d.mktActivities)  mktActivities  = d.mktActivities;
       if(d.mktGoals)       mktGoals       = d.mktGoals;
+      if(d.prospects)      prospects      = d.prospects;
 
       // Firebase + 로컬 저장
       save();
       if(currentUser && fbDb){
         fbDb.collection('userData').doc(currentUser.uid).set({
           learners, schedules, plans, memos, memoCategories,
-          blogKeywords, todos, rewardTable, mktActivities, mktGoals,
+          blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects,
           lastUpdated: new Date().toISOString()
         }, {merge:false}).then(()=>{
           showToast('✅ 데이터 가져오기 완료! Firebase에 저장됐어요.');
@@ -4575,7 +4910,7 @@ function exportDataJson(){
   const data={
     exportedAt: new Date().toISOString(),
     learners, schedules, plans, memos, memoCategories,
-    blogKeywords, todos, rewardTable, mktActivities, mktGoals
+    blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -5890,7 +6225,7 @@ function renderPlanEditor(p){
         <div class="fg"><label>문의경로</label>
           <select onchange="upP('source',this.value);document.getElementById('source-custom-wrap').style.display=this.value==='기타'?'block':'none'">
             <option value="" ${!p.source?'selected':''}>선택</option>
-            ${['블로그','카페','유튜브','소개','선임','기타'].map(s=>`<option ${p.source===s?'selected':''}>${s}</option>`).join('')}
+            ${[...PROSPECT_SOURCES.map(x=>x.label),...(p.source&&!PROSPECT_SOURCES.some(x=>x.label===p.source)?[p.source]:[])].map(s=>`<option ${p.source===s?'selected':''}>${s}</option>`).join('')}
           </select>
           <div id="source-custom-wrap" style="margin-top:4px;display:${p.source==='기타'?'block':'none'}">
             <input type="text" value="${p.sourceCustom||''}" placeholder="문의경로 직접 입력 (예: 지인 소개)" onchange="upP('sourceCustom',this.value)" style="font-size:12px;padding:5px 8px">
