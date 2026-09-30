@@ -106,6 +106,29 @@ body{
 @media (max-width:720px){ .swipe{display:block} }
 /* goal link */
 .goal .glink{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:6px 10px;text-decoration:none}
+/* checklist */
+.check{margin-top:18px}
+.check summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.check summary::-webkit-details-marker{display:none}
+.check .toggle{font-size:12px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
+.check .toggle .c,.check details[open] .toggle .o{display:none}
+.check details[open] .toggle .c{display:inline}
+.check details[open] .toggle{color:var(--ink2);background:#eceff4}
+.mine{margin-top:16px;border-radius:14px;padding:14px 16px;background:var(--blue-bg);border:1px solid var(--blue-line)}
+.mine.warn{background:#fff7e6;border-color:#f5d9a3}
+.mine .mh{font-size:13.5px;font-weight:800;margin-bottom:6px}
+.mine ul{padding-left:18px}
+.mine li{font-size:13px;line-height:1.7;color:var(--ink)}
+.mine li.warn{font-weight:700;color:#9a5b00}
+.mine .mf{margin-top:6px;font-size:12px;color:var(--ink2)}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+.cbox{border:1px solid var(--line);background:var(--soft);border-radius:16px;padding:16px 18px}
+.cbox .ch{font-size:14.5px;font-weight:800;margin-bottom:8px}
+.cbox ul{padding-left:18px}
+.cbox li{font-size:12.5px;line-height:1.75;color:var(--ink2);margin-bottom:4px}
+.cbox li b{color:var(--ink)}
+.check .src{margin-top:10px;font-size:11px;color:var(--ink3)}
+@media (max-width:680px){ .cgrid{grid-template-columns:1fr} }
 /* notice */
 .notice{margin-top:18px}
 .nrows{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -188,6 +211,57 @@ const DEMO = {
 
 const SEM_DAYS=112; // 종료일이 없을 때만 쓰는 추정치(약 16주)
 
+// 마지막 종강일 → 학위수여 시기 (cb.or.kr: 2월 학위는 1/15, 8월 학위는 7/15까지 종강)
+function degreeTermFor(end){
+  const y=+end.slice(0,4), md=end.slice(5);
+  if(md<='01-15') return `${y}.02`;
+  if(md<='07-15') return `${y}.08`;
+  return `${y+1}.02`;
+}
+// 학점은행제 기준 (cb.or.kr 제도이용 주의사항)
+const LIMIT_SEM=24, LIMIT_YEAR=42, LIMIT_EDU_BA=105, LIMIT_EDU_AA=60, MIN_CB=18;
+// 종강일 기준 학기/연도: 1년=3/1~다음해 2월말, 1학기=3~8월, 2학기=9~2월
+function termKey(end){
+  const y=+end.slice(0,4), m=+end.slice(5,7);
+  const ay=m>=3?y:y-1;
+  return {year:ay, term:(m>=3&&m<=8)?1:2};
+}
+function personalChecks(r,sems,remaining,expected,today){
+  const out=[];
+  const dated=sems.filter(s=>s.end);
+  const todo=new Set(remaining);
+  // 학기당 24 / 연간 42 (남은 학기가 포함된 구간만)
+  const bySem={}, byYear={};
+  dated.forEach(s=>{
+    const k=termKey(s.end), sk=`${k.year}-${k.term}`, yk=String(k.year);
+    (bySem[sk]=bySem[sk]||{k,c:0,todo:false}).c+=s.credits; if(todo.has(s)) bySem[sk].todo=true;
+    (byYear[yk]=byYear[yk]||{y:k.year,c:0,todo:false}).c+=s.credits; if(todo.has(s)) byYear[yk].todo=true;
+  });
+  Object.values(bySem).filter(v=>v.todo&&v.c>LIMIT_SEM).forEach(v=>out.push({lv:'warn',
+    t:`${v.k.year}년 ${v.k.term}학기(종강일 기준)에 ${v.c}학점이 계획돼 있어요. 한 학기 최대 ${LIMIT_SEM}학점까지만 인정돼요.`}));
+  Object.values(byYear).filter(v=>v.todo&&v.c>LIMIT_YEAR).forEach(v=>out.push({lv:'warn',
+    t:`${v.y}.3~${v.y+1}.2 사이에 ${v.c}학점이 계획돼 있어요. 1년 최대 ${LIMIT_YEAR}학점까지만 인정돼요.`}));
+  // 한 교육원 최대 인정
+  const aa=/전문학사/.test(r.degree||''), lim=aa?LIMIT_EDU_AA:LIMIT_EDU_BA;
+  const byEdu={};
+  sems.forEach(s=>{ if(s.edu) byEdu[s.edu]=(byEdu[s.edu]||0)+s.credits; });
+  Object.entries(byEdu).filter(([,c])=>c>lim).forEach(([e,c])=>out.push({lv:'warn',
+    t:`${e}에서 ${c}학점이 계획돼 있어요. ${aa?'전문학사':'학사'}는 한 교육원에서 최대 ${lim}학점까지만 인정돼요.`}));
+  // 학점은행 수업 18학점 이상
+  const cb=sems.reduce((a,s)=>a+s.credits,0);
+  if(r.hasPlan&&sems.length&&cb<MIN_CB) out.push({lv:'warn',
+    t:`학점은행 수업으로 들을 학점이 ${cb}학점이에요. 학위를 받으려면 ${MIN_CB}학점 이상 필요해요.`});
+  // 학습자등록·마지막 종강 마감 (예상 완료 기준)
+  if(/^\d{4}\.(02|08)$/.test(expected)){
+    const y=+expected.slice(0,4), feb=expected.endsWith('02');
+    const regBy=feb?`${y-1}-10-31`:`${y}-04-30`;
+    if(regBy>=today) out.push({lv:'info',
+      t:`${y}년 ${feb?2:8}월 학위 예정이에요. 아직 학습자등록 전이라면 ${feb?`${y-1}년 10월`:`${y}년 4월`}까지 꼭 등록해야 해요.`});
+    out.push({lv:'info',t:`마지막 수업은 ${y}년 ${feb?'1월 15일':'7월 15일'}까지 끝나야 ${feb?2:8}월 학위에 반영돼요.`});
+  }
+  return out;
+}
+
 // 허브가 보낸 원본 값 → 화면용 값 (오늘 날짜 기준으로 계산)
 function derive(r){
   const today=iso(new Date());
@@ -225,8 +299,7 @@ function derive(r){
   const ends=[...remaining.filter(s=>s.start).map(s=>s.end),...pendingCerts.map(c=>c.dueDate).filter(Boolean)].sort();
   const last=ends.pop();
   if(last&&target&&planned>=target&&remaining.every(s=>s.start)){
-    const e=new Date(last+'T00:00:00');
-    expected=e.getMonth()+1<=8?`${e.getFullYear()}.08`:`${e.getFullYear()+1}.02`;
+    expected=degreeTermFor(last);
   }
 
   const reached=target>0&&earned>=target;
@@ -261,7 +334,8 @@ function derive(r){
   sched.sort((a,b)=>a.date.localeCompare(b.date));
   goals.push({icon:'A',title:'행정 절차',desc:'학점인정·학위신청',status:reached?'진행 예정':'예정',color:'purple'});
 
-  return {reached,planHtml:r.planHtml||'',name:r.name,target,earned:Math.min(earned,target||earned),thisSem,thisSemName,expected,steps,
+  const checks=personalChecks(r,sems,remaining,expected,today);
+  return {checks,reached,planHtml:r.planHtml||'',name:r.name,target,earned:Math.min(earned,target||earned),thisSem,thisSemName,expected,steps,
     schedules:sched,goals,updatedAt:r.updatedAt};
 }
 
@@ -395,6 +469,7 @@ function render(d,isDemo){
     </details>
   </section>`:''}
   ${noticeHtml(d)}
+  ${checklistHtml(d)}
 
   <p class="foot">※ 이 화면은 담당 선생님이 관리하는 학습 계획 기준이에요. 공식 학점은 학점은행제 누리집에서 확인할 수 있어요.<br>궁금한 점은 담당 선생님께 편하게 연락 주세요.</p>`;
 }
@@ -455,6 +530,50 @@ function noticeHtml(d){
     </div>
     <div class="months">${months}</div>
     <div class="legend"><span><b style="background:var(--blue)"></b>학습자등록 · 학점인정신청</span><span><b style="background:var(--purple)"></b>학위신청</span></div>
+  </section>`;
+}
+
+// ── 꼭 알아두세요 (cb.or.kr 제도이용 주의사항·학위수여 요건 기준) ──
+function checklistHtml(d){
+  const mine=(d.checks||[]);
+  const warn=mine.some(c=>c.lv==='warn');
+  return `
+  <section class="card check">
+    <details ${mine.length?'open':''}>
+      <summary>
+        <div><div class="eyebrow">CHECKLIST</div><div class="ctitle">꼭 알아두세요</div></div>
+        <span class="toggle"><span class="o">펼쳐 보기</span><span class="c">접기</span></span>
+      </summary>
+      ${mine.length?`<div class="mine ${warn?'warn':''}">
+        <div class="mh">${warn?'⚠️ 나에게 해당되는 확인사항':'📌 나에게 해당되는 안내'}</div>
+        <ul>${mine.map(c=>`<li class="${c.lv}">${esc(c.t)}</li>`).join('')}</ul>
+        ${warn?'<div class="mf">계획 조정이 필요할 수 있어요. 담당 선생님께 확인해주세요.</div>':''}
+      </div>`:''}
+      <div class="cgrid">
+        <div class="cbox">
+          <div class="ch">📌 수업 들을 때</div>
+          <ul>
+            <li><b>출석 80% 이상</b>이어야 학점이 인정돼요. 15주 과정이면 12주 이상 출석, 결석은 3주까지예요. 4주 결석하면 그 과목은 인정되지 않아요.</li>
+            <li>한 학기 최대 <b>24학점</b>, 1년 최대 <b>42학점</b>까지 인정돼요. (1년 = 3월~다음 해 2월, 종강일 기준)</li>
+            <li>한 교육원에서 인정받을 수 있는 학점은 학사 <b>105학점</b>, 전문학사 <b>60학점</b>까지예요.</li>
+            <li>이름이 같은 과목(띄어쓰기만 다른 것 포함)은 두 번 들어도 <b>1과목만</b> 인정돼요.</li>
+            <li>자격증·독학사 시험 합격으로 받는 학점은 학기·연간 제한에 포함되지 않아요.</li>
+          </ul>
+        </div>
+        <div class="cbox">
+          <div class="ch">🎓 학위 받으려면</div>
+          <ul>
+            <li>학사 <b>140학점</b>(전공 60·교양 30 이상), 전문학사 <b>80학점</b>(전공 45·교양 15 이상)이 필요해요.</li>
+            <li>전공마다 정해진 <b>전공필수</b> 과목을 꼭 들어야 해요.</li>
+            <li>학점은행 수업(원격수업 등)으로 <b>18학점 이상</b>은 반드시 들어야 해요.</li>
+            <li>학습자등록은 학위신청 75일 전까지! 2월 학위는 <b>전년도 10월</b>, 8월 학위는 <b>4월</b>까지예요.</li>
+            <li>마지막 수업은 2월 학위는 <b>1월 15일</b>, 8월 학위는 <b>7월 15일</b>까지 끝나야 해요.</li>
+            <li>학점을 다 채워도 <b>학위신청 기간에 신청</b>해야 학위가 나와요.</li>
+          </ul>
+        </div>
+      </div>
+      <p class="src">출처: 국가평생교육진흥원 학점은행 누리집(cb.or.kr) 제도이용 주의사항·학위수여 요건</p>
+    </details>
   </section>`;
 }
 

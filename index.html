@@ -2420,7 +2420,7 @@ function buildPortalData(l){
         due:gg.due||'',dueDate:portalDueDate(gg.due),url:gg.url||certDefaultUrl(sp,g.name)});
     }));
     out.sems=(p.semesters||[]).map(s=>({
-      name:s.name||'', ...portalSemDates(s), done:!!s.completed, // 플랜표 '이수완료' 체크
+      name:s.name||'', edu:s.edu||'', ...portalSemDates(s), done:!!s.completed, // 플랜표 '이수완료' 체크
       credits:sumC(s.req)+sumC(s.elec)+sumC(s.gen)+sumC(s.lib)
     }));
   }
