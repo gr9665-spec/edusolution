@@ -37,8 +37,9 @@ body{
 
 .grid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:18px;align-items:stretch}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
-.eyebrow{font-size:14px;font-weight:700;color:var(--ink2)}
-.ctitle{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.eyebrow{font-size:11.5px;font-weight:700;letter-spacing:.12em;color:var(--ink3)}
+.rlabel{font-size:14px;font-weight:700;color:var(--ink2);margin-bottom:16px}
+.ctitle{font-size:20px;font-weight:700;margin-top:6px;letter-spacing:-.01em}
 .chead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
 .pill{font-size:13.5px;font-weight:700;padding:8px 14px;border-radius:999px;background:var(--green-bg);color:var(--green-ink);display:inline-flex;align-items:center;gap:6px}
 .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--teal)}
@@ -418,7 +419,7 @@ function render(d,isDemo){
   <main class="grid">
     <section class="card p">
       <div class="chead">
-        <div><div class="ctitle">학점 진행 현황</div></div>
+        <div><div class="eyebrow">MY PROGRESS</div><div class="ctitle">학점 진행 현황</div></div>
         <span class="pill ${doneAll?'done':''}">${doneAll?'이수 완료':'진행 중'}</span>
       </div>
       <div class="prog">
@@ -441,7 +442,7 @@ function render(d,isDemo){
         </dl>
       </div>
       <div class="sep"></div>
-      <div class="eyebrow" style="margin-bottom:16px">진행 단계</div>
+      <div class="rlabel">진행 단계</div>
       <ol class="route">
         ${(d.steps||[]).slice(0,4).map((s,i,arr)=>`
           <li class="rs ${s.status}${i<arr.length-1&&s.status==='done'?' fill':''}">
@@ -455,7 +456,7 @@ function render(d,isDemo){
 
     <section class="card">
       <div class="chead">
-        <div><div class="ctitle">이번 주 일정</div></div>
+        <div><div class="eyebrow">THIS WEEK</div><div class="ctitle">이번 주 일정</div></div>
         <span class="count">${rows.length}</span>
       </div>
       ${rows.length?`<ul class="sched">${rows.join('')}</ul>`:`<div class="empty">앞으로 2주 안에 예정된 일정이 없어요.<br>새 일정이 생기면 여기에 표시돼요.</div>`}
@@ -463,7 +464,7 @@ function render(d,isDemo){
 
     <section class="card">
       <div class="chead" style="margin-bottom:0">
-        <div><div class="ctitle">나의 목표</div></div>
+        <div><div class="eyebrow">GOAL ROADMAP</div><div class="ctitle">나의 목표</div></div>
       </div>
       <div class="goals">
         ${(d.goals||[]).map(g=>`
@@ -478,7 +479,7 @@ function render(d,isDemo){
   <section class="card plancard">
     <details>
       <summary>
-        <div><div class="ctitle">나의 플랜표</div></div>
+        <div><div class="eyebrow">MY PLAN</div><div class="ctitle">나의 플랜표</div></div>
         <span class="toggle"><span class="o">펼쳐 보기</span><span class="c">접기</span></span>
       </summary>
       <p class="swipe">표가 넓어서 옆으로 밀어서 볼 수 있어요 →</p>
@@ -487,7 +488,7 @@ function render(d,isDemo){
   </section>`:''}
   <section class="card memo">
     <div class="chead" style="margin-bottom:12px">
-      <div><div class="ctitle">나의 메모</div></div>
+      <div><div class="eyebrow">MY MEMO</div><div class="ctitle">나의 메모</div></div>
       <span class="msave" id="memo-state"></span>
     </div>
     <textarea id="memo" maxlength="${MEMO_MAX}" placeholder="${isDemo?'예시 화면에서는 저장되지 않아요.':'공부 계획, 체크할 것, 궁금한 점을 자유롭게 적어두세요.&#10;적은 내용은 자동으로 저장돼요.'}"></textarea>
@@ -530,7 +531,7 @@ function noticeHtml(d){
   return `
   <section class="card notice">
     <div class="chead">
-      <div><div class="ctitle">학점은행제 신청 일정</div></div>
+      <div><div class="eyebrow">NOTICE</div><div class="ctitle">학점은행제 신청 일정</div></div>
     </div>
     <div class="nrows">
       <div class="nrow ${cw.open?'open':''}">
@@ -566,7 +567,7 @@ function checklistHtml(d){
   <section class="card check">
     <details ${mine.length?'open':''}>
       <summary>
-        <div><div class="ctitle">꼭 알아두세요</div></div>
+        <div><div class="eyebrow">CHECKLIST</div><div class="ctitle">꼭 알아두세요</div></div>
         <span class="toggle"><span class="o">펼쳐 보기</span><span class="c">접기</span></span>
       </summary>
       ${mine.length?`<div class="mine ${warn?'warn':''}">
