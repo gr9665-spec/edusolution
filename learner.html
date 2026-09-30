@@ -121,6 +121,8 @@ body{
 .plancard .toggle .c,.plancard details[open] .toggle .o{display:none}
 .plancard details[open] .toggle .c{display:inline}
 .plancard details[open] .toggle{color:var(--ink2);background:var(--mute)}
+.ptitle{display:flex;align-items:center;gap:14px}
+.picon{flex:none;width:44px;height:44px;border-radius:50%;background:var(--blue);display:grid;place-items:center;box-shadow:0 0 0 5px var(--blue-bg)}
 .planwrap{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
 .planin{min-width:680px}
 .swipe{display:none;margin-top:14px;font-size:13px;color:var(--ink3)}
@@ -479,7 +481,10 @@ function render(d,isDemo){
   <section class="card plancard">
     <details>
       <summary>
-        <div><div class="eyebrow">MY PLAN</div><div class="ctitle">나의 플랜표</div></div>
+        <div class="ptitle">
+          <span class="picon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5"/><path d="M8.5 10h7M8.5 14h7M8.5 18h4"/></svg></span>
+          <div><div class="eyebrow">MY PLAN</div><div class="ctitle">나의 플랜표</div></div>
+        </div>
         <span class="toggle"><span class="o">펼쳐 보기</span><span class="c">접기</span></span>
       </summary>
       <p class="swipe">표가 넓어서 옆으로 밀어서 볼 수 있어요 →</p>
