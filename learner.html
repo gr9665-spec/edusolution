@@ -69,6 +69,22 @@ body{
 .step.doing{background:var(--blue-bg);border-color:var(--blue-line);box-shadow:inset 3px 0 0 var(--blue)}
 .step.doing .n,.step.doing .s{color:var(--blue-ink)}
 
+/* route (가로 진행 경로) */
+.route{list-style:none;display:grid;grid-template-columns:repeat(4,1fr);position:relative}
+.rs{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 4px;min-width:0}
+.rs::after{content:"";position:absolute;top:15px;left:calc(50% + 18px);right:calc(-50% + 18px);height:3px;border-radius:3px;background:var(--line)}
+.rs:last-child::after{display:none}
+.rs.fill::after{background:var(--blue)}
+.rs .dot{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:#fff;border:2px solid var(--line);color:var(--ink3);position:relative;z-index:1}
+.rs.done .dot{background:var(--blue);border-color:var(--blue);color:#fff}
+.rs.doing .dot{border-color:var(--blue);color:var(--blue);box-shadow:0 0 0 5px var(--blue-bg)}
+.rs .rt{margin-top:10px;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+.rs.todo .rt{color:var(--ink3)}
+.rs .rw{margin-top:4px;font-size:11px;color:var(--ink2);line-height:1.4;min-height:15px;word-break:keep-all}
+.rs .rst{margin-top:6px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--mute);color:var(--ink3)}
+.rs.done .rst{background:var(--blue-bg);color:var(--blue-ink)}
+.rs.doing .rst{background:var(--blue);color:#fff}
+@media (max-width:420px){ .rs .rt{font-size:12.5px} .rs .rw{font-size:10.5px} }
 /* schedule */
 .sched{list-style:none}
 .sched li{display:grid;grid-template-columns:52px 1fr 10px;gap:12px;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}
@@ -305,11 +321,16 @@ function derive(r){
   }
 
   const reached=target>0&&earned>=target;
+  // 진행 경로 각 단계 아래에 표시할 시기
+  const ym=d=>d?`${d.slice(2,4)}.${d.slice(5,7)}`:'';
+  const datedAll=sems.filter(s=>s.start).sort((a,b)=>a.start.localeCompare(b.start));
+  const period=datedAll.length?`${ym(datedAll[0].start)} ~ ${ym(datedAll.reduce((m,s)=>s.end>m?s.end:m,''))}`:'';
   const steps=[
-    {label:'상담',status:'done'},
-    {label:'학습설계',status:r.hasPlan&&sems.length?'done':'doing'},
-    {label:'과정진행',status:allDone&&!pendingCerts.length?'done':(finished.length||current?'doing':'todo')},
-    {label:'학위·자격',status:reached?'doing':'todo'}
+    {label:'상담',status:'done',when:r.counselDate?r.counselDate.replace(/-/g,'.'):''},
+    {label:'학습설계',status:r.hasPlan&&sems.length?'done':'doing',when:sems.length?`${sems.length}개 학기 계획`:''},
+    {label:'과정진행',status:allDone&&!pendingCerts.length?'done':(finished.length||current?'doing':'todo'),
+      when:current?`${current.name} 수강 중`:period},
+    {label:'학위·자격',status:reached?'doing':'todo',when:expected!=='-'?`${expected} 예정`:''}
   ];
   if(!r.hasPlan){steps[2].status=current||finished.length?'doing':'todo';}
 
@@ -418,12 +439,16 @@ function render(d,isDemo){
         </dl>
       </div>
       <div class="sep"></div>
-      <div class="steps">
-        ${(d.steps||[]).slice(0,4).map((s,i)=>`
-          <div class="step ${stepCls[s.status]||''}">
-            <div class="n">0${i+1}</div><div class="t">${esc(s.label)}</div><div class="s">${stepTxt[s.status]||'예정'}</div>
-          </div>`).join('')}
-      </div>
+      <div class="eyebrow" style="margin-bottom:14px">MY ROUTE</div>
+      <ol class="route">
+        ${(d.steps||[]).slice(0,4).map((s,i,arr)=>`
+          <li class="rs ${s.status}${i<arr.length-1&&s.status==='done'?' fill':''}">
+            <span class="dot">${s.status==='done'?'✓':i+1}</span>
+            <span class="rt">${esc(s.label)}</span>
+            <span class="rw">${esc(s.when||'')}</span>
+            <span class="rst">${stepTxt[s.status]||'예정'}</span>
+          </li>`).join('')}
+      </ol>
     </section>
 
     <section class="card">

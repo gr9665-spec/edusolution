@@ -2416,6 +2416,7 @@ function buildPortalData(l){
     out.owned=t.ownAll;
     out.specials=t.specReq+t.specElec+t.specGen+t.specLib;
     out.planHtml=buildPlanPrintHtml(p); // 학생에게 보내는 플랜표 이미지와 같은 표
+    out.counselDate=/^20\d{2}-\d{2}-\d{2}$/.test(p.counselDate||'')?p.counselDate:'';
     out.certs=[];
     (p.specials||[]).forEach(sp=>certGroups(sp).forEach(g=>{
       const gg=certGoal(sp,g.key);
