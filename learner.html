@@ -31,39 +31,39 @@ body{
 }
 .wrap{max-width:1180px;margin:0 auto}
 .top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:4px 4px 18px}
-.top .brand{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--ink3)}
+.top .brand{font-size:13.5px;font-weight:700;letter-spacing:.08em;color:var(--ink3)}
 .top h1{font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.01em}
-.top .upd{font-size:12px;color:var(--ink3);white-space:nowrap}
+.top .upd{font-size:13.5px;color:var(--ink3);white-space:nowrap}
 
 .grid{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:18px;align-items:stretch}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:26px 24px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
-.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--ink3)}
-.ctitle{font-size:19px;font-weight:700;margin-top:6px;letter-spacing:-.01em}
+.eyebrow{font-size:14px;font-weight:700;color:var(--ink2)}
+.ctitle{font-size:20px;font-weight:700;letter-spacing:-.01em}
 .chead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
-.pill{font-size:12px;font-weight:700;padding:8px 14px;border-radius:999px;background:var(--green-bg);color:var(--green-ink);display:inline-flex;align-items:center;gap:6px}
+.pill{font-size:13.5px;font-weight:700;padding:8px 14px;border-radius:999px;background:var(--green-bg);color:var(--green-ink);display:inline-flex;align-items:center;gap:6px}
 .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--teal)}
 .pill.done{background:var(--blue-bg);color:var(--blue-ink)}
 .pill.done::before{background:var(--blue)}
-.count{width:36px;height:36px;border-radius:50%;background:var(--blue-bg);color:var(--blue-ink);font-weight:700;font-size:14px;display:grid;place-items:center}
+.count{width:36px;height:36px;border-radius:50%;background:var(--blue-bg);color:var(--blue-ink);font-weight:700;font-size:15.5px;display:grid;place-items:center}
 
 /* progress */
 .prog{display:grid;grid-template-columns:170px 1fr;gap:28px;align-items:center}
 .ring{position:relative;width:170px;height:170px}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
 .ring .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.ring .mid small{font-size:11px;color:var(--ink2)}
+.ring .mid small{font-size:13px;color:var(--ink2)}
 .ring .mid b{font-size:44px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
-.ring .mid span{font-size:11.5px;color:var(--ink2)}
+.ring .mid span{font-size:13px;color:var(--ink2)}
 .stats{border-top:1px solid var(--line)}
 .stats div{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
-.stats dt{font-size:12.5px;color:var(--ink2)}
+.stats dt{font-size:14px;color:var(--ink2)}
 .stats dd{font-size:18px;font-weight:700}
 .sep{height:1px;background:var(--line);margin:24px 0 18px}
 .steps{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .step{border-radius:12px;padding:16px;border:1px solid var(--line);background:var(--soft);min-height:96px}
-.step .n{font-size:11px;font-weight:700;color:var(--ink3)}
-.step .t{font-size:15px;font-weight:700;margin:10px 0 8px}
-.step .s{font-size:11.5px;color:var(--ink3)}
+.step .n{font-size:13px;font-weight:700;color:var(--ink3)}
+.step .t{font-size:16.5px;font-weight:700;margin:10px 0 8px}
+.step .s{font-size:13px;color:var(--ink3)}
 .step.done{background:var(--green-bg);border-color:var(--green-line)}
 .step.done .n,.step.done .s{color:var(--green-ink)}
 .step.doing{background:var(--blue-bg);border-color:var(--blue-line);box-shadow:inset 3px 0 0 var(--blue)}
@@ -75,77 +75,79 @@ body{
 .rs::after{content:"";position:absolute;top:15px;left:calc(50% + 18px);right:calc(-50% + 18px);height:3px;border-radius:3px;background:var(--line)}
 .rs:last-child::after{display:none}
 .rs.fill::after{background:var(--blue)}
-.rs .dot{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;background:#fff;border:2px solid var(--line);color:var(--ink3);position:relative;z-index:1}
+.rs .dot{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:14.5px;font-weight:700;background:#fff;border:2px solid var(--line);color:var(--ink3);position:relative;z-index:1}
 .rs.done .dot{background:var(--blue);border-color:var(--blue);color:#fff}
 .rs.doing .dot{border-color:var(--blue);color:var(--blue);box-shadow:0 0 0 5px var(--blue-bg)}
-.rs .rt{margin-top:10px;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+.rs .rt{margin-top:10px;font-size:15px;font-weight:700;color:var(--ink);white-space:nowrap}
 .rs.todo .rt{color:var(--ink3)}
-.rs .rw{margin-top:4px;font-size:11px;color:var(--ink2);line-height:1.4;min-height:15px;word-break:keep-all}
-.rs .rst{margin-top:6px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--mute);color:var(--ink3)}
+.rs .rw{margin-top:4px;font-size:13px;color:var(--ink2);line-height:1.4;min-height:15px;word-break:keep-all}
+.rs .rst{margin-top:6px;font-size:12.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--mute);color:var(--ink3)}
 .rs.done .rst{background:var(--blue-bg);color:var(--blue-ink)}
 .rs.doing .rst{background:var(--blue);color:#fff}
-@media (max-width:420px){ .rs .rt{font-size:12.5px} .rs .rw{font-size:10.5px} }
+@media (max-width:420px){ .rs .rt{font-size:14px} .rs .rw{font-size:12.5px} }
 /* schedule */
 .sched{list-style:none}
-.sched li{display:grid;grid-template-columns:52px 1fr 10px;gap:12px;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}
-.sched .d{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:.04em;line-height:1.5}
-.sched .d em{display:block;font-style:normal;font-weight:600;font-size:10.5px;color:var(--ink3);letter-spacing:0}
-.sched .t{font-size:14.5px;font-weight:700}
-.sched .s{font-size:11.5px;color:var(--ink3);margin-top:6px}
+.sched li{display:grid;grid-template-columns:68px 1fr 10px;gap:12px;align-items:center;padding:22px 0;border-bottom:1px solid var(--line)}
+.sched .d{line-height:1.3}
+.sched .d b{display:block;font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.01em}
+.sched .d em{display:block;margin-top:3px;font-style:normal;font-weight:600;font-size:13.5px;color:var(--ink2)}
+.sched li.today .d b,.sched li.today .d em{color:var(--blue-ink)}
+.sched .t{font-size:16px;font-weight:700}
+.sched .s{font-size:13px;color:var(--ink3);margin-top:6px}
 .sched .dot{width:9px;height:9px;border-radius:50%}
-.sched li.today .d{color:var(--blue-ink)}
-.empty{padding:40px 0;text-align:center;color:var(--ink3);font-size:13px;line-height:1.7}
+
+.empty{padding:40px 0;text-align:center;color:var(--ink3);font-size:14.5px;line-height:1.7}
 
 /* goals */
 .goals{display:flex;flex-direction:column;gap:14px;margin-top:40px}
 .goal{display:grid;grid-template-columns:40px 1fr;gap:18px;align-items:center;border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:20px}
-.goal .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px}
-.goal .t{font-size:14.5px;font-weight:700}
-.goal .s{font-size:11.5px;color:var(--ink2);margin:6px 0 10px}
-.goal .tag{display:inline-block;font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;background:var(--mute);color:var(--ink2)}
+.goal .ic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14.5px}
+.goal .t{font-size:16px;font-weight:700}
+.goal .s{font-size:13px;color:var(--ink2);margin:6px 0 10px}
+.goal .tag{display:inline-block;font-size:13px;font-weight:600;padding:6px 10px;border-radius:999px;background:var(--mute);color:var(--ink2)}
 
 /* memo */
 .memo{margin-top:18px}
-.memo textarea{width:100%;min-height:130px;resize:vertical;border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:14px 16px;font:inherit;font-size:14px;line-height:1.7;color:var(--ink)}
+.memo textarea{width:100%;min-height:130px;resize:vertical;border:1px solid var(--line);border-radius:14px;background:var(--soft);padding:14px 16px;font:inherit;font-size:15.5px;line-height:1.7;color:var(--ink)}
 .memo textarea:focus{outline:none;border-color:var(--blue);background:#fff}
-.msave{font-size:11.5px;color:var(--ink3);white-space:nowrap}
-.mnote{margin-top:8px;font-size:11.5px;color:var(--ink3)}
+.msave{font-size:13px;color:var(--ink3);white-space:nowrap}
+.mnote{margin-top:8px;font-size:13px;color:var(--ink3)}
 /* plan */
 .plancard{margin-top:18px}
 .plancard summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
 .plancard summary::-webkit-details-marker{display:none}
-.plancard .toggle{font-size:12px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
+.plancard .toggle{font-size:13.5px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
 .plancard .toggle .c,.plancard details[open] .toggle .o{display:none}
 .plancard details[open] .toggle .c{display:inline}
 .plancard details[open] .toggle{color:var(--ink2);background:var(--mute)}
 .planwrap{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
 .planin{min-width:680px}
-.swipe{display:none;margin-top:14px;font-size:11.5px;color:var(--ink3)}
+.swipe{display:none;margin-top:14px;font-size:13px;color:var(--ink3)}
 @media (max-width:720px){ .swipe{display:block} }
 /* goal link */
-.goal .glink{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:6px 10px;text-decoration:none}
+.goal .glink{display:inline-block;margin-left:6px;font-size:13px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:6px 10px;text-decoration:none}
 /* checklist */
 .check{margin-top:18px}
 .check summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px}
 .check summary::-webkit-details-marker{display:none}
-.check .toggle{font-size:12px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
+.check .toggle{font-size:13.5px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:8px 14px;white-space:nowrap}
 .check .toggle .c,.check details[open] .toggle .o{display:none}
 .check details[open] .toggle .c{display:inline}
 .check details[open] .toggle{color:var(--ink2);background:var(--mute)}
 .mine{margin-top:16px;border-radius:14px;padding:14px 16px;background:var(--blue-bg);border:1px solid var(--blue-line)}
 .mine.warn{background:var(--warn-bg);border-color:var(--warn-line)}
-.mine .mh{font-size:13.5px;font-weight:800;margin-bottom:6px}
+.mine .mh{font-size:15px;font-weight:800;margin-bottom:6px}
 .mine ul{padding-left:18px}
-.mine li{font-size:13px;line-height:1.7;color:var(--ink)}
+.mine li{font-size:14.5px;line-height:1.7;color:var(--ink)}
 .mine li.warn{font-weight:600;color:var(--warn-ink)}
-.mine .mf{margin-top:6px;font-size:12px;color:var(--ink2)}
+.mine .mf{margin-top:6px;font-size:13.5px;color:var(--ink2)}
 .cgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
 .cbox{border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:16px 18px}
-.cbox .ch{font-size:14.5px;font-weight:800;margin-bottom:8px}
+.cbox .ch{font-size:16px;font-weight:800;margin-bottom:8px}
 .cbox ul{padding-left:18px}
-.cbox li{font-size:12.5px;line-height:1.75;color:var(--ink2);margin-bottom:4px}
+.cbox li{font-size:14px;line-height:1.75;color:var(--ink2);margin-bottom:4px}
 .cbox li b{color:var(--ink)}
-.check .src{margin-top:10px;font-size:11px;color:var(--ink3)}
+.check .src{margin-top:10px;font-size:13px;color:var(--ink3)}
 @media (max-width:680px){ .cgrid{grid-template-columns:1fr} }
 /* notice */
 .notice{margin-top:18px}
@@ -153,25 +155,25 @@ body{
 .nrow{border:1px solid var(--line);background:var(--soft);border-radius:12px;padding:18px}
 .nrow.open{background:var(--green-bg);border-color:var(--green-line)}
 .nrow .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.nrow .t{font-size:15px;font-weight:700}
+.nrow .t{font-size:16.5px;font-weight:700}
 .nrow .when{font-size:20px;font-weight:800;margin:12px 0 6px;letter-spacing:-.01em}
-.nrow .s{font-size:12px;color:var(--ink2);line-height:1.6}
-.chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--mute);color:var(--ink2);white-space:nowrap}
+.nrow .s{font-size:13.5px;color:var(--ink2);line-height:1.6}
+.chip{font-size:13px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--mute);color:var(--ink2);white-space:nowrap}
 .chip.on{background:#fff;color:var(--green-ink);box-shadow:0 0 0 1px var(--green-line) inset}
-.tip{margin-top:10px;font-size:12px;font-weight:600;color:var(--blue-ink);background:var(--blue-bg);border-radius:10px;padding:8px 10px;line-height:1.5}
+.tip{margin-top:10px;font-size:13.5px;font-weight:600;color:var(--blue-ink);background:var(--blue-bg);border-radius:10px;padding:8px 10px;line-height:1.5}
 .months{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;margin-top:20px}
-.mo{border-radius:10px;background:var(--soft);border:1px solid var(--line);padding:8px 0 7px;text-align:center;font-size:11.5px;font-weight:700;color:var(--ink3)}
+.mo{border-radius:10px;background:var(--soft);border:1px solid var(--line);padding:8px 0 7px;text-align:center;font-size:13px;font-weight:700;color:var(--ink3)}
 .mo i{display:flex;justify-content:center;gap:3px;height:6px;margin-top:5px}
 .mo i b{width:6px;height:6px;border-radius:50%}
 .mo.cur{border-color:var(--ink);color:var(--ink)}
-.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11.5px;color:var(--ink2)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--ink2)}
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .legend b{width:7px;height:7px;border-radius:50%;display:inline-block}
-.foot{margin:22px 4px 0;font-size:11.5px;color:var(--ink3);line-height:1.7}
+.foot{margin:22px 4px 0;font-size:13px;color:var(--ink3);line-height:1.7}
 .state{max-width:420px;margin:15vh auto;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:36px 24px}
 .state h2{font-size:18px;margin-bottom:10px}
-.state p{font-size:13.5px;color:var(--ink2);line-height:1.7}
-.demo{display:inline-block;font-size:11px;font-weight:700;color:#b7791f;background:#fff6e0;border-radius:999px;padding:4px 10px;margin-left:8px;vertical-align:middle}
+.state p{font-size:15px;color:var(--ink2);line-height:1.7}
+.demo{display:inline-block;font-size:13px;font-weight:700;color:#b7791f;background:#fff6e0;border-radius:999px;padding:4px 10px;margin-left:8px;vertical-align:middle}
 
 @media (max-width:1020px){
   .grid{grid-template-columns:1fr 1fr}
@@ -335,7 +337,7 @@ function derive(r){
   if(!r.hasPlan){steps[2].status=current||finished.length?'doing':'todo';}
 
   const goals=[];
-  if(r.degree||target) goals.push({icon:'D',title:'학위취득',
+  if(r.degree||target) goals.push({icon:'학',title:'학위취득',
     desc:[r.major,r.degree].filter(Boolean).join(' ')+(target?` · 목표 ${target}학점`:''),
     status:reached?'학점 충족':'진행 중',color:'teal'});
   (certs||[]).forEach(c=>{
@@ -347,7 +349,7 @@ function derive(r){
     if(c.done) status=`${word} 완료`;
     else status=[isD&&subs.length>1&&passed?`${passed}/${subs.length}과목 ${word}`:'',
                  dd!=null?(dd>=0?`D-${dd}`:'목표일 지남'):''].filter(Boolean).join(' · ')||`${word} 예정`;
-    goals.push({icon:isD?'E':'Q',title:c.name,
+    goals.push({icon:isD?'독':'자',title:c.name,
       desc:[isD&&subs.length?subs.map(x=>(x.done?'✓':'')+x.name).join('·'):'',
             c.due?`${c.due}까지 ${word}`:'',c.credits?`${c.credits}학점 인정`:''].filter(Boolean).join(' · '),
       status,color:c.done?'teal':(isD?'purple':'blue'),url:c.url||''});
@@ -355,7 +357,7 @@ function derive(r){
   const sched=[...(r.sched||[])];
   pendingCerts.filter(c=>c.dueDate).forEach(c=>sched.push({date:c.dueDate,title:`${c.name} ${c.kind==='doksa'?'합격':'취득'} 목표`,sub:'자격증',kind:'admin'}));
   sched.sort((a,b)=>a.date.localeCompare(b.date));
-  goals.push({icon:'A',title:'행정 절차',desc:'학점인정·학위신청',status:reached?'진행 예정':'예정',color:'purple'});
+  goals.push({icon:'행',title:'행정 절차',desc:'학점인정·학위신청',status:reached?'진행 예정':'예정',color:'purple'});
 
   const checks=personalChecks(r,sems,remaining,expected,today);
   return {checks,reached,planHtml:r.planHtml||'',name:r.name,target,earned:Math.min(earned,target||earned),thisSem,thisSemName,expected,steps,
@@ -364,7 +366,7 @@ function derive(r){
 
 const KIND_COLOR={class:'var(--teal)',task:'var(--blue)',exam:'var(--yellow)',discuss:'var(--teal)',admin:'var(--purple)',etc:'var(--purple)'};
 const GOAL_BG={teal:'#5f9f8a',blue:'#3162b0',purple:'#7f93c2'};
-const DOW=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const DOW=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
 
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
@@ -384,7 +386,7 @@ function schedRows(list){
     const md=`${s._d.getMonth()+1}.${s._d.getDate()}`;
     const isToday=+s._d===+today;
     return `<li class="${isToday?'today':''}">
-      <div class="d">${isToday?'TODAY':(isNext?'NEXT':DOW[s._d.getDay()])}<em>${md}</em></div>
+      <div class="d"><b>${md}</b><em>${isToday?'오늘':(isNext?'다음 주 '+DOW[s._d.getDay()].slice(0,1):DOW[s._d.getDay()])}</em></div>
       <div><div class="t">${esc(s.title)}</div><div class="s">${esc(s.sub||'')}</div></div>
       <span class="dot" style="background:${KIND_COLOR[s.kind]||KIND_COLOR.etc}"></span>
     </li>`;
@@ -407,7 +409,7 @@ function render(d,isDemo){
   document.getElementById('app').innerHTML=`
   <header class="top">
     <div>
-      <div class="brand">EDUSOLUTION · 학점은행제 희경쌤</div>
+      <div class="brand">에듀솔루션 · 학점은행제 희경쌤</div>
       <h1>${esc(d.name)}님의 학습 현황${isDemo?'<span class="demo">예시 화면</span>':''}</h1>
     </div>
     ${upd?`<div class="upd">${upd.getMonth()+1}월 ${upd.getDate()}일 업데이트</div>`:''}
@@ -416,7 +418,7 @@ function render(d,isDemo){
   <main class="grid">
     <section class="card p">
       <div class="chead">
-        <div><div class="eyebrow">MY PROGRESS</div><div class="ctitle">학점 진행 현황</div></div>
+        <div><div class="ctitle">학점 진행 현황</div></div>
         <span class="pill ${doneAll?'done':''}">${doneAll?'이수 완료':'진행 중'}</span>
       </div>
       <div class="prog">
@@ -439,7 +441,7 @@ function render(d,isDemo){
         </dl>
       </div>
       <div class="sep"></div>
-      <div class="eyebrow" style="margin-bottom:14px">MY ROUTE</div>
+      <div class="eyebrow" style="margin-bottom:16px">진행 단계</div>
       <ol class="route">
         ${(d.steps||[]).slice(0,4).map((s,i,arr)=>`
           <li class="rs ${s.status}${i<arr.length-1&&s.status==='done'?' fill':''}">
@@ -453,7 +455,7 @@ function render(d,isDemo){
 
     <section class="card">
       <div class="chead">
-        <div><div class="eyebrow">THIS WEEK</div><div class="ctitle">이번 주 일정</div></div>
+        <div><div class="ctitle">이번 주 일정</div></div>
         <span class="count">${rows.length}</span>
       </div>
       ${rows.length?`<ul class="sched">${rows.join('')}</ul>`:`<div class="empty">앞으로 2주 안에 예정된 일정이 없어요.<br>새 일정이 생기면 여기에 표시돼요.</div>`}
@@ -461,7 +463,7 @@ function render(d,isDemo){
 
     <section class="card">
       <div class="chead" style="margin-bottom:0">
-        <div><div class="eyebrow">GOAL ROADMAP</div><div class="ctitle">나의 목표</div></div>
+        <div><div class="ctitle">나의 목표</div></div>
       </div>
       <div class="goals">
         ${(d.goals||[]).map(g=>`
@@ -476,7 +478,7 @@ function render(d,isDemo){
   <section class="card plancard">
     <details>
       <summary>
-        <div><div class="eyebrow">MY PLAN</div><div class="ctitle">나의 플랜표</div></div>
+        <div><div class="ctitle">나의 플랜표</div></div>
         <span class="toggle"><span class="o">펼쳐 보기</span><span class="c">접기</span></span>
       </summary>
       <p class="swipe">표가 넓어서 옆으로 밀어서 볼 수 있어요 →</p>
@@ -485,7 +487,7 @@ function render(d,isDemo){
   </section>`:''}
   <section class="card memo">
     <div class="chead" style="margin-bottom:12px">
-      <div><div class="eyebrow">MY MEMO</div><div class="ctitle">나의 메모</div></div>
+      <div><div class="ctitle">나의 메모</div></div>
       <span class="msave" id="memo-state"></span>
     </div>
     <textarea id="memo" maxlength="${MEMO_MAX}" placeholder="${isDemo?'예시 화면에서는 저장되지 않아요.':'공부 계획, 체크할 것, 궁금한 점을 자유롭게 적어두세요.&#10;적은 내용은 자동으로 저장돼요.'}"></textarea>
@@ -528,7 +530,7 @@ function noticeHtml(d){
   return `
   <section class="card notice">
     <div class="chead">
-      <div><div class="eyebrow">NOTICE</div><div class="ctitle">학점은행제 신청 일정</div></div>
+      <div><div class="ctitle">학점은행제 신청 일정</div></div>
     </div>
     <div class="nrows">
       <div class="nrow ${cw.open?'open':''}">
@@ -564,7 +566,7 @@ function checklistHtml(d){
   <section class="card check">
     <details ${mine.length?'open':''}>
       <summary>
-        <div><div class="eyebrow">CHECKLIST</div><div class="ctitle">꼭 알아두세요</div></div>
+        <div><div class="ctitle">꼭 알아두세요</div></div>
         <span class="toggle"><span class="o">펼쳐 보기</span><span class="c">접기</span></span>
       </summary>
       ${mine.length?`<div class="mine ${warn?'warn':''}">
