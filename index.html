@@ -6692,7 +6692,15 @@ function generateKakaoMsg(goal){
 
   if(!curPid) return;
   const p=plans[curPid];
-  const name=p.clientName||'고객';
+  // 호칭: 성을 빼고 이름만 (김정효 → 정효, 남궁민수 → 민수, 두 글자 이름은 그대로)
+  const givenName=n=>{
+    n=String(n||'').trim();
+    if(!/^[가-힣]{3,5}$/.test(n)) return n;
+    const two=['남궁','황보','제갈','선우','독고','사공','서문','동방','어금','망절'];
+    if(n.length>=4&&two.includes(n.slice(0,2))) return n.slice(2);
+    return n.slice(1);
+  };
+  const name=givenName(p.clientName)||'고객';
   const major=p.major==='기타'?(p.majorCustom||''):p.major;
   const degree=p.degree||'학사';
   const memo=p.memo||'';
@@ -6702,12 +6710,14 @@ function generateKakaoMsg(goal){
   // ── 학기 일자 ──
   const semDates=p.semesters.map(s=>({name:s.name||'',date:s.date||''}));
   const semLabels=['첫학기','두번째','세번째','네번째','다섯번째'];
-  let semLines='';
   const missingDateSems=[];
+  const semArr=[];
   semDates.forEach((s,i)=>{
-    if(s.date.trim()) semLines+=`${semLabels[i]||`${i+1}번째`} ${s.date}\n`;
+    if(s.date.trim()) semArr.push(`${semLabels[i]||`${i+1}번째`} ${s.date.trim()}`);
     else missingDateSems.push(s.name||`${i+1}번째 학기`);
   });
+  if(semArr.length) semArr[semArr.length-1]+='까지 진행되며';
+  const semLines=semArr.join('\n');
   if(!semDates.length) missing.push('❌ 학기가 없음');
   if(missingDateSems.length) missing.push(`⚠️ 일자 미입력 학기: ${missingDateSems.join(', ')}`);
 
@@ -6765,11 +6775,24 @@ function generateKakaoMsg(goal){
   const dohak1Count=dohakSpec.length>=1?countSubjs(dohakSpec[0]):0;
   const dohak2Count=dohakSpec.length>=2?countSubjs(dohakSpec[1]):0;
 
-  // ── 학위신청/수여일 (비고) ──
-  let degreeDate='';
+  // ── 학위 수여 시기: 비고 "27년 8월 학위수여" 우선, 없으면 마지막 학기 종강일로 계산 ──
+  // (2월 학위는 1/15까지, 8월 학위는 7/15까지 종강해야 함 — cb.or.kr)
+  let degreeWhen='';
   for(const ln of memoLines){
-    if(ln.includes('학위신청')||ln.includes('학위수여')){degreeDate=ln.trim();break;}
+    const m=ln.match(/(\d{2}년\s*\d{1,2}월)\s*학위\s*수여/);
+    if(m){degreeWhen=m[1].replace(/\s+/g,' ');break;}
   }
+  if(!degreeWhen){
+    const ends=p.semesters.map(s=>portalSemDates(s).end).filter(Boolean).sort();
+    const last=ends.pop();
+    if(last&&!missingDateSems.length){
+      const y=+last.slice(0,4), md=last.slice(5);
+      const [yy,mm]=md<='01-15'?[y,2]:md<='07-15'?[y,8]:[y+1,2];
+      degreeWhen=`${String(yy).slice(2)}년 ${mm}월`;
+    }
+  }
+  if(!degreeWhen) missing.push('⚠️ 학위 수여 시기 미확인 (비고에 "XX년 X월 학위수여" 입력 또는 학기 일자 확인)');
+  const degreeDate=degreeWhen?`해당 플랜으로 마무리 후 학위는 ${degreeWhen}에 수여`:'';
 
   // ── 공통 블록 빌더 ──
   const buildSemBlock=()=>semLines?`온라인강의 학습기간은\n${semLines}`:'';
@@ -6809,6 +6832,7 @@ function generateKakaoMsg(goal){
     if(certNames) parts.push(buildCertBlock(`${transferType}으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니,`));
     else parts.push(`${transferType}으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.`);
     if(hasDohak) parts.push(buildDohakBlock());
+    if(degreeDate) parts.push(degreeDate);
 
   } else if(goal==='대졸자전형'){
     parts.push(`${name}님이 진행하실 ${major} ${degree} 플랜입니다`);
