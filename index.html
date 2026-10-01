@@ -917,10 +917,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <div id="kakao-msg-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:560px;box-shadow:0 8px 40px rgba(0,0,0,.18)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="margin:0;font-size:15px;display:flex;align-items:center;gap:6px"><i class="ti ti-message-circle" style="color:#fee500"></i> 카톡 멘트 자동 생성</h3>
+      <h3 style="margin:0;font-size:15px;display:flex;align-items:center;gap:6px"><i class="ti ti-message-circle" style="color:#fee500"></i> <span id="kakao-msg-title">카톡 멘트 자동 생성</span></h3>
       <button onclick="document.getElementById('kakao-msg-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:#888">&times;</button>
     </div>
     <div id="kakao-msg-warn" style="display:none;background:#fff3cd;border:1px solid #f0c040;border-radius:6px;padding:8px 12px;font-size:12px;color:#7a5700;margin-bottom:8px"></div>
+    <div id="kakao-sem-wrap" style="display:none;align-items:center;gap:6px;margin-bottom:8px;font-size:12px">
+      <span style="color:#555;font-weight:600">학기</span><select id="kakao-sem-select" style="flex:1;font-size:12px;padding:4px 6px" onchange="generateRegMsg(+this.value)"></select>
+    </div>
     <div style="font-size:11px;color:#888;margin-bottom:8px">✏️ 직접 수정 후 복사하세요</div>
     <textarea id="kakao-msg-text" style="width:100%;height:260px;resize:vertical;font-size:13px;line-height:1.9;border:1px solid #ddd;border-radius:8px;padding:12px;box-sizing:border-box;font-family:inherit"></textarea>
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
@@ -6286,9 +6289,14 @@ function renderPlanEditor(p){
     <div class="card">
       <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
         <h3><i class="ti ti-notes"></i>비고</h3>
-        <button class="btn btn-primary btn-sm" style="font-size:11px;gap:4px" onclick="document.getElementById('kakao-goal-modal').style.display='flex'">
-          <i class="ti ti-message-circle"></i> 카톡 멘트 자동 생성
-        </button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" style="font-size:11px;gap:4px" onclick="generateRegMsg()">
+            <i class="ti ti-clipboard-text"></i> 등록 멘트
+          </button>
+          <button class="btn btn-primary btn-sm" style="font-size:11px;gap:4px" onclick="document.getElementById('kakao-goal-modal').style.display='flex'">
+            <i class="ti ti-message-circle"></i> 카톡 멘트 자동 생성
+          </button>
+        </div>
       </div>
       <!-- 자주쓰는 비고 프리셋 -->
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
@@ -6686,6 +6694,71 @@ function buildDegreeChecker(p,t,dr){
     </div>
   </div>`;
 }
+// ── 등록 멘트 (가입 후 수강신청 안내) ─────────────────────────────
+// 플랜표 학기의 기수(2-5 → 2학기 5기수)·개강일·과목을 넣어 생성, 쿠폰은 공란
+function generateRegMsg(si){
+  if(!curPid) return;
+  const p=plans[curPid]; const sems=p.semesters||[];
+  if(!sems.length){ alert('플랜표에 학기가 없어요'); return; }
+  const subjOf=sem=>{
+    const out=[];
+    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
+      const t=(r&&r.subject||'').trim(); if(t&&!out.includes(t)) out.push(t);
+    });
+    return out;
+  };
+  if(si==null||!sems[si]){
+    si=sems.findIndex(x=>!x.completed&&subjOf(x).length);
+    if(si<0) si=sems.findIndex(x=>!x.completed);
+    if(si<0) si=sems.length-1;
+  }
+  const sem=sems[si], missing=[];
+  // 기수
+  const k=String(sem.kisu||'').trim();
+  let kisuTxt;
+  const km=k.match(/^(\d)\s*-\s*(\d+)$/);
+  if(km) kisuTxt=`${km[1]}학기 ${km[2]}기수`;
+  else if(k) kisuTxt=/기/.test(k)?k:`${k}기수`;
+  else { kisuTxt='__학기 __기수'; missing.push('⚠️ 기수 미입력'); }
+  // 개강일
+  const d=portalSemDates(sem);
+  const first=String(sem.date||'').split(/\s*[~～–—]\s*|\s+-\s+|-(?=\s*\d{1,2}\s*[\/.월])/)[0]||'';
+  const nums=(first.match(/\d+/g)||[]).map(Number);
+  const hasDay=nums.length>=3||(nums.length===2&&nums[0]<=12);
+  let startTxt;
+  if(d.start&&hasDay) startTxt=`${+d.start.slice(5,7)}월 ${+d.start.slice(8,10)}일`;
+  else if(d.start){ startTxt=`${+d.start.slice(5,7)}월`; missing.push('⚠️ 개강 "일" 확인 필요 (일자 칸에 날짜까지 입력하면 자동으로 들어가요)'); }
+  else { startTxt='__월 __일'; missing.push('⚠️ 학기 일자 미입력'); }
+  // 과목
+  const subs=subjOf(sem);
+  if(!subs.length) missing.push('⚠️ 과목 미입력');
+  if(subs.some(x=>/지정|미정/.test(x))) missing.push('⚠️ "개강 후 지정/미정" 과목이 있어요 — 확정 과목명으로 바꿔주세요');
+  const msg=[
+    '네 가입되셨으면 로그인 후',
+    `수강신청 > ${kisuTxt} ${startTxt} 개강반에서`,
+    '',
+    '지정해드린',
+    '',
+    subs.join('\n'),
+    '',
+    `총 ${subs.length}과목 선택 후 등록 진행해주세요`,
+    '',
+    '쿠폰 : ',
+    '',
+    '등록 완료되시면 교육원 아이디와 연락처 보내주세요! ',
+    '정상등록 되었는지 확인해드리겠습니다 :)'
+  ].join('\n');
+  // 표시 (카톡 멘트 창 재사용)
+  document.getElementById('kakao-msg-title').textContent='등록 멘트';
+  const sel=document.getElementById('kakao-sem-select');
+  sel.innerHTML=sems.map((x,i)=>`<option value="${i}" ${i===si?'selected':''}>${x.name||`${i+1}번째 학기`}${x.edu?' · '+x.edu:''}${x.kisu?' · '+x.kisu:''}${x.completed?' (이수완료)':''}</option>`).join('');
+  document.getElementById('kakao-sem-wrap').style.display='flex';
+  document.getElementById('kakao-msg-text').value=msg+(missing.length?`\n\n───────────────\n⚠️ 멘트 미완성 항목:\n${missing.join('\n')}`:'');
+  const warn=document.getElementById('kakao-msg-warn');
+  if(warn){ warn.style.display=missing.length?'block':'none'; if(missing.length) warn.innerHTML='<i class="ti ti-alert-triangle"></i> 아래 내용을 확인하고 직접 수정 후 복사하세요'; }
+  document.getElementById('kakao-msg-modal').style.display='flex';
+}
+
 function generateKakaoMsg(goal){
   // 목표 선택 모달 닫기
   document.getElementById('kakao-goal-modal').style.display='none';
@@ -6859,6 +6932,8 @@ function generateKakaoMsg(goal){
   // ── 모달 표시 ──
   const modal=document.getElementById('kakao-msg-modal');
   if(modal){
+    document.getElementById('kakao-msg-title').textContent='카톡 멘트 자동 생성';
+    document.getElementById('kakao-sem-wrap').style.display='none';
     document.getElementById('kakao-msg-text').value=msg.trim();
     const warn=document.getElementById('kakao-msg-warn');
     if(warn){
