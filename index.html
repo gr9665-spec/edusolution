@@ -1136,6 +1136,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option value="">전체 상태</option>
         <option value="todo">미연락만</option>
         <option value="open">진행 중 (미연락·연락완료·등록예정)</option>
+        <option value="closed">과정끝·환불만</option>
+        <option value="done">과정끝만</option>
+        <option value="refund">환불만</option>
       </select>
     </div>
   </div>
@@ -4321,6 +4324,9 @@ function renderSeason(){
   if(f==='active') rows=rows.filter(r=>!['과정끝','환불'].includes(r.v.status));
   if(f==='todo') rows=rows.filter(r=>r.v.status==='미연락');
   if(f==='open') rows=rows.filter(r=>['미연락','연락완료','등록예정'].includes(r.v.status));
+  if(f==='closed') rows=rows.filter(r=>['과정끝','환불'].includes(r.v.status));
+  if(f==='done') rows=rows.filter(r=>r.v.status==='과정끝');
+  if(f==='refund') rows=rows.filter(r=>r.v.status==='환불');
   if(q) rows=rows.filter(r=>(r.last.name||'').toLowerCase().includes(q)||(r.last.phone||'').includes(q));
   const order=Object.fromEntries(SS_STATUS.map((v,i)=>[v.k,i]));
   const srt=document.getElementById('ss-sort')?.value||'pay';
@@ -4390,14 +4396,14 @@ function importSeasonExtra(input){
         rows.slice(hi+1).forEach(r=>{
           const name=v(r,'name'); if(!name) return;
           const may=v(r,'may'), nov=v(r,'nov');
-          if(['과정끝','환불'].includes(nov||may)){ skip++; return; }
+          if(['과정끝','환불'].includes(nov||may)) skip++; // 받아두되 기본 필터에서는 숨김
           const ym=v(r,'ym').match(/(\d{4})\D+(\d{1,2})/)||[];
           const dd=v(r,'d').match(/(\d{1,2})\s*일/)||v(r,'d').match(/월\s*(\d{1,2})/);
           const phone=v(r,'phone');
           const key='x|'+name+'|'+normPhone(phone);
           if(have.has(key)){ ex++; return; }
           have.add(key);
-          const st=ok.includes(nov)?nov:(['특이사항','잠정보류','신청오류'].includes(may)?may:'');
+          const st=ok.includes(nov)?nov:(['특이사항','잠정보류','신청오류','과정끝','환불'].includes(may)?may:'');
           const num=x=>parseInt(String(x).replace(/[^\d]/g,''))||0;
           add.push({key,name,phone,edu:v(r,'edu'),kisu:v(r,'kisu'),start:v(r,'start'),eid:v(r,'eid'),
             credit:v(r,'credit'),price:num(v(r,'price')),y:+ym[1]||0,m:+ym[2]||0,d:dd?+dd[1]:0,
@@ -4405,8 +4411,8 @@ function importSeasonExtra(input){
           if(v(r,'novNote')){ const pd=sd.people[key]=sd.people[key]||{}; if(!pd.note) pd.note=v(r,'novNote'); }
           if(ok.includes(nov)){ const pd=sd.people[key]=sd.people[key]||{}; pd.status=nov; }
         });
-        if(!add.length){ alert(`새로 추가할 학생이 없어요.${ex?`\n(이미 가져온 ${ex}명 제외)`:''}${skip?`\n(과정끝·환불 ${skip}명 제외)`:''}`); return; }
-        if(!confirm(`${seasonLabel(k)}에 엑셀 학생 ${add.length}명을 대상으로 추가할까요?\n\n· 학습자 관리·매출에는 들어가지 않아요\n· 허브 학습자 관리에 이미 있는 학생은 허브 기록으로 보여요${skip?`\n· 과정끝·환불 ${skip}명은 제외`:''}${ex?`\n· 이미 가져온 ${ex}명은 건너뜀`:''}`)) return;
+        if(!add.length){ alert(`새로 추가할 학생이 없어요.${ex?`\n(이미 가져온 ${ex}명 제외)`:''}`); return; }
+        if(!confirm(`${seasonLabel(k)}에 엑셀 학생 ${add.length}명을 대상으로 추가할까요?\n\n· 학습자 관리·매출에는 들어가지 않아요\n· 허브 학습자 관리에 이미 있는 학생은 허브 기록으로 보여요${(skip=add.filter(x=>['과정끝','환불'].includes(x.status)).length)?`\n· 과정끝·환불 ${skip}명 포함 (평소엔 숨겨지고, 필터 '과정끝·환불만'에서 확인)`:''}${ex?`\n· 이미 가져온 ${ex}명은 건너뜀`:''}`)) return;
         sd.extra.push(...add); save();
         document.getElementById('ss-scope').value='recent';
         renderSeason();
