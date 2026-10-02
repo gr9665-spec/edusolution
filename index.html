@@ -1182,7 +1182,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div class="fg2">
     <div class="fg"><label>연락처</label><input type="text" id="pm-contact" placeholder="010-0000-0000"></div>
-    <div class="fg"><label>연락 방식</label><select id="pm-ctype"><option value="">선택</option><option>전화</option><option>카톡</option><option>전화·카톡</option></select></div>
+    <div class="fg"><label>연락 방식</label><select id="pm-ctype" onchange="pmCtypeChange()"><option value="">선택</option><option>전화</option><option>카톡</option><option>전화·카톡</option><option>문자</option><option>오픈카톡</option><option value="기타">기타 (직접 입력)</option></select>
+      <input type="text" id="pm-ctype-custom" placeholder="연락 방식 직접 입력 (예: 인스타 DM)" style="margin-top:6px;display:none"></div>
   </div>
   <div class="fg2" style="grid-template-columns:repeat(3,1fr)">
     <div class="fg"><label>플랜안내</label><select id="pm-plan"><option value="">-</option><option>O</option><option>X</option></select></div>
@@ -4196,6 +4197,11 @@ function cycleProspectOX(id,k){
   x[k]=x[k]==='O'?'X':x[k]==='X'?'':'O';
   save(); renderProspects();
 }
+function pmCtypeChange(){
+  const on=document.getElementById('pm-ctype').value==='기타', el=document.getElementById('pm-ctype-custom');
+  el.style.display=on?'block':'none';
+  if(on&&document.getElementById('modal-prospect').classList.contains('open')) el.focus();
+}
 function pmPickSrc(k){ _pmSrc=k; pmRenderSrcBtns(); if(k==='G'){ const el=document.getElementById('pm-src-custom'); el.focus(); } }
 function pmRenderSrcBtns(){
   document.getElementById('pm-src-btns').innerHTML=PROSPECT_SOURCES.map(v=>{
@@ -4215,6 +4221,11 @@ function openProspectModal(id){
   set('date',x?x.date:def); set('name',x?.name); set('edu',x?.edu); set('price',x?.price);
   set('contact',x?.contact); set('ctype',x?.ctype); set('plan',x?.plan); set('pay',x?.pay); set('mat',x?.mat);
   set('note',x?.note); set('src-custom',x?.srcCustom); set('stage',x?x.stage:'상담중');
+  const ct=x?.ctype||'', ctSel=document.getElementById('pm-ctype');
+  const known=[...ctSel.options].some(o=>o.value===ct&&o.value!=='기타');
+  ctSel.value=known||!ct?ct:'기타';
+  document.getElementById('pm-ctype-custom').value=known?'':ct;
+  pmCtypeChange();
   _pmSrc=x?.src||''; pmRenderSrcBtns();
   openModal('modal-prospect');
 }
@@ -4223,7 +4234,7 @@ function saveProspect(){
   const date=g('date'), name=g('name');
   if(!date||!name){ alert('날짜와 성함은 꼭 입력해주세요'); return; }
   const data={date,name,src:_pmSrc,srcCustom:_pmSrc==='G'?g('src-custom'):'',edu:g('edu'),price:g('price'),
-    contact:g('contact'),ctype:g('ctype'),plan:g('plan'),pay:g('pay'),mat:g('mat'),stage:g('stage'),note:document.getElementById('pm-note').value.trim()};
+    contact:g('contact'),ctype:g('ctype')==='기타'?(g('ctype-custom')||'기타'):g('ctype'),plan:g('plan'),pay:g('pay'),mat:g('mat'),stage:g('stage'),note:document.getElementById('pm-note').value.trim()};
   if(_pmEditId){ const x=prospects.find(v=>v.id===_pmEditId); if(x) Object.assign(x,data); }
   else prospects.push({id:'pr'+Date.now()+Math.random().toString(36).slice(2,6),createdAt:new Date().toISOString(),...data});
   _pmMonth=date.slice(0,7);
