@@ -1159,7 +1159,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div id="ss-empty" class="empty" style="display:none"><i class="ti ti-flame"></i>조건에 맞는 학생이 없어요</div>
   </div>
   <div style="font-size:11px;color:var(--text2);margin-top:8px;line-height:1.7">
-    · 다음학기 학점은 연결된 플랜표의 다음 학기(이수완료 안 된 학기) 학점이 자동으로 들어가요. 직접 고치면 그 값이 우선이에요.<br>
+    · 다음학기 학점은 연결된 플랜표에 <b>이번 시즌 학기(예: 11월 성수기 → 27-1학기)</b>가 있을 때만 자동으로 들어가요. 직접 고치면 그 값이 우선이에요.<br>
     · 단가는 최근 결제 단가, 예상매출은 다음학기 학점 × 단가로 자동 계산돼요. 전공·과목이 바뀌면 직접 고치고, 비우면 다시 자동값으로 돌아가요. (과정끝·환불·신청오류는 합계에서 제외)<br>
     · 결제완료 후 <b>학습자 등록</b>을 누르면 최근 등록 정보(교육원·코드·단가)가 채워진 새 학기 학습자 창이 열려요.
   </div>
@@ -4214,6 +4214,20 @@ function seasonLabel(k){
   return m===5?`${yy}년 5월 성수기 (→ ${yy}-2학기)`:`${yy}년 11월 성수기 (→ ${+yy+1}-1학기)`;
 }
 function seasonTargetTerm(k){ const [y,m]=k.split('-').map(Number), yy=y%100; return m===5?`${yy}-2`:`${yy+1}-1`; }
+// 학기명이 대상 학기인지: "27-1학기", "27년 1학기", "2027-1" 등
+function semIsTerm(name,term){
+  const m=String(name||'').match(/(\d{2,4})\s*[-년.]\s*(\d)/); if(!m) return false;
+  const [ty,tt]=term.split('-').map(Number);
+  return (+m[1])%100===ty&&+m[2]===tt;
+}
+function planTermInfo(plan,term){
+  if(!plan) return {autoCredits:null,planDone:false,nextName:''};
+  const sems=plan.semesters||[];
+  if(sems.length&&sems.every(x=>x.completed)) return {autoCredits:0,planDone:true,nextName:''};
+  const nx=sems.find(x=>!x.completed&&semIsTerm(x.name,term));
+  if(!nx) return {autoCredits:null,planDone:false,nextName:'',noTerm:true};
+  return {autoCredits:sumC(nx.req)+sumC(nx.elec)+sumC(nx.gen)+sumC(nx.lib),planDone:false,nextName:nx.name||''};
+}
 function learnerYm(l){ return `${l.year||0}-${String(l.month||0).padStart(2,'0')}`; }
 // 결제(입금)일 정렬 키: 입금년·월 + 입금일 칸("4월 14일", "14일", "2026-04-14")
 function learnerPayKey(l){
@@ -4240,15 +4254,8 @@ function seasonPeople(L,P,seasonKey){
     recs.sort((a,b)=>learnerPayKey(a).localeCompare(learnerPayKey(b))||String(a.addedAt||'').localeCompare(String(b.addedAt||'')));
     const last=recs[recs.length-1];
     const plan=findPlanIn(plansArr,last);
-    let autoCredits=null, planDone=false, nextName='';
-    if(plan){
-      const sems=plan.semesters||[];
-      const left=sems.filter(x=>!x.completed);
-      const nx=left.find(x=>String(x.name||'').includes(term))||left[0];
-      if(nx){ autoCredits=sumC(nx.req)+sumC(nx.elec)+sumC(nx.gen)+sumC(nx.lib); nextName=nx.name||''; }
-      else if(sems.length){ planDone=true; autoCredits=0; }
-    }
-    out.push({key,recs,last,plan,autoCredits,planDone,nextName,payKey:learnerPayKey(last),recent:learnerYm(last)>=recentFrom});
+    const {autoCredits,planDone,nextName,noTerm}=planTermInfo(plan,term);
+    out.push({key,recs,last,plan,autoCredits,planDone,nextName,noTerm,payKey:learnerPayKey(last),recent:learnerYm(last)>=recentFrom});
   });
   return out;
 }
@@ -4265,14 +4272,8 @@ function seasonAllRows(k,L,P,sd){
     const last={name:x.name,phone:x.phone||'',edu:x.edu||'',kisu:x.kisu||'',credit:x.credit||'',unitprice:x.price||0,
       year:x.y,month:x.m,paydate:x.d?`${x.m}월 ${x.d}일`:'',id:x.eid||'',addedAt:'x'+String(i).padStart(5,'0')};
     const plan=findPlanIn(plansArr,last);
-    let autoCredits=null,planDone=false,nextName='';
-    if(plan){
-      const sems=plan.semesters||[], left=sems.filter(s=>!s.completed), term=seasonTargetTerm(k);
-      const nx=left.find(s=>String(s.name||'').includes(term))||left[0];
-      if(nx){ autoCredits=sumC(nx.req)+sumC(nx.elec)+sumC(nx.gen)+sumC(nx.lib); nextName=nx.name||''; }
-      else if(sems.length){ planDone=true; autoCredits=0; }
-    }
-    rows.push({key:x.key,recs:[last],last,plan,autoCredits,planDone,nextName,payKey:learnerPayKey(last),recent:true,extra:x});
+    const {autoCredits,planDone,nextName,noTerm}=planTermInfo(plan,seasonTargetTerm(k));
+    rows.push({key:x.key,recs:[last],last,plan,autoCredits,planDone,nextName,noTerm,payKey:learnerPayKey(last),recent:true,extra:x});
   });
   return rows;
 }
@@ -4339,7 +4340,7 @@ function renderSeason(){
     return `<tr style="border-top:1px solid var(--border);${status==='과정끝'||status==='환불'?'opacity:.6':''}">
       <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;font-weight:700;color:#2b8a3e;background:#ebfbee;border:1px solid #b2f2bb;border-radius:3px;padding:0 4px" title="엑셀에서 가져온 학생 (허브 학습자 관리에는 없음)">엑셀</span>':''}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div></td>
       <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${l.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회 결제`:''}</div></td>
-      <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${r.autoCredits??'-'}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':r.nextName?pmEsc(r.nextName):r.plan?'':'플랜 없음'}</div></td>
+      <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${r.autoCredits??'-'}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':r.noTerm?'플랜표에 이번 시즌 학기가 없어요 — 필요하면 직접 입력':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':r.nextName?pmEsc(r.nextName):r.noTerm?`플랜에 ${seasonTargetTerm(document.getElementById('ss-season').value)}학기 없음`:r.plan?'':'플랜 없음'}</div></td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" step="500" value="${priceManual?d.price:''}" placeholder="${defPrice||'-'}" title="기본: 최근 결제 단가 ${defPrice?defPrice.toLocaleString()+'원':'없음'} — 비우면 기본값" onchange="setSeasonField('${K}','price',this.value)" style="width:76px;font-size:12px;padding:3px 5px;text-align:right"><div style="font-size:10px;color:var(--text3)">${priceManual?'직접입력':'최근 단가'}</div></td>
       <td style="padding:6px;text-align:right"><input type="number" min="0" step="1000" value="${salesManual?d.sales:''}" placeholder="${autoSales?autoSales:'-'}" title="기본: 학점 × 단가 ${autoSales?'= '+autoSales.toLocaleString()+'원':''} — 비우면 자동 계산" onchange="setSeasonField('${K}','sales',this.value)" style="width:92px;font-size:12px;padding:3px 5px;text-align:right;font-weight:700;${SS_NO_SALES.includes(status)?'color:var(--text3);text-decoration:line-through':''}"><div style="font-size:10px;color:var(--text3)">${salesManual?'직접입력':sales?sales.toLocaleString()+'원':'자동 계산'}</div></td>
       <td style="padding:6px;text-align:center"><select onchange="setSeasonField('${K}','status',this.value)" style="font-size:12px;padding:3px 4px;border-radius:99px;border:1px solid ${c}66;background:${c}12;color:${c};font-weight:700;width:100px">
