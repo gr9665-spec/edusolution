@@ -2538,7 +2538,8 @@ function buildPortalData(l){
       const subjects=g.subjects.map(x=>({name:x.name,credits:x.credits,done:!!certGoal(sp,x.key).done}));
       out.certs.push({name:g.name,kind:sp.type==='cert'?'cert':'doksa',
         credits:subjects.reduce((t,x)=>t+x.credits,0),done:subjects.every(x=>x.done),subjects,
-        due:gg.due||'',dueDate:portalDueDate(gg.due),url:gg.url||certDefaultUrl(sp,g.name)});
+        due:gg.due||'',dueDate:portalDueDate(gg.due),url:gg.url||certDefaultUrl(sp,g.name),
+        tip:sp.type==='cert'?((certLinkInfo(g.name)||{}).tip||''):''});
     }));
     out.sems=(p.semesters||[]).map(s=>({
       name:s.name||'', edu:s.edu||'', ...portalSemDates(s), done:!!s.completed, // 플랜표 '이수완료' 체크
@@ -2609,7 +2610,15 @@ async function revokePortalLink(idx){
 //   과목명 예) "독1 - 국어", "독2 -가정학", "독학사1단계 - 영어", "''"(윗줄과 같은 단계)
 // 저장: sp.goals[그룹키]={due,url}, sp.goals[과목키]={done}  (자격증은 그룹키=과목키)
 const CERT_LINKS=[
-  {kw:'매경', url:'https://exam.mk.co.kr/online_main.php?MM=2'},
+  // kw: 자격증 이름에 들어 있으면 자동 연결(대소문자 무시, 위에서부터 먼저 맞는 것 사용)
+  {kw:['매경'], url:'https://exam.mk.co.kr/online_main.php?MM=2', tip:'연 8회 내외'},
+  {kw:['테셋','TESAT'], url:'https://www.tesat.or.kr/app.frm.general.exam/schedule.regular', tip:'연 8회 내외'},
+  {kw:['ADSP'], url:'https://www.dataq.or.kr/www/accept/schedule.do', tip:'연 4회 내외 · 접수 시작일에 마감이 빠르니 서둘러 접수하세요'},
+  {kw:['CS리더스'], url:'https://www.kie.or.kr/kiehomepage/fc/licenceSchedule?licence=', tip:'매월 시행'},
+  {kw:['네트워크관리사'], url:'https://cafe.naver.com/networkstudying', tip:'정기시험은 연 4회 정도예요. 카페 가입 후 단체시험을 신청하면 월 1회씩 응시할 수 있고, 필기·실기를 같은 날 응시할 수 있어요'},
+  {kw:['컴활','컴퓨터활용'], url:'https://license.korcham.net/co/examguide03.do?cd=0103&mm=21', tip:'상시시험이라 원하는 날짜·시험장을 골라 접수할 수 있어요. 필기 합격 후 2년 안에 실기까지 합격해야 최종 취득돼요'},
+  {kw:['SMAT'], url:'https://license.kpc.or.kr/nasec/qlfint/qlfint/selectMatmngmtty.do', tip:"2·4·6·8·10·12월은 둘째 주 토요일, 5·11월은 넷째 주 토요일에 시행(연 8회). 방문접수는 'KPC자격지역센터'에서 가능하며 사전 연락 후 방문하세요"},
+  {kw:['텔레마케팅','스포츠경영','산업기사','기사'], url:'https://www.q-net.or.kr/crf005.do?id=crf00501&gSite=Q&gId=', tip:'큐넷에서 접수해요. 종목별로 응시 가능 회차가 다를 수 있으니 꼭 종목 검색 후 일정을 확인하세요'},
 ];
 const DOKSA_URL='https://bdes.nile.or.kr/';
 const DOKSA_RE=/독(?:학사)?\s*(\d)\s*(?:단계)?/;
@@ -2635,9 +2644,10 @@ function certGroups(sp){
   });
   return sp.type==='doksa'?groups.sort((x,y)=>(x.stage||9)-(y.stage||9)):groups;
 }
+function certLinkInfo(name){ const n=String(name||'').toUpperCase().replace(/\s/g,''); return CERT_LINKS.find(c=>c.kw.some(k=>n.includes(k.toUpperCase())))||null; }
 function certDefaultUrl(sp,name){
   if(sp.type==='doksa') return DOKSA_URL;
-  const m=CERT_LINKS.find(c=>name.includes(c.kw)); return m?m.url:'';
+  const m=certLinkInfo(name); return m?m.url:'';
 }
 function certGoal(sp,key){ return (sp.goals&&sp.goals[key])||{}; }
 function setCertGoal(sp,key,patch){

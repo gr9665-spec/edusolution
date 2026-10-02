@@ -128,6 +128,7 @@ body{
 .swipe{display:none;margin-top:14px;font-size:13px;color:var(--ink3)}
 @media (max-width:720px){ .swipe{display:block} }
 /* goal link */
+.goal .gtip{font-size:12.5px;color:var(--ink2);background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:6px 9px;margin:-4px 0 10px;line-height:1.55}
 .goal .glink{display:inline-block;margin-left:6px;font-size:13px;font-weight:700;color:var(--blue-ink);background:var(--blue-bg);border-radius:999px;padding:6px 10px;text-decoration:none}
 /* checklist */
 .check{margin-top:18px}
@@ -355,7 +356,7 @@ function derive(r){
     goals.push({icon:isD?'독':'자',title:c.name,
       desc:[isD&&subs.length?subs.map(x=>(x.done?'✓':'')+x.name).join('·'):'',
             c.due?`${c.due}까지 ${word}`:'',c.credits?`${c.credits}학점 인정`:''].filter(Boolean).join(' · '),
-      status,color:c.done?'teal':(isD?'purple':'blue'),url:c.url||''});
+      status,color:c.done?'teal':(isD?'purple':'blue'),url:c.url||'',tip:c.done?'':(c.tip||'')});
   });
   const sched=[...(r.sched||[])];
   pendingCerts.filter(c=>c.dueDate).forEach(c=>sched.push({date:c.dueDate,title:`${c.name} ${c.kind==='doksa'?'합격':'취득'} 목표`,sub:'자격증',kind:'admin'}));
@@ -472,7 +473,7 @@ function render(d,isDemo){
         ${(d.goals||[]).map(g=>`
           <div class="goal">
             <div class="ic" style="background:${GOAL_BG[g.color]||GOAL_BG.blue}">${esc(g.icon)}</div>
-            <div><div class="t">${esc(g.title)}</div><div class="s">${esc(g.desc)}</div><span class="tag">${esc(g.status)}</span>${/^https?:\/\//.test(g.url||'')?`<a class="glink" href="${esc(g.url)}" target="_blank" rel="noopener">시험 일정 보기 ↗</a>`:''}</div>
+            <div><div class="t">${esc(g.title)}</div><div class="s">${esc(g.desc)}</div>${g.tip?`<div class="gtip">💡 ${esc(g.tip)}</div>`:''}<span class="tag">${esc(g.status)}</span>${/^https?:\/\//.test(g.url||'')?`<a class="glink" href="${esc(g.url)}" target="_blank" rel="noopener">시험 일정 보기 ↗</a>`:''}</div>
           </div>`).join('')}
       </div>
     </section>
