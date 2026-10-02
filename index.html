@@ -200,6 +200,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
   <div class="tab" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
   <div class="tab" onclick="switchTab('prospect',this)"><i class="ti ti-address-book"></i>가망노트</div>
+  <div class="tab" onclick="switchTab('season',this)"><i class="ti ti-flame"></i>성수기</div>
   <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>메모</div>
   <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격증/편입정보</div>
   <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
@@ -1109,6 +1110,53 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
 </div>
 <!-- 플랜표 -->
+<!-- ═══ 성수기 ═══ -->
+<div id="panel-season" class="panel">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="font-size:16px;font-weight:700"><i class="ti ti-flame" style="color:#e8590c"></i> 성수기</div>
+      <select id="ss-season" onchange="renderSeason()" style="width:210px"></select>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="ss-search" placeholder="이름·연락처 검색" style="width:140px" oninput="renderSeason()">
+      <select id="ss-scope" onchange="renderSeason()" style="width:150px">
+        <option value="recent">직전 학기 등록자</option>
+        <option value="all">학습자 전체</option>
+      </select>
+      <select id="ss-filter" onchange="renderSeason()" style="width:150px">
+        <option value="active">과정끝·환불 제외</option>
+        <option value="">전체 상태</option>
+        <option value="todo">미연락만</option>
+        <option value="open">진행 중 (미연락·연락완료·등록예정)</option>
+      </select>
+    </div>
+  </div>
+  <div class="card" style="padding:12px 14px;margin-bottom:12px" id="ss-summary"></div>
+  <div class="card" style="padding:0;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1180px">
+      <thead><tr style="background:var(--bg2)">
+        <th style="padding:8px 6px;text-align:left;width:120px">이름</th>
+        <th style="padding:8px 6px;text-align:left;width:170px">최근 등록</th>
+        <th style="padding:8px 6px;text-align:center;width:92px">다음학기<br>학점</th>
+        <th style="padding:8px 6px;text-align:center;width:70px">단가</th>
+        <th style="padding:8px 6px;text-align:right;width:86px">예상매출</th>
+        <th style="padding:8px 6px;text-align:center;width:108px">상태</th>
+        <th style="padding:8px 6px;text-align:center;width:128px">카톡 보낸 날</th>
+        <th style="padding:8px 6px;text-align:center;width:190px">등록예정</th>
+        <th style="padding:8px 6px;text-align:left">비고</th>
+        <th style="padding:8px 6px;text-align:center;width:96px">새 학기</th>
+      </tr></thead>
+      <tbody id="ss-tbody"></tbody>
+    </table>
+    <div id="ss-empty" class="empty" style="display:none"><i class="ti ti-flame"></i>조건에 맞는 학생이 없어요</div>
+  </div>
+  <div style="font-size:11px;color:var(--text2);margin-top:8px;line-height:1.7">
+    · 다음학기 학점은 연결된 플랜표의 다음 학기(이수완료 안 된 학기) 학점이 자동으로 들어가요. 직접 고치면 그 값이 우선이에요.<br>
+    · 예상매출 = 다음학기 학점 × 최근 단가 (과정끝·환불·신청오류는 합계에서 제외)<br>
+    · 결제완료 후 <b>학습자 등록</b>을 누르면 최근 등록 정보(교육원·코드·단가)가 채워진 새 학기 학습자 창이 열려요.
+  </div>
+</div>
+
 <!-- ═══ 가망노트 ═══ -->
 <div id="panel-prospect" class="panel">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -1355,6 +1403,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="metrics" id="admin-metrics"></div>
     <div id="admin-members"></div>
     <div id="admin-prospects" style="margin-top:18px"></div>
+    <div id="admin-season" style="margin-top:18px"></div>
   </div>
 </div>
 </div><!-- .app -->
@@ -1915,6 +1964,7 @@ async function loadUserData(){
       if(d.mktGoals)    mktGoals=d.mktGoals;
       if(d.prospects)   prospects=d.prospects;
       if(d.userTemplates) userTemplates=d.userTemplates;
+      if(d.seasons)     seasons=d.seasons;
       // 수당 테이블: 커스텀 저장값 있으면 사용, 없으면 직급 기본값
       rewardTable = d.rewardTable || Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
       if(d.todos)  todos=d.todos;
@@ -1939,7 +1989,7 @@ const _origSave = null;
 function save(){
   // 로컬스토리지 백업
   LS.set('hk_learners',learners);LS.set('hk_schedules',schedules);
-  LS.set('hk_mkt',mktActivities);LS.set('hk_goals',mktGoals);LS.set('hk_prospects',prospects);LS.set('hk_tpl',userTemplates);
+  LS.set('hk_mkt',mktActivities);LS.set('hk_goals',mktGoals);LS.set('hk_prospects',prospects);LS.set('hk_tpl',userTemplates);LS.set('hk_seasons',seasons);
   LS.set('hk_rewards',rewardTable);
   // Firebase 저장
   saveToFirebase();
@@ -2424,7 +2474,7 @@ async function runSaveToFirebase(){
       const newLastUpdated=new Date().toISOString();
       _myWrites.add(newLastUpdated);
       await docRef.set({
-        learners, schedules, mktActivities, mktGoals, prospects, userTemplates,
+        learners, schedules, mktActivities, mktGoals, prospects, userTemplates, seasons,
         rewardTable, todos, plans,
         memos, memoCategories, blogKeywords,
         lastUpdated: newLastUpdated
@@ -2786,6 +2836,7 @@ async function loadAllMembersData(){
     renderAdminMembers();
     renderAdminStats();
     renderAdminProspects();
+    renderAdminSeason();
   } catch(e){
     console.error('loadAllMembersData 오류:', e);
     adminEl.innerHTML=`<div class="notice" style="background:var(--red-bg);border-color:var(--red)"><i class="ti ti-alert-circle"></i> 데이터 로드 실패: <b>${e.message}</b><br><small style="color:var(--text2)">Firebase Console → Firestore → 규칙 탭에서 관리자 권한 확인 필요</small></div>`;
@@ -2798,7 +2849,7 @@ function switchAdminTab(tab){
     document.getElementById(`atab-${t}`).style.borderBottom=t===tab?'2px solid var(--navy)':'2px solid transparent';
     document.getElementById(`admin-tab-${t}`).style.display=t===tab?'block':'none';
   });
-  if(tab==='stats'){ renderAdminStats(); renderAdminProspects(); }
+  if(tab==='stats'){ renderAdminStats(); renderAdminProspects(); renderAdminSeason(); }
   if(tab==='members') renderAdminMembers();
 }
 
@@ -3117,6 +3168,7 @@ let mktActivities = LS.get('hk_mkt')||[];
 let mktGoals = LS.get('hk_goals')||[];
 let prospects = LS.get('hk_prospects')||[]; // 가망노트
 let userTemplates = LS.get('hk_tpl')||{}; // 직원별 문구 설정 {regMsg, presets, presets2}
+let seasons = LS.get('hk_seasons')||{}; // 성수기 기록 {'2026-11': {people:{이름|연락처:{status,kakao,regDate,regTime,note,credits,paidLearnerId}}}}
 const PROSPECT_SOURCES=[
   {k:'K',label:'오카'},{k:'Y',label:'예림'},{k:'H',label:'희경'},{k:'P',label:'파컨'},
   {k:'B',label:'블로그'},{k:'U',label:'유튜브'},{k:'D',label:'대구맘'},{k:'G',label:'기타'}
@@ -3285,6 +3337,7 @@ function switchTab(name,el){
   if(name==='admin'){loadAllMembersData();}
   if(name==='plan') initPlanTab();
   if(name==='prospect') renderProspects();
+  if(name==='season') renderSeason();
 }
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
@@ -3693,7 +3746,7 @@ function showToast(msg){
 }
 function openLearnerModal(idx){
   editIdx=idx!==undefined?idx:-1;
-  _pendingProspectId=null;
+  _pendingProspectId=null; _pendingSeason=null;
   document.getElementById('learner-modal-title').textContent=editIdx>=0?'학습자 수정':'학습자 추가';
   // 이미지 초기화
   _pendingImgs=[];
@@ -3779,6 +3832,8 @@ async function saveLearner(){
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
   if(editIdx<0&&_pendingProspectId){ const pr=prospects.find(x=>x.id===_pendingProspectId); if(pr){ pr.learnerId=l.id; pr.learnerName=l.name; if(!PSTAGE_DONE.includes(pr.stage)) pr.stage='결제'; } }
   _pendingProspectId=null;
+  if(editIdx<0&&_pendingSeason){ const sd=seasonData(_pendingSeason.k); const d=sd.people[_pendingSeason.key]=sd.people[_pendingSeason.key]||{}; d.paidLearnerId=l.id; d.status='결제완료'; }
+  _pendingSeason=null;
 
   // 학사일정 동시 등록
   const schedRows=collectLearnerSchedRows();
@@ -4095,6 +4150,168 @@ function renderDashboard(){
 
   // 이번달 유입경로
   renderSourceStats();
+}
+
+// ══ 성수기 ══════════════════════════════════════════════════════
+// 5월·11월: 지난 학기 끝난 학생에게 다음 학기 등록 안내. 시즌별 기록은 seasons[YYYY-MM].people[이름|연락처]
+const SS_STATUS=[
+  {k:'미연락',c:'#c92a2a'},{k:'연락완료',c:'#e67700'},{k:'등록예정',c:'#1a5fa8'},{k:'결제완료',c:'#2f9e44'},
+  {k:'잠정보류',c:'#7048e8'},{k:'특이사항',c:'#d6336c'},{k:'신청오류',c:'#868e96'},{k:'환불',c:'#495057'},{k:'과정끝',c:'#adb5bd'}
+];
+const SS_NO_SALES=['과정끝','환불','신청오류'];
+function seasonOptions(){
+  const now=new Date(Date.now()+9*3600e3), y=now.getUTCFullYear(), m=now.getUTCMonth()+1;
+  const cur=m<=5?`${y}-05`:m<=11?`${y}-11`:`${y+1}-05`;
+  const keys=new Set([cur,...Object.keys(seasons)]);
+  // 다음 시즌 하나 더
+  const [cy,cm]=cur.split('-').map(Number); keys.add(cm===5?`${cy}-11`:`${cy+1}-05`);
+  return {cur,list:[...keys].sort().reverse()};
+}
+function seasonLabel(k){
+  const [y,m]=k.split('-').map(Number), yy=String(y).slice(2);
+  return m===5?`${yy}년 5월 성수기 (→ ${yy}-2학기)`:`${yy}년 11월 성수기 (→ ${+yy+1}-1학기)`;
+}
+function seasonTargetTerm(k){ const [y,m]=k.split('-').map(Number), yy=y%100; return m===5?`${yy}-2`:`${yy+1}-1`; }
+function learnerYm(l){ return `${l.year||0}-${String(l.month||0).padStart(2,'0')}`; }
+// 학습자 → 사람 단위로 묶고, 다음학기 학점 추정 (데이터만 받아서 계산: 관리자 팀 집계에도 사용)
+function seasonPeople(L,P,seasonKey){
+  const plansArr=Object.values(P||{});
+  const groups=new Map();
+  (L||[]).forEach(l=>{ const key=(l.name||'')+'|'+(l.phone||''); if(!groups.has(key)) groups.set(key,[]); groups.get(key).push(l); });
+  const term=seasonTargetTerm(seasonKey);
+  const [sy,sm]=seasonKey.split('-').map(Number);
+  const recentFrom=`${sm===5?sy-1:sy}-${sm===5?'11':'05'}`; // 직전 시즌 이후 등록
+  const out=[];
+  groups.forEach((recs,key)=>{
+    recs.sort((a,b)=>learnerYm(a).localeCompare(learnerYm(b))||String(a.addedAt||'').localeCompare(String(b.addedAt||'')));
+    const last=recs[recs.length-1];
+    const plan=plansArr.find(p=>p.linkedLearner===last.name)||plansArr.find(p=>p.clientName&&p.clientName===last.name)||null;
+    let autoCredits=null, planDone=false, nextName='';
+    if(plan){
+      const sems=plan.semesters||[];
+      const left=sems.filter(x=>!x.completed);
+      const nx=left.find(x=>String(x.name||'').includes(term))||left[0];
+      if(nx){ autoCredits=sumC(nx.req)+sumC(nx.elec)+sumC(nx.gen)+sumC(nx.lib); nextName=nx.name||''; }
+      else if(sems.length){ planDone=true; autoCredits=0; }
+    }
+    out.push({key,recs,last,plan,autoCredits,planDone,nextName,recent:learnerYm(last)>=recentFrom});
+  });
+  return out;
+}
+function seasonData(k){ if(!seasons[k]) seasons[k]={people:{}}; if(!seasons[k].people) seasons[k].people={}; return seasons[k]; }
+function seasonRowView(r,sd){
+  const d=sd.people[r.key]||{};
+  const status=d.status||(r.planDone?'과정끝':'미연락');
+  const credits=d.credits!==undefined&&d.credits!==''?(parseInt(d.credits)||0):(r.autoCredits??null);
+  const price=parseInt(r.last.unitprice)||0;
+  const sales=credits&&price?credits*price:0;
+  return {d,status,credits,price,sales,autoStatus:!d.status};
+}
+function renderSeason(){
+  const sel=document.getElementById('ss-season'); if(!sel) return;
+  const {cur,list}=seasonOptions();
+  const prev=sel.value||cur;
+  sel.innerHTML=list.map(k=>`<option value="${k}" ${k===prev?'selected':''}>${seasonLabel(k)}</option>`).join('');
+  const k=sel.value;
+  const sd=seasons[k]||{people:{}};
+  const all=seasonPeople(learners,plans,k);
+  const scope=document.getElementById('ss-scope').value, f=document.getElementById('ss-filter').value;
+  const q=(document.getElementById('ss-search').value||'').trim().toLowerCase();
+  let rows=all.map(r=>({...r,v:seasonRowView(r,sd)}));
+  if(scope==='recent') rows=rows.filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status));
+  // 요약 (필터 전, 범위 기준)
+  const cnt={}; rows.forEach(r=>cnt[r.v.status]=(cnt[r.v.status]||0)+1);
+  const salesRows=rows.filter(r=>!SS_NO_SALES.includes(r.v.status));
+  const expect=salesRows.reduce((a,r)=>a+r.v.sales,0);
+  const paid=rows.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+r.v.sales,0);
+  const won=n=>n>=10000?`${Math.round(n/10000).toLocaleString()}만원`:`${n.toLocaleString()}원`;
+  document.getElementById('ss-summary').innerHTML=`
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+      <div><div style="font-size:11px;color:var(--text2)">대상</div><div style="font-size:22px;font-weight:800">${rows.length}<span style="font-size:12px;font-weight:600">명</span></div></div>
+      <div><div style="font-size:11px;color:var(--text2)">예상매출</div><div style="font-size:22px;font-weight:800;color:var(--navy)">${won(expect)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:22px;font-weight:800;color:var(--green)">${won(paid)}</div></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
+        ${SS_STATUS.map(v=>`<span style="font-size:12px;border:1px solid ${v.c}44;background:${v.c}10;color:${v.c};border-radius:99px;padding:3px 10px;font-weight:600">${v.k} ${cnt[v.k]||0}</span>`).join('')}
+      </div>
+    </div>`;
+  if(f==='active') rows=rows.filter(r=>!['과정끝','환불'].includes(r.v.status));
+  if(f==='todo') rows=rows.filter(r=>r.v.status==='미연락');
+  if(f==='open') rows=rows.filter(r=>['미연락','연락완료','등록예정'].includes(r.v.status));
+  if(q) rows=rows.filter(r=>(r.last.name||'').toLowerCase().includes(q)||(r.last.phone||'').includes(q));
+  const order=Object.fromEntries(SS_STATUS.map((v,i)=>[v.k,i]));
+  rows.sort((a,b)=>(order[a.v.status]-order[b.v.status])||(b.v.sales-a.v.sales));
+  const tb=document.getElementById('ss-tbody'), em=document.getElementById('ss-empty');
+  if(!rows.length){ tb.innerHTML=''; em.style.display='block'; return; }
+  em.style.display='none';
+  const ek=key=>encodeURIComponent(key).replace(/'/g,'%27');
+  tb.innerHTML=rows.map(r=>{
+    const {d,status,credits,price,sales,autoStatus}=r.v, l=r.last, K=ek(r.key);
+    const c=(SS_STATUS.find(x=>x.k===status)||{}).c||'#868e96';
+    const paidL=d.paidLearnerId&&learners.some(x=>x.id===d.paidLearnerId);
+    return `<tr style="border-top:1px solid var(--border);${status==='과정끝'||status==='환불'?'opacity:.6':''}">
+      <td style="padding:6px"><b>${pmEsc(l.name)}</b><div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div></td>
+      <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${l.year||''}.${l.month||''} 등록 · ${l.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회`:''}</div></td>
+      <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${r.autoCredits??'-'}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':r.nextName?pmEsc(r.nextName):r.plan?'':'플랜 없음'}</div></td>
+      <td style="padding:6px;text-align:center;font-size:12px">${price?price.toLocaleString():'-'}</td>
+      <td style="padding:6px;text-align:right;font-weight:700;${SS_NO_SALES.includes(status)?'color:var(--text3);text-decoration:line-through':''}">${sales?sales.toLocaleString():'-'}</td>
+      <td style="padding:6px;text-align:center"><select onchange="setSeasonField('${K}','status',this.value)" style="font-size:12px;padding:3px 4px;border-radius:99px;border:1px solid ${c}66;background:${c}12;color:${c};font-weight:700;width:100px">
+        ${SS_STATUS.map(v=>`<option ${status===v.k?'selected':''}>${v.k}</option>`).join('')}</select>${autoStatus&&status==='과정끝'?'<div style="font-size:10px;color:var(--text3)">플랜 완료로 자동</div>':''}</td>
+      <td style="padding:6px;text-align:center"><input type="date" value="${d.kakao||''}" onchange="setSeasonField('${K}','kakao',this.value)" style="font-size:12px;padding:3px 4px;width:120px"></td>
+      <td style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px"></td>
+      <td style="padding:6px"><input type="text" value="${pmEsc(d.note||'')}" placeholder="예: 자격증 대체 여부" onchange="setSeasonField('${K}','note',this.value)" style="font-size:12px;padding:3px 6px;width:100%;min-width:140px"></td>
+      <td style="padding:6px;text-align:center">${paidL?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ 등록됨</span>'
+        :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+function setSeasonField(K,field,val){
+  const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
+  const sd=seasonData(k);
+  const d=sd.people[key]=sd.people[key]||{};
+  if(field==='credits'&&val==='') delete d.credits; else d[field]=val;
+  // 카톡 날짜를 넣으면 미연락 → 연락완료, 등록예정일을 넣으면 → 등록예정
+  if(field==='kakao'&&val&&(!d.status||d.status==='미연락')) d.status='연락완료';
+  if(field==='regDate'&&val&&(!d.status||['미연락','연락완료'].includes(d.status))) d.status='등록예정';
+  save(); renderSeason();
+}
+let _pendingSeason=null;
+function seasonToLearner(K){
+  const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
+  const row=seasonPeople(learners,plans,k).find(r=>r.key===key); if(!row) return;
+  const l=row.last, v=seasonRowView(row,seasonData(k));
+  openLearnerModal();
+  _pendingSeason={k,key};
+  const set=(id,val)=>{const el=document.getElementById('l-'+id); if(el&&val!=null&&val!=='') el.value=val;};
+  set('name',l.name); set('phone',l.phone); set('email',l.email); set('id',l.id&&!/^L\d/.test(l.id)?l.id:'');
+  const eduSel=document.getElementById('l-edu');
+  if([...eduSel.options].some(o=>o.value===l.edu)) eduSel.value=l.edu; else if(l.edu){ eduSel.value='기타'; document.getElementById('l-edu-custom').value=l.edu; }
+  toggleEduCustom();
+  set('code',l.code); set('approve',l.approve); set('course',l.course);
+  set('unitprice',l.unitprice); set('credit',v.credits||'');
+  set('type','기존');
+  const now=new Date(Date.now()+9*3600e3); set('year',String(now.getUTCFullYear())); set('month',String(now.getUTCMonth()+1));
+  openModal('modal-learner');
+}
+// 관리자: 팀 성수기 (매출 현황 탭)
+function renderAdminSeason(){
+  const el=document.getElementById('admin-season'); if(!el) return;
+  const {cur}=seasonOptions();
+  const rows=Object.values(allMembersData).map(m=>{
+    const sd=(m.seasons||{})[cur]||{people:{}};
+    const ppl=seasonPeople(m.learners||[],m.plans||{},cur).filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status)).map(r=>({...r,v:seasonRowView(r,sd)}));
+    const n=s=>ppl.filter(r=>r.v.status===s).length;
+    return {name:m.name||m.email||'-',total:ppl.length,todo:n('미연락'),plan:n('등록예정'),paid:n('결제완료'),
+      expect:ppl.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+r.v.sales,0),
+      paidSales:ppl.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+r.v.sales,0)};
+  }).filter(r=>r.total).sort((a,b)=>b.paidSales-a.paidSales);
+  const th='padding:7px 8px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center;font-size:12px';
+  const td='padding:7px 8px;border-bottom:1px solid var(--border);text-align:center';
+  const won=n=>`${Math.round(n/10000).toLocaleString()}만`;
+  el.innerHTML=`<div style="font-size:14px;font-weight:700;margin-bottom:8px"><i class="ti ti-flame" style="color:#e8590c"></i> 팀 성수기 · ${seasonLabel(cur)} <span style="font-size:11px;color:var(--text2);font-weight:400">(직전 학기 등록자 기준)</span></div>
+    ${rows.length?`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:620px">
+      <thead><tr><th style="${th};text-align:left">직원</th><th style="${th}">대상</th><th style="${th};color:#c92a2a">미연락</th><th style="${th}">등록예정</th><th style="${th};color:#2f9e44">결제완료</th><th style="${th}">예상매출</th><th style="${th}">결제매출</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td style="${td};text-align:left;font-weight:600">${pmEsc(r.name)}</td><td style="${td}">${r.total}</td><td style="${td};color:#c92a2a;font-weight:700">${r.todo||''}</td><td style="${td}">${r.plan||''}</td><td style="${td};color:#2f9e44;font-weight:700">${r.paid||''}</td><td style="${td}">${won(r.expect)}</td><td style="${td};font-weight:700">${won(r.paidSales)}</td></tr>`).join('')}</tbody></table></div>`
+      :'<div class="empty">성수기 대상 학생이 없어요</div>'}`;
 }
 
 // ══ 가망노트 ══════════════════════════════════════════════════════
@@ -4980,6 +5197,7 @@ function importDataJson(event){
       if(d.mktGoals)       mktGoals       = d.mktGoals;
       if(d.prospects)      prospects      = d.prospects;
       if(d.userTemplates)  userTemplates  = d.userTemplates;
+      if(d.seasons)        seasons        = d.seasons;
 
       // Firebase + 로컬 저장
       save();
@@ -4987,7 +5205,7 @@ function importDataJson(event){
         const _impLU=new Date().toISOString(); _myWrites.add(_impLU); _loadedLastUpdated=_impLU;
         fbDb.collection('userData').doc(currentUser.uid).set({
           learners, schedules, plans, memos, memoCategories,
-          blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates,
+          blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates, seasons,
           lastUpdated: _impLU
         }, {merge:false}).then(()=>{
           showToast('✅ 데이터 가져오기 완료! Firebase에 저장됐어요.');
@@ -5014,7 +5232,7 @@ function exportDataJson(){
   const data={
     exportedAt: new Date().toISOString(),
     learners, schedules, plans, memos, memoCategories,
-    blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates
+    blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates, seasons
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
   const url=URL.createObjectURL(blob);
