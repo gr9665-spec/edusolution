@@ -1116,6 +1116,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div style="font-size:16px;font-weight:700"><i class="ti ti-flame" style="color:#e8590c"></i> 성수기</div>
       <select id="ss-season" onchange="renderSeason()" style="width:210px"></select>
+      <label class="btn btn-sm" style="cursor:pointer" title="허브에 없는 예전 학생을 엑셀(재확인 목록)에서 이 시즌 대상으로 추가"><i class="ti ti-file-import"></i> 엑셀 대상 가져오기<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importSeasonExtra(this)"></label>
+      <button class="btn btn-sm" id="ss-extra-clear" style="font-size:11px;color:var(--text2);display:none" onclick="clearSeasonExtra()">가져온 대상 지우기</button>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <input type="text" id="ss-search" placeholder="이름·연락처 검색" style="width:140px" oninput="renderSeason()">
@@ -4250,10 +4252,34 @@ function seasonPeople(L,P,seasonKey){
   });
   return out;
 }
+// 허브 학습자 + 엑셀에서 가져온 대상(seasons[k].extra) 합치기. 허브에 같은 사람(이름+번호)이 있으면 허브 기록 사용
+function seasonAllRows(k,L,P,sd){
+  const rows=seasonPeople(L,P,k);
+  const extra=(sd&&sd.extra)||[];
+  if(!extra.length) return rows;
+  const plansArr=Object.values(P||{});
+  const hub=(L||[]);
+  extra.forEach((x,i)=>{
+    const xp=normPhone(x.phone);
+    if(hub.some(l=>l.name===x.name&&(!xp||!normPhone(l.phone)||normPhone(l.phone)===xp))) return;
+    const last={name:x.name,phone:x.phone||'',edu:x.edu||'',kisu:x.kisu||'',credit:x.credit||'',unitprice:x.price||0,
+      year:x.y,month:x.m,paydate:x.d?`${x.m}월 ${x.d}일`:'',id:x.eid||'',addedAt:'x'+String(i).padStart(5,'0')};
+    const plan=findPlanIn(plansArr,last);
+    let autoCredits=null,planDone=false,nextName='';
+    if(plan){
+      const sems=plan.semesters||[], left=sems.filter(s=>!s.completed), term=seasonTargetTerm(k);
+      const nx=left.find(s=>String(s.name||'').includes(term))||left[0];
+      if(nx){ autoCredits=sumC(nx.req)+sumC(nx.elec)+sumC(nx.gen)+sumC(nx.lib); nextName=nx.name||''; }
+      else if(sems.length){ planDone=true; autoCredits=0; }
+    }
+    rows.push({key:x.key,recs:[last],last,plan,autoCredits,planDone,nextName,payKey:learnerPayKey(last),recent:true,extra:x});
+  });
+  return rows;
+}
 function seasonData(k){ if(!seasons[k]) seasons[k]={people:{}}; if(!seasons[k].people) seasons[k].people={}; return seasons[k]; }
 function seasonRowView(r,sd){
   const d=sd.people[r.key]||{};
-  const status=d.status||(r.planDone?'과정끝':'미연락');
+  const status=d.status||(r.planDone?'과정끝':(r.extra&&r.extra.status)||'미연락');
   const credits=d.credits!==undefined&&d.credits!==''?(parseInt(d.credits)||0):(r.autoCredits??null);
   const price=parseInt(r.last.unitprice)||0;
   const sales=credits&&price?credits*price:0;
@@ -4266,7 +4292,8 @@ function renderSeason(){
   sel.innerHTML=list.map(k=>`<option value="${k}" ${k===prev?'selected':''}>${seasonLabel(k)}</option>`).join('');
   const k=sel.value;
   const sd=seasons[k]||{people:{}};
-  const all=seasonPeople(learners,plans,k);
+  const all=seasonAllRows(k,learners,plans,sd);
+  const xb=document.getElementById('ss-extra-clear'); if(xb) xb.style.display=(sd.extra||[]).length?'':'none';
   const scope=document.getElementById('ss-scope').value, f=document.getElementById('ss-filter').value;
   const q=(document.getElementById('ss-search').value||'').trim().toLowerCase();
   let rows=all.map(r=>({...r,v:seasonRowView(r,sd)}));
@@ -4306,7 +4333,7 @@ function renderSeason(){
     const c=(SS_STATUS.find(x=>x.k===status)||{}).c||'#868e96';
     const paidL=d.paidLearnerId&&learners.some(x=>x.id===d.paidLearnerId);
     return `<tr style="border-top:1px solid var(--border);${status==='과정끝'||status==='환불'?'opacity:.6':''}">
-      <td style="padding:6px"><b>${pmEsc(l.name)}</b><div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div></td>
+      <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;font-weight:700;color:#2b8a3e;background:#ebfbee;border:1px solid #b2f2bb;border-radius:3px;padding:0 4px" title="엑셀에서 가져온 학생 (허브 학습자 관리에는 없음)">엑셀</span>':''}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div></td>
       <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${l.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회 결제`:''}</div></td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${r.autoCredits??'-'}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':r.nextName?pmEsc(r.nextName):r.plan?'':'플랜 없음'}</div></td>
       <td style="padding:6px;text-align:center;font-size:12px">${price?price.toLocaleString():'-'}</td>
@@ -4315,7 +4342,7 @@ function renderSeason(){
         ${SS_STATUS.map(v=>`<option ${status===v.k?'selected':''}>${v.k}</option>`).join('')}</select>${autoStatus&&status==='과정끝'?'<div style="font-size:10px;color:var(--text3)">플랜 완료로 자동</div>':''}</td>
       <td style="padding:6px;text-align:center"><input type="date" value="${d.kakao||''}" onchange="setSeasonField('${K}','kakao',this.value)" style="font-size:12px;padding:3px 4px;width:120px"></td>
       <td style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px"></td>
-      <td style="padding:6px"><input type="text" value="${pmEsc(d.note||'')}" placeholder="예: 자격증 대체 여부" onchange="setSeasonField('${K}','note',this.value)" style="font-size:12px;padding:3px 6px;width:100%;min-width:140px"></td>
+      <td style="padding:6px"><input type="text" value="${pmEsc(d.note||'')}" placeholder="${r.extra&&r.extra.mayNote?'5월: '+pmEsc(r.extra.mayNote):'예: 자격증 대체 여부'}" title="${r.extra&&(r.extra.mayNote||r.extra.mayLeft)?pmEsc(`5월 기록 — 비고: ${r.extra.mayNote||'-'} / 26-2 남은학점: ${r.extra.mayLeft||'-'}`):''}" onchange="setSeasonField('${K}','note',this.value)" style="font-size:12px;padding:3px 6px;width:100%;min-width:140px"></td>
       <td style="padding:6px;text-align:center">${paidL?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ 등록됨</span>'
         :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
     </tr>`;
@@ -4332,9 +4359,68 @@ function setSeasonField(K,field,val){
   save(); renderSeason();
 }
 let _pendingSeason=null;
+// 엑셀 '재확인 목록' 가져오기 → 현재 시즌 대상(seasons[k].extra)에 추가 (학습자 관리·매출에는 영향 없음)
+function importSeasonExtra(input){
+  const file=input.files[0]; if(!file) return; input.value='';
+  const k=document.getElementById('ss-season').value;
+  pmLoadXLSX().then(()=>{
+    const rd=new FileReader();
+    rd.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+        const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='학생명'));
+        if(hi<0){ alert('"학생명" 제목 줄을 찾지 못했어요. 재확인 목록 엑셀 파일을 올려주세요.'); return; }
+        const H=rows[hi].map(c=>String(c).trim());
+        const ci=(...ks)=>H.findIndex(h=>ks.some(k=>h===k||h.startsWith(k)));
+        const C={ym:ci('결제년월','입금월'),d:ci('입금일'),edu:ci('교육원','기관'),kisu:ci('기수'),start:ci('개강일'),name:ci('학생명'),
+          eid:ci('교육원 아이디','아이디'),phone:ci('연락처'),credit:ci('학점'),price:ci('학점당 금액','학점당'),
+          may:ci('5월 상태'),left:ci('26-2 남은학점'),mayNote:ci('비고(5월)','비고'),nov:ci('11월 확인 상태'),novNote:ci('11월 메모')};
+        if(C.edu>=0&&H[C.edu]!=='교육원'&&H[C.edu]!=='기관') C.edu=H.findIndex(h=>h==='교육원');
+        const v=(r,key)=>C[key]>=0?String(r[C[key]]??'').trim():'';
+        const sd=seasonData(k); if(!sd.extra) sd.extra=[];
+        const have=new Set(sd.extra.map(x=>x.key));
+        const ok=['미연락','연락완료','등록예정','결제완료','잠정보류','특이사항','신청오류','환불','과정끝'];
+        let add=[],skip=0,ex=0;
+        rows.slice(hi+1).forEach(r=>{
+          const name=v(r,'name'); if(!name) return;
+          const may=v(r,'may'), nov=v(r,'nov');
+          if(['과정끝','환불'].includes(nov||may)){ skip++; return; }
+          const ym=v(r,'ym').match(/(\d{4})\D+(\d{1,2})/)||[];
+          const dd=v(r,'d').match(/(\d{1,2})\s*일/)||v(r,'d').match(/월\s*(\d{1,2})/);
+          const phone=v(r,'phone');
+          const key='x|'+name+'|'+normPhone(phone);
+          if(have.has(key)){ ex++; return; }
+          have.add(key);
+          const st=ok.includes(nov)?nov:(['특이사항','잠정보류','신청오류'].includes(may)?may:'');
+          const num=x=>parseInt(String(x).replace(/[^\d]/g,''))||0;
+          add.push({key,name,phone,edu:v(r,'edu'),kisu:v(r,'kisu'),start:v(r,'start'),eid:v(r,'eid'),
+            credit:v(r,'credit'),price:num(v(r,'price')),y:+ym[1]||0,m:+ym[2]||0,d:dd?+dd[1]:0,
+            status:st,mayStatus:may,mayLeft:v(r,'left'),mayNote:v(r,'mayNote')});
+          if(v(r,'novNote')){ const pd=sd.people[key]=sd.people[key]||{}; if(!pd.note) pd.note=v(r,'novNote'); }
+          if(ok.includes(nov)){ const pd=sd.people[key]=sd.people[key]||{}; pd.status=nov; }
+        });
+        if(!add.length){ alert(`새로 추가할 학생이 없어요.${ex?`\n(이미 가져온 ${ex}명 제외)`:''}${skip?`\n(과정끝·환불 ${skip}명 제외)`:''}`); return; }
+        if(!confirm(`${seasonLabel(k)}에 엑셀 학생 ${add.length}명을 대상으로 추가할까요?\n\n· 학습자 관리·매출에는 들어가지 않아요\n· 허브 학습자 관리에 이미 있는 학생은 허브 기록으로 보여요${skip?`\n· 과정끝·환불 ${skip}명은 제외`:''}${ex?`\n· 이미 가져온 ${ex}명은 건너뜀`:''}`)) return;
+        sd.extra.push(...add); save();
+        document.getElementById('ss-scope').value='recent';
+        renderSeason();
+        alert(`✓ ${add.length}명을 가져왔어요.`);
+      }catch(err){ alert('파일을 읽지 못했어요: '+err.message); }
+    };
+    rd.readAsArrayBuffer(file);
+  }).catch(()=>alert('엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해주세요.'));
+}
+function clearSeasonExtra(){
+  const k=document.getElementById('ss-season').value, sd=seasons[k];
+  if(!sd||!(sd.extra||[]).length) return;
+  if(!confirm(`${seasonLabel(k)}에 엑셀에서 가져온 ${sd.extra.length}명을 목록에서 지울까요?\n(입력해둔 상태·카톡·메모 기록도 함께 지워져요)`)) return;
+  sd.extra.forEach(x=>{ delete sd.people[x.key]; });
+  sd.extra=[]; save(); renderSeason();
+}
 function seasonToLearner(K){
   const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
-  const row=seasonPeople(learners,plans,k).find(r=>r.key===key); if(!row) return;
+  const row=seasonAllRows(k,learners,plans,seasonData(k)).find(r=>r.key===key); if(!row) return;
   const l=row.last, v=seasonRowView(row,seasonData(k));
   openLearnerModal();
   _pendingSeason={k,key};
@@ -4355,7 +4441,7 @@ function renderAdminSeason(){
   const {cur}=seasonOptions();
   const rows=Object.values(allMembersData).map(m=>{
     const sd=(m.seasons||{})[cur]||{people:{}};
-    const ppl=seasonPeople(m.learners||[],m.plans||{},cur).filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status)).map(r=>({...r,v:seasonRowView(r,sd)}));
+    const ppl=seasonAllRows(cur,m.learners||[],m.plans||{},sd).filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status)).map(r=>({...r,v:seasonRowView(r,sd)}));
     const n=s=>ppl.filter(r=>r.v.status===s).length;
     return {name:m.name||m.email||'-',total:ppl.length,todo:n('미연락'),plan:n('등록예정'),paid:n('결제완료'),
       expect:ppl.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+r.v.sales,0),
