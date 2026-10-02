@@ -1982,6 +1982,8 @@ async function loadUserData(){
       else { const lb=LS.get('hk_blog'); if(lb) blogKeywords=lb; }
       if(d.plans)  plans=d.plans;
       _loadedLastUpdated = d.lastUpdated || null;
+      const _auto=autoLinkPlans();
+      if(_auto) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast(`플랜표 ${_auto}개를 이름·연락처가 같은 학습자와 자동 연결했어요`); },1500);
     } else {
       // 첫 로그인 — 직급 기본값 적용
       rewardTable = Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
@@ -2477,6 +2479,7 @@ async function runSaveToFirebase(){
           if(!ok) return;
         }
       }
+      autoLinkPlans();
       const newLastUpdated=new Date().toISOString();
       _myWrites.add(newLastUpdated);
       await docRef.set({
@@ -2508,9 +2511,40 @@ function genPortalToken(){
 function portalGroup(l){
   return learners.filter(x=>(x.name||'')===(l.name||'')&&(x.phone||'')===(l.phone||''));
 }
+// ── 플랜표 ↔ 학습자 매칭 (모든 화면 공통) ──
+// 1) 직접 연결(linkedLearner)이 있으면 그 이름(+저장된 번호)으로, 2) 없으면 플랜표 이름+연락처가 같은 학습자
+// 연락처는 숫자만 비교(010-1234-5678 = 01012345678), 이름이 같아도 번호가 다르면 다른 사람
+function normPhone(x){ return String(x||'').replace(/\D/g,''); }
+function planMatchesLearner(p,l){
+  if(!p||!l) return false;
+  const lp=normPhone(l.phone);
+  if(p.linkedLearner){
+    if(p.linkedLearner!==l.name) return false;
+    const pp=normPhone(p.linkedPhone);
+    return !(lp&&pp&&lp!==pp);
+  }
+  if(!p.clientName||p.clientName!==l.name) return false;
+  const pp=normPhone(p.phone);
+  return !(lp&&pp&&lp!==pp);
+}
+function findPlanIn(arr,l){ return arr.find(p=>p.linkedLearner&&planMatchesLearner(p,l))||arr.find(p=>!p.linkedLearner&&planMatchesLearner(p,l))||null; }
+// 연결 안 된 플랜표 중 이름+연락처가 학습자와 같으면 자동 연결 (허브 열 때·저장할 때)
+function autoLinkPlans(){
+  const byKey=new Map();
+  learners.forEach(l=>{ const ph=normPhone(l.phone); if(l.name&&ph) byKey.set(l.name+'|'+ph,l); });
+  let n=0;
+  Object.values(plans||{}).forEach(p=>{
+    if(p.linkedLearner||!p.clientName) return;
+    const ph=normPhone(p.phone); if(!ph) return;
+    const l=byKey.get(p.clientName.trim()+'|'+ph);
+    if(l){ p.linkedLearner=l.name; p.linkedPhone=l.phone||''; n++; }
+  });
+  if(n) LS.set('hk_plans',plans);
+  return n;
+}
 function portalPlanFor(l){
   const list=Object.values(plans||{});
-  return list.find(p=>p.linkedLearner===l.name)||list.find(p=>p.clientName&&p.clientName===l.name)||null;
+  return findPlanIn(list,l);
 }
 // 플랜표 학기 "일자" → {start,end} (YYYY-MM-DD)
 // 예: "27년 5월 - 9월", "9/16 - 12/29"(연도는 학기명 26-2학기에서), "2026.09.07 ~ 2026.12.20"
@@ -2766,8 +2800,7 @@ function portalDueDate(txt){
 // 플랜표 화면에서 바로 발급/복사/끊기
 function planPortalLearnerIdx(p){
   if(!p) return -1;
-  let i=p.linkedLearner?learners.findIndex(l=>l.name===p.linkedLearner):-1;
-  if(i<0&&p.clientName) i=learners.findIndex(l=>l.name===p.clientName);
+  const i=learners.findIndex(l=>planMatchesLearner(p,l));
   return i;
 }
 function planPortalBtnHtml(p){
@@ -3558,7 +3591,7 @@ function linkLearnerToPlan(idx){
     return;
   }
   // 항상 선택 모달 표시 (이미 연결됐어도 재선택 가능)
-  const existing=planList.find(p=>p.linkedLearner===l.name||(p.clientName&&p.clientName===l.name));
+  const existing=planList.find(p=>planMatchesLearner(p,l));
   _planLinkAllOpts=[{value:'',text:'-- 연결 안 함 --',selected:false},
     ...planList.map(p=>({
       value:p.id,
@@ -3581,8 +3614,9 @@ function confirmPlanLink(){
   closeModal('modal-plan-link');
   if(selPid&&plans[selPid]){
     // 기존 연결 해제
-    Object.values(plans).forEach(p=>{ if(p.linkedLearner===l.name) p.linkedLearner=''; });
+    Object.values(plans).forEach(p=>{ if(p.linkedLearner&&planMatchesLearner(p,l)){ p.linkedLearner=''; p.linkedPhone=''; } });
     plans[selPid].linkedLearner=l.name;
+    plans[selPid].linkedPhone=l.phone||'';
     plans[selPid].clientName=l.name;
     LS.set('hk_plans',plans); saveToFirebase();
     switchTab('plan',document.querySelectorAll('.tab')[3]);
@@ -3961,7 +3995,7 @@ function renderLearners(){
       <td style="color:var(--green);font-weight:600">${reward.toLocaleString()}원${badge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
-        <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'플랜 바로가기':'플랜 연결'}" style="color:${Object.values(plans).some(p=>p.linkedLearner===l.name||p.clientName===l.name)?'var(--green)':'var(--navy)'}"><i class="ti ti-clipboard-list"></i></button>
+        <button class="btn btn-icon btn-sm" onclick="linkLearnerToPlan(${origIdx})" title="${Object.values(plans).some(p=>planMatchesLearner(p,l))?'플랜 바로가기':'플랜 연결'}" style="color:${Object.values(plans).some(p=>planMatchesLearner(p,l))?'var(--green)':'var(--navy)'}"><i class="ti ti-clipboard-list"></i></button>
         <button class="btn btn-icon btn-sm" onclick="goToSalesFilter('${l.name.replace(/'/g,"\\'")}')" title="매출에서 보기" style="color:var(--amber)"><i class="ti ti-chart-bar"></i></button>
         <button class="btn btn-icon btn-sm" onclick="issuePortalLink(${origIdx})" title="${group.some(g=>g.portalToken)?'학습자 링크 복사 / 끊기':'학습자 링크 발급'}" style="color:${group.some(g=>g.portalToken)?'var(--green)':'var(--text3)'}"><i class="ti ti-link"></i></button>
         <button class="btn btn-icon btn-sm" onclick="deleteLearner(${origIdx})" style="color:var(--red)" title="삭제"><i class="ti ti-trash"></i></button>
@@ -4203,7 +4237,7 @@ function seasonPeople(L,P,seasonKey){
   groups.forEach((recs,key)=>{
     recs.sort((a,b)=>learnerPayKey(a).localeCompare(learnerPayKey(b))||String(a.addedAt||'').localeCompare(String(b.addedAt||'')));
     const last=recs[recs.length-1];
-    const plan=plansArr.find(p=>p.linkedLearner===last.name)||plansArr.find(p=>p.clientName&&p.clientName===last.name)||null;
+    const plan=findPlanIn(plansArr,last);
     let autoCredits=null, planDone=false, nextName='';
     if(plan){
       const sems=plan.semesters||[];
@@ -7620,7 +7654,9 @@ function saveSubjModal(){
   LS.set('hk_plans',plans); saveToFirebase(); closeModal('modal-plan-subj'); renderPlanEditor(p);
 }
 
-function upP(key,val){ if(!curPid) return; plans[curPid][key]=val; LS.set('hk_plans',plans); saveToFirebase(); }
+function upP(key,val){ if(!curPid) return; plans[curPid][key]=val;
+  if(key==='linkedLearner'){ const l=learners.find(x=>x.name===val); plans[curPid].linkedPhone=val&&l?(l.phone||''):''; }
+  LS.set('hk_plans',plans); saveToFirebase(); }
 
 // ── 인쇄 미리보기 ────────────────────────────────────────────────
 function openPrintPreview(pid){
