@@ -1126,6 +1126,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option value="nopay">결제안내 안 함</option>
         <option value="nomat">자료배포 안 함</option>
         <option value="nolearner">학습자 등록 전</option>
+        <option value="open">미처리 (상담중·미분류)</option>
       </select>
       <button class="btn btn-sm" onclick="downloadProspectTemplate()"><i class="ti ti-download"></i> 양식</button>
       <label class="btn btn-sm" style="cursor:pointer"><i class="ti ti-file-import"></i> 엑셀 가져오기<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importProspectFile(this)"></label>
@@ -1133,8 +1134,12 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     </div>
   </div>
   <div class="card" style="padding:12px 14px;margin-bottom:12px" id="pm-summary"></div>
+  <details class="card" style="padding:10px 14px;margin-bottom:12px" id="pm-year-wrap" ontoggle="if(this.open)renderProspectYear()">
+    <summary style="cursor:pointer;font-weight:700;font-size:13px"><i class="ti ti-table"></i> 월별 현황 (소스·진행상태 한눈에 보기)</summary>
+    <div id="pm-year" style="margin-top:10px;overflow-x:auto"></div>
+  </details>
   <div class="card" style="padding:0;overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:920px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1010px">
       <thead><tr style="background:var(--bg2)">
         <th style="padding:8px 6px;text-align:center;width:62px">날짜</th>
         <th style="padding:8px 6px;text-align:center;width:70px">소스</th>
@@ -1145,6 +1150,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <th style="padding:8px 6px;text-align:center;width:52px">플랜<br>안내</th>
         <th style="padding:8px 6px;text-align:center;width:52px">결제<br>안내</th>
         <th style="padding:8px 6px;text-align:center;width:52px">자료<br>배포</th>
+        <th style="padding:8px 6px;text-align:center;width:96px">진행상태</th>
         <th style="padding:8px 6px;text-align:center;width:150px">연결</th>
         <th style="padding:8px 6px;text-align:center;width:64px">관리</th>
       </tr></thead>
@@ -1167,7 +1173,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div class="fg"><label>소스 (문의경로)</label>
     <div id="pm-src-btns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-    <input type="text" id="pm-src-custom" placeholder="기타 문의경로 직접 입력" style="margin-top:6px;display:none">
+    <input type="text" id="pm-src-custom" placeholder="기타 문의경로 직접 입력 (예: 지인소개, 인스타)" style="margin-top:6px;display:none">
   </div>
   <div class="fg2">
     <div class="fg"><label>최종학력</label><input type="text" id="pm-edu" list="pm-edu-list" placeholder="예: 4년제졸">
@@ -1183,6 +1189,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>결제안내</label><select id="pm-pay"><option value="">-</option><option>O</option><option>X</option></select></div>
     <div class="fg"><label>자료배포</label><select id="pm-mat"><option value="">-</option><option>O</option><option>X</option></select></div>
   </div>
+  <div class="fg"><label>진행상태</label><select id="pm-stage"><option value="">미분류</option><option>상담중</option><option>결제</option><option>가망없음</option><option>장기</option><option>못받는소스</option></select></div>
   <div class="fg"><label>상담내용 / 특이사항</label><textarea id="pm-note" rows="4" placeholder="상담 내용, 특이사항"></textarea></div>
   <div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px">
     <button class="btn btn-sm" id="pm-del-btn" style="color:var(--red)" onclick="deleteProspect()"><i class="ti ti-trash"></i> 삭제</button>
@@ -1906,6 +1913,7 @@ async function loadUserData(){
       if(d.mktActivities) mktActivities=d.mktActivities;
       if(d.mktGoals)    mktGoals=d.mktGoals;
       if(d.prospects)   prospects=d.prospects;
+      if(d.userTemplates) userTemplates=d.userTemplates;
       // 수당 테이블: 커스텀 저장값 있으면 사용, 없으면 직급 기본값
       rewardTable = d.rewardTable || Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
       if(d.todos)  todos=d.todos;
@@ -1930,7 +1938,7 @@ const _origSave = null;
 function save(){
   // 로컬스토리지 백업
   LS.set('hk_learners',learners);LS.set('hk_schedules',schedules);
-  LS.set('hk_mkt',mktActivities);LS.set('hk_goals',mktGoals);LS.set('hk_prospects',prospects);
+  LS.set('hk_mkt',mktActivities);LS.set('hk_goals',mktGoals);LS.set('hk_prospects',prospects);LS.set('hk_tpl',userTemplates);
   LS.set('hk_rewards',rewardTable);
   // Firebase 저장
   saveToFirebase();
@@ -2404,7 +2412,7 @@ function saveToFirebase(){
       }
       const newLastUpdated=new Date().toISOString();
       await docRef.set({
-        learners, schedules, mktActivities, mktGoals, prospects,
+        learners, schedules, mktActivities, mktGoals, prospects, userTemplates,
         rewardTable, todos, plans,
         memos, memoCategories, blogKeywords,
         lastUpdated: newLastUpdated
@@ -3081,11 +3089,15 @@ let schedules = LS.get('hk_schedules')||[];
 let mktActivities = LS.get('hk_mkt')||[];
 let mktGoals = LS.get('hk_goals')||[];
 let prospects = LS.get('hk_prospects')||[]; // 가망노트
+let userTemplates = LS.get('hk_tpl')||{}; // 직원별 문구 설정 {regMsg, presets, presets2}
 const PROSPECT_SOURCES=[
   {k:'K',label:'오카'},{k:'Y',label:'예림'},{k:'H',label:'희경'},{k:'P',label:'파컨'},
-  {k:'B',label:'블로그'},{k:'U',label:'유튜브'},{k:'G',label:'기타'}
+  {k:'B',label:'블로그'},{k:'U',label:'유튜브'},{k:'D',label:'대구맘'},{k:'G',label:'기타'}
 ];
-const PSRC_COLOR={K:'#e67700',Y:'#7048e8',H:'#2f9e44',P:'#1a5fa8',B:'#0b7285',U:'#c92a2a',G:'#495057'};
+const PSRC_COLOR={K:'#e67700',Y:'#7048e8',H:'#2f9e44',P:'#1a5fa8',B:'#0b7285',U:'#c92a2a',D:'#d6336c',G:'#495057'};
+// 진행상태: 그 달 들어온 소스를 빠짐없이 처리했는지 확인용
+const PSTAGES=[{k:'결제',c:'#2f9e44'},{k:'가망없음',c:'#868e96'},{k:'장기',c:'#1a5fa8'},{k:'못받는소스',c:'#e67700'},{k:'상담중',c:'#c92a2a'}];
+const PSTAGE_DONE=['결제','가망없음','장기','못받는소스'];
 let _pmMonth=null, _pmEditId=null, _pmSrc='', _pendingProspectId=null;
 let rewardTable = LS.get('hk_rewards') || Object.assign({}, DEFAULT_REWARDS);
 let editIdx = -1;
@@ -3738,7 +3750,7 @@ async function saveLearner(){
   l.images=_pendingImgs.filter(i=>i.downloadUrl).map(i=>({id:i.id,url:i.downloadUrl,path:i.storagePath}));
   if(editIdx>=0&&learners[editIdx]&&learners[editIdx].portalToken) l.portalToken=learners[editIdx].portalToken;
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
-  if(editIdx<0&&_pendingProspectId){ const pr=prospects.find(x=>x.id===_pendingProspectId); if(pr){ pr.learnerId=l.id; pr.learnerName=l.name; } }
+  if(editIdx<0&&_pendingProspectId){ const pr=prospects.find(x=>x.id===_pendingProspectId); if(pr){ pr.learnerId=l.id; pr.learnerName=l.name; if(!PSTAGE_DONE.includes(pr.stage)) pr.stage='결제'; } }
   _pendingProspectId=null;
 
   // 학사일정 동시 등록
@@ -4081,8 +4093,11 @@ function renderProspects(){
   const lab=document.getElementById('pm-label'); if(!lab) return;
   lab.textContent=`${y}년 ${+m}월`;
   const month=prospects.filter(x=>(x.date||'').startsWith(ym));
-  // 요약: 한 달 유입량 + 소스별
+  // 요약: 한 달 유입량 + 소스별 + 진행상태
   const cnt={}; month.forEach(x=>cnt[x.src||'']=(cnt[x.src||'']||0)+1);
+  const st={}; month.forEach(x=>st[x.stage||'']=(st[x.stage||'']||0)+1);
+  const doneN=month.filter(x=>PSTAGE_DONE.includes(x.stage)).length;
+  const openN=month.length-doneN;
   const done=k=>month.filter(x=>x[k]==='O').length;
   document.getElementById('pm-summary').innerHTML=`
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
@@ -4092,7 +4107,13 @@ function renderProspects(){
           <div style="font-size:11px;color:${PSRC_COLOR[v.k]};font-weight:700">${v.k}(${v.label})</div>
           <div style="font-size:16px;font-weight:700">${cnt[v.k]||0}</div></div>`).join('')}
       </div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.7">플랜안내 <b>${done('plan')}</b> · 결제안내 <b>${done('pay')}</b> · 자료배포 <b>${done('mat')}</b><br>학습자 등록 <b>${month.filter(x=>x.learnerId).length}</b></div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+      ${PSTAGES.map(v=>`<span style="font-size:12px;border:1px solid ${v.c}44;background:${v.c}10;color:${v.c};border-radius:99px;padding:3px 10px;font-weight:600">${v.k} ${st[v.k]||0}</span>`).join('')}
+      ${st['']?`<span style="font-size:12px;border:1px dashed #adb5bd;color:#868e96;border-radius:99px;padding:3px 10px;font-weight:600">미분류 ${st['']}</span>`:''}
+      <span style="margin-left:auto;font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;${month.length&&!openN?'background:#e7f6ea;color:#2f9e44':'background:#fff4e6;color:#d9480f'}">
+        ${!month.length?'이 달 유입 없음':!openN?'✓ 모두 처리 완료':`⚠️ 미처리 ${openN}명 (상담중·미분류)`}</span>
+      <span style="font-size:11px;color:var(--text2);width:100%">플랜안내 ${done('plan')} · 결제안내 ${done('pay')} · 자료배포 ${done('mat')} · 학습자 등록 ${month.filter(x=>x.learnerId).length}</span>
     </div>`;
   // 목록
   const q=(document.getElementById('pm-search')?.value||'').trim().toLowerCase();
@@ -4102,11 +4123,18 @@ function renderProspects(){
   if(f==='nopay') list=list.filter(x=>x.pay!=='O');
   if(f==='nomat') list=list.filter(x=>x.mat!=='O');
   if(f==='nolearner') list=list.filter(x=>!x.learnerId);
+  if(f==='open') list=list.filter(x=>!PSTAGE_DONE.includes(x.stage));
   list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''));
   const tb=document.getElementById('pm-tbody'), em=document.getElementById('pm-empty');
+  if(document.getElementById('pm-year-wrap')?.open) renderProspectYear();
   if(!list.length){ tb.innerHTML=''; em.style.display='block'; return; }
   em.style.display='none';
   const ox=(x,k)=>{const v=x[k]||''; return `<td style="padding:6px;text-align:center;cursor:pointer;font-weight:700;color:${v==='O'?'var(--green)':v==='X'?'var(--red)':'var(--text3)'}" onclick="cycleProspectOX('${x.id}','${k}')" title="눌러서 변경">${v||'·'}</td>`;};
+  const stageSel=x=>{
+    const c=(PSTAGES.find(v=>v.k===x.stage)||{}).c||'#adb5bd';
+    return `<td style="padding:6px;text-align:center"><select onchange="setProspectStage('${x.id}',this.value)" style="font-size:12px;padding:3px 4px;border-radius:99px;border:1px solid ${c}66;background:${c}12;color:${c};font-weight:700;width:90px">
+      <option value="" ${!x.stage?'selected':''}>미분류</option>${PSTAGES.map(v=>`<option ${x.stage===v.k?'selected':''}>${v.k}</option>`).join('')}</select></td>`;
+  };
   tb.innerHTML=list.map(x=>{
     const plan=x.planId&&plans[x.planId];
     const lr=x.learnerId&&learners.some(l=>l.id===x.learnerId);
@@ -4119,6 +4147,7 @@ function renderProspects(){
       <td style="padding:6px;text-align:center;font-size:12px">${pmEsc(x.price)}</td>
       <td style="padding:6px;text-align:center;font-size:12px">${pmEsc(x.contact)}${x.ctype?`<div style="font-size:10px;color:var(--text2)">${pmEsc(x.ctype)}</div>`:''}</td>
       ${ox(x,'plan')}${ox(x,'pay')}${ox(x,'mat')}
+      ${stageSel(x)}
       <td style="padding:6px;text-align:center;white-space:nowrap">
         ${plan?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="goProspectPlan('${x.id}')"><i class="ti ti-clipboard-check"></i> 플랜</button>`
               :`<button class="btn btn-sm" style="font-size:11px" onclick="prospectToPlan('${x.id}')"><i class="ti ti-clipboard-plus"></i> 플랜</button>`}
@@ -4127,18 +4156,51 @@ function renderProspects(){
       </td>
       <td style="padding:6px;text-align:center"><button class="btn btn-icon btn-sm" onclick="openProspectModal('${x.id}')" title="수정"><i class="ti ti-edit"></i></button></td>
     </tr>
-    ${x.note?`<tr><td style="padding:2px 6px 8px;font-size:11px;color:var(--text2);text-align:center;vertical-align:top">상담내용</td><td colspan="10" style="padding:2px 6px 8px;font-size:12px;color:var(--text2);white-space:pre-wrap">${pmEsc(x.note)}</td></tr>`:''}`;
+    ${x.note?`<tr><td style="padding:2px 6px 8px;font-size:11px;color:var(--text2);text-align:center;vertical-align:top">상담내용</td><td colspan="11" style="padding:2px 6px 8px;font-size:12px;color:var(--text2);white-space:pre-wrap">${pmEsc(x.note)}</td></tr>`:''}`;
   }).join('');
+}
+function setProspectStage(id,v){
+  const x=prospects.find(p=>p.id===id); if(!x) return;
+  x.stage=v; save(); renderProspects();
+}
+// 월별 현황 (시트의 '한 달 유입소스량 + 결제건/가망없음/장기/못받는 소스/Total/TRUE' 표)
+function renderProspectYear(){
+  const el=document.getElementById('pm-year'); if(!el) return;
+  const y=pmYm().slice(0,4);
+  const th='padding:6px 6px;background:var(--bg2);border:1px solid var(--border);text-align:center;font-size:11.5px;white-space:nowrap';
+  const td='padding:6px 6px;border:1px solid var(--border);text-align:center';
+  const rows=[];
+  for(let m=1;m<=12;m++){
+    const ym=`${y}-${String(m).padStart(2,'0')}`;
+    const L=prospects.filter(x=>(x.date||'').startsWith(ym));
+    const c={},st={}; L.forEach(x=>{c[x.src||'']=(c[x.src||'']||0)+1; st[x.stage||'']=(st[x.stage||'']||0)+1;});
+    const dn=L.filter(x=>PSTAGE_DONE.includes(x.stage)).length, op=L.length-dn;
+    rows.push(`<tr style="${ym===pmYm()?'background:#f1f5ff':''}">
+      <td style="${td};font-weight:700;cursor:pointer;color:var(--navy)" onclick="_pmMonth='${ym}';renderProspects()">${y.slice(2)}-${m}월</td>
+      <td style="${td};font-weight:800;color:var(--red)">${L.length||''}</td>
+      ${PROSPECT_SOURCES.map(v=>`<td style="${td}">${c[v.k]||''}</td>`).join('')}
+      ${PSTAGE_DONE.map(k=>`<td style="${td};color:#1a5fa8">${st[k]||''}</td>`).join('')}
+      <td style="${td};color:#c2255c;font-weight:700">${L.length?dn:''}</td>
+      <td style="${td};font-weight:700">${!L.length?'':!op?'<span style="color:#2f9e44">✓</span>':`<span style="color:#d9480f">미처리 ${op}</span>`}</td>
+    </tr>`);
+  }
+  el.innerHTML=`<table style="border-collapse:collapse;font-size:12.5px;min-width:860px;width:100%">
+    <thead><tr><th style="${th}">${y}년</th><th style="${th}">유입</th>
+      ${PROSPECT_SOURCES.map(v=>`<th style="${th};color:${PSRC_COLOR[v.k]}">${v.k}(${v.label})</th>`).join('')}
+      ${PSTAGE_DONE.map(k=>`<th style="${th}">${k}</th>`).join('')}<th style="${th}">처리 합계</th><th style="${th}">확인</th></tr></thead>
+    <tbody>${rows.join('')}</tbody></table>
+    <div style="font-size:11px;color:var(--text2);margin-top:6px">처리 합계 = 결제+가망없음+장기+못받는소스. 유입과 같으면 ✓, 다르면 상담중·미분류 인원이 '미처리'로 나와요. 월을 누르면 그 달로 이동해요.</div>`;
 }
 function cycleProspectOX(id,k){
   const x=prospects.find(v=>v.id===id); if(!x) return;
   x[k]=x[k]==='O'?'X':x[k]==='X'?'':'O';
   save(); renderProspects();
 }
+function pmPickSrc(k){ _pmSrc=k; pmRenderSrcBtns(); if(k==='G'){ const el=document.getElementById('pm-src-custom'); el.focus(); } }
 function pmRenderSrcBtns(){
   document.getElementById('pm-src-btns').innerHTML=PROSPECT_SOURCES.map(v=>{
     const on=_pmSrc===v.k, c=PSRC_COLOR[v.k];
-    return `<button type="button" class="btn btn-sm" onclick="_pmSrc='${v.k}';pmRenderSrcBtns()" style="font-size:12px;${on?`background:${c};color:#fff;border-color:${c}`:''}">${v.k}(${v.label})</button>`;
+    return `<button type="button" class="btn btn-sm" onclick="pmPickSrc('${v.k}')" style="font-size:12px;${on?`background:${c};color:#fff;border-color:${c}`:''}">${v.k}(${v.label})</button>`;
   }).join('');
   document.getElementById('pm-src-custom').style.display=_pmSrc==='G'?'block':'none';
 }
@@ -4152,7 +4214,7 @@ function openProspectModal(id){
   const set=(f,v)=>{document.getElementById('pm-'+f).value=v??'';};
   set('date',x?x.date:def); set('name',x?.name); set('edu',x?.edu); set('price',x?.price);
   set('contact',x?.contact); set('ctype',x?.ctype); set('plan',x?.plan); set('pay',x?.pay); set('mat',x?.mat);
-  set('note',x?.note); set('src-custom',x?.srcCustom);
+  set('note',x?.note); set('src-custom',x?.srcCustom); set('stage',x?x.stage:'상담중');
   _pmSrc=x?.src||''; pmRenderSrcBtns();
   openModal('modal-prospect');
 }
@@ -4161,7 +4223,7 @@ function saveProspect(){
   const date=g('date'), name=g('name');
   if(!date||!name){ alert('날짜와 성함은 꼭 입력해주세요'); return; }
   const data={date,name,src:_pmSrc,srcCustom:_pmSrc==='G'?g('src-custom'):'',edu:g('edu'),price:g('price'),
-    contact:g('contact'),ctype:g('ctype'),plan:g('plan'),pay:g('pay'),mat:g('mat'),note:document.getElementById('pm-note').value.trim()};
+    contact:g('contact'),ctype:g('ctype'),plan:g('plan'),pay:g('pay'),mat:g('mat'),stage:g('stage'),note:document.getElementById('pm-note').value.trim()};
   if(_pmEditId){ const x=prospects.find(v=>v.id===_pmEditId); if(x) Object.assign(x,data); }
   else prospects.push({id:'pr'+Date.now()+Math.random().toString(36).slice(2,6),createdAt:new Date().toISOString(),...data});
   _pmMonth=date.slice(0,7);
@@ -4201,7 +4263,7 @@ function prospectToLearner(id){
   openModal('modal-learner');
 }
 // 엑셀 양식 / 가져오기 (시트에서 옮길 직원용)
-const PM_COLS=['날짜','소스','성함/닉네임','최종학력','단가','연락처','연락방식','플랜안내','결제안내','자료배포','상담내용'];
+const PM_COLS=['날짜','소스','성함/닉네임','최종학력','단가','연락처','연락방식','플랜안내','결제안내','자료배포','진행상태','상담내용'];
 function pmLoadXLSX(){
   return new Promise((res,rej)=>{
     if(window.XLSX){res();return;}
@@ -4212,9 +4274,9 @@ function pmLoadXLSX(){
 }
 function downloadProspectTemplate(){
   pmLoadXLSX().then(()=>{
-    const ws=XLSX.utils.aoa_to_sheet([PM_COLS,['2026-09-30','H','홍길동','4년제졸','40','010-0000-0000','카톡','O','X','O','상담 내용 예시']]);
-    ws['!cols']=PM_COLS.map((c,i)=>({wch:i===10?40:i===2||i===5?16:10}));
-    const guide=XLSX.utils.aoa_to_sheet([['소스 입력값'],...PROSPECT_SOURCES.map(v=>[`${v.k} 또는 ${v.label}`]),[''],['플랜안내·결제안내·자료배포는 O 또는 X'],['날짜는 2026-09-30 또는 26-09-30 형식']]);
+    const ws=XLSX.utils.aoa_to_sheet([PM_COLS,['2026-09-30','H','홍길동','4년제졸','40','010-0000-0000','카톡','O','X','O','상담중','상담 내용 예시']]);
+    ws['!cols']=PM_COLS.map((c,i)=>({wch:i===11?40:i===2||i===5?16:10}));
+    const guide=XLSX.utils.aoa_to_sheet([['소스 입력값'],...PROSPECT_SOURCES.map(v=>[`${v.k} 또는 ${v.label}`]),[''],['플랜안내·결제안내·자료배포는 O 또는 X'],['진행상태: 결제 / 가망없음 / 장기 / 못받는소스 / 상담중 (비우면 미분류)'],['날짜는 2026-09-30 또는 26-09-30 형식']]);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'가망노트');
     XLSX.utils.book_append_sheet(wb,guide,'입력안내');
@@ -4240,7 +4302,7 @@ function importProspectFile(input){
         if(hi<0){ alert('"성함/닉네임" 제목 줄을 찾지 못했어요. [양식] 버튼으로 받은 파일에 맞춰 입력해주세요.'); return; }
         const H=rows[hi].map(c=>String(c).trim());
         const ci=k=>H.findIndex(h=>h.includes(k));
-        const C={date:ci('날짜'),src:ci('소스'),name:ci('성함'),edu:ci('학력'),price:ci('단가'),contact:ci('연락처'),ctype:ci('연락방식'),plan:ci('플랜'),pay:ci('결제'),mat:ci('자료'),note:ci('상담')};
+        const C={date:ci('날짜'),src:ci('소스'),name:ci('성함'),edu:ci('학력'),price:ci('단가'),contact:ci('연락처'),ctype:ci('연락방식'),plan:ci('플랜'),pay:ci('결제'),mat:ci('자료'),stage:ci('진행'),note:ci('상담')};
         const val=(r,k)=>C[k]>=0?String(r[C[k]]??'').trim():'';
         const oxv=v=>/^[oO○ㅇ]$/.test(v)?'O':/^[xX×]$/.test(v)?'X':'';
         const srcOf=v=>{ if(!v) return ['','']; const t=v.trim(); const s=PROSPECT_SOURCES.find(p=>t===p.k||t.toUpperCase()===p.k||t.includes(p.label)); return s?[s.k,'']:['G',t]; };
@@ -4253,7 +4315,7 @@ function importProspectFile(input){
           const [src,srcCustom]=srcOf(val(r,'src'));
           const it={id:'pr'+Date.now()+i+Math.random().toString(36).slice(2,5),createdAt:new Date().toISOString(),
             date,name,src,srcCustom,edu:val(r,'edu'),price:val(r,'price'),contact:val(r,'contact'),ctype:val(r,'ctype'),
-            plan:oxv(val(r,'plan')),pay:oxv(val(r,'pay')),mat:oxv(val(r,'mat')),note:val(r,'note')};
+            plan:oxv(val(r,'plan')),pay:oxv(val(r,'pay')),mat:oxv(val(r,'mat')),stage:(PSTAGES.find(v=>v.k===val(r,'stage').replace(/\s/g,''))||{}).k||'',note:val(r,'note')};
           const key=`${it.date}|${it.name}|${it.contact}`;
           if(ex.has(key)){ skip++; return; }
           ex.add(key); items.push(it);
@@ -4276,7 +4338,7 @@ function renderAdminProspects(){
   const rows=Object.values(allMembersData).map(m=>{
     const list=(m.prospects||[]).filter(ok);
     const c={}; list.forEach(x=>c[x.src||'']=(c[x.src||'']||0)+1);
-    return {name:m.name||m.email||'-',list,c,pay:list.filter(x=>x.pay==='O').length,lr:list.filter(x=>x.learnerId).length};
+    return {name:m.name||m.email||'-',list,c,pay:list.filter(x=>x.stage==='결제').length,lr:list.filter(x=>!PSTAGE_DONE.includes(x.stage)).length};
   }).filter(r=>r.list.length).sort((a,b)=>b.list.length-a.list.length);
   const tot={}; rows.forEach(r=>PROSPECT_SOURCES.forEach(v=>tot[v.k]=(tot[v.k]||0)+(r.c[v.k]||0)));
   const all=rows.reduce((a,r)=>a+r.list.length,0);
@@ -4284,7 +4346,7 @@ function renderAdminProspects(){
   const td='padding:7px 8px;border-bottom:1px solid var(--border);text-align:center';
   el.innerHTML=`<div style="font-size:14px;font-weight:700;margin-bottom:8px"><i class="ti ti-address-book"></i> 팀 가망노트 ${yf||mf?`(${yf?yf+'년 ':''}${mf?mf+'월':''})`:'(전체 기간)'} · 총 ${all}건</div>
     ${rows.length?`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px">
-      <thead><tr><th style="${th};text-align:left">직원</th><th style="${th}">합계</th>${PROSPECT_SOURCES.map(v=>`<th style="${th};color:${PSRC_COLOR[v.k]}">${v.k}(${v.label})</th>`).join('')}<th style="${th}">결제안내 O</th><th style="${th}">학습자 등록</th></tr></thead>
+      <thead><tr><th style="${th};text-align:left">직원</th><th style="${th}">합계</th>${PROSPECT_SOURCES.map(v=>`<th style="${th};color:${PSRC_COLOR[v.k]}">${v.k}(${v.label})</th>`).join('')}<th style="${th}">결제</th><th style="${th}">미처리</th></tr></thead>
       <tbody>${rows.map(r=>`<tr><td style="${td};text-align:left;font-weight:600">${pmEsc(r.name)}</td><td style="${td};font-weight:700">${r.list.length}</td>${PROSPECT_SOURCES.map(v=>`<td style="${td}">${r.c[v.k]||''}</td>`).join('')}<td style="${td}">${r.pay}</td><td style="${td}">${r.lr}</td></tr>`).join('')}
         <tr style="background:var(--bg2);font-weight:700"><td style="${td};text-align:left">합계</td><td style="${td}">${all}</td>${PROSPECT_SOURCES.map(v=>`<td style="${td}">${tot[v.k]||''}</td>`).join('')}<td style="${td}">${rows.reduce((a,r)=>a+r.pay,0)}</td><td style="${td}">${rows.reduce((a,r)=>a+r.lr,0)}</td></tr>
       </tbody></table></div>`:'<div class="empty">해당 기간 가망노트가 없어요</div>'}`;
@@ -4880,13 +4942,14 @@ function importDataJson(event){
       if(d.mktActivities)  mktActivities  = d.mktActivities;
       if(d.mktGoals)       mktGoals       = d.mktGoals;
       if(d.prospects)      prospects      = d.prospects;
+      if(d.userTemplates)  userTemplates  = d.userTemplates;
 
       // Firebase + 로컬 저장
       save();
       if(currentUser && fbDb){
         fbDb.collection('userData').doc(currentUser.uid).set({
           learners, schedules, plans, memos, memoCategories,
-          blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects,
+          blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates,
           lastUpdated: new Date().toISOString()
         }, {merge:false}).then(()=>{
           showToast('✅ 데이터 가져오기 완료! Firebase에 저장됐어요.');
@@ -4913,7 +4976,7 @@ function exportDataJson(){
   const data={
     exportedAt: new Date().toISOString(),
     learners, schedules, plans, memos, memoCategories,
-    blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects
+    blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -6290,6 +6353,9 @@ function renderPlanEditor(p){
       <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
         <h3><i class="ti ti-notes"></i>비고</h3>
         <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" style="font-size:11px;gap:4px" onclick="openTplEditor()" title="등록 멘트·자주쓰는 문구를 내 방식으로 수정">
+            <i class="ti ti-pencil"></i> 문구 편집
+          </button>
           <button class="btn btn-sm" style="font-size:11px;gap:4px" onclick="generateRegMsg()">
             <i class="ti ti-clipboard-text"></i> 등록 멘트
           </button>
@@ -6300,23 +6366,10 @@ function renderPlanEditor(p){
       </div>
       <!-- 자주쓰는 비고 프리셋 -->
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
-        ${[
-          {l:'학사필수', t:'학사: 전공60 이상, 교양30 이상 이수 필수'},
-          {l:'전문학사필수', t:'전문학사: 전공45 이상, 교양15 이상 이수 필수'},
-          {l:'학사일반한도', t:'학사 일반학점 최대 50학점까지만 인정 가능'},
-          {l:'전문학사일반한도', t:'전문학사 일반학점 최대 20학점까지만 인정 가능'},
-          {l:'학위신청 27.12→2월', t:'12/15-1/15 학위신청, 27년 2월 학위수여'},
-          {l:'학위신청 27.6→8월', t:'27년 6/15-7/15 학위신청, 27년 8월 학위수여'},
-          {l:'독학사3단계', t:'독학사 3단계 6/30-7/7 접수 8/9 시험'},
-        ].map(x=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPreset('${x.t.replace(/'/g,"\\'")}')" title="${x.t}"><i class="ti ti-plus" style="font-size:10px"></i> ${x.l}</button>`).join('')}
+        ${tplPresets(1).map((x,i)=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="appendMemoPresetIdx(1,${i})" title="${pmEsc(x.t)}"><i class="ti ti-plus" style="font-size:10px"></i> ${pmEsc(x.l)}</button>`).join('')}
         <div style="width:100%;border-top:1px dashed #ddd;margin:5px 0 3px;font-size:10px;color:#999;letter-spacing:1px">── 자격증 / 독학사 일정 ──</div>
-        ${[
-          {l:'매경/텔레/ADsP ~27.10', t:'자격증(매경테스트 우수, 텔레마케팅관리사, ADsP) 27년 10월까지 취득'},
-          {l:'독학사1단계 27.1접수/2시험', t:'독학사 1단계: 27년 1월 접수 / 2월 시험 (60점 이상 통과)'},
-          {l:'독학사2단계 27.4접수/5시험', t:'독학사 2단계: 27년 4월 접수 / 5월 시험 (60점 이상 통과)'},
-          {l:'학위신청→28.2수여', t:'학위신청 27년 12/15-1/15 → 학위수여 28년 2월'},
-          {l:'27하반기 학사편입가능', t:'27년 하반기 학사편입 지원 가능'},
-        ].map(x=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#fffbe6;border-color:#f0c040;color:#7a5700" onclick="appendMemoPreset('${x.t.replace(/'/g,"\\'")}')" title="${x.t}"><i class="ti ti-plus" style="font-size:10px"></i> ${x.l}</button>`).join('')}
+        ${tplPresets(2).map((x,i)=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#fffbe6;border-color:#f0c040;color:#7a5700" onclick="appendMemoPresetIdx(2,${i})" title="${pmEsc(x.t)}"><i class="ti ti-plus" style="font-size:10px"></i> ${pmEsc(x.l)}</button>`).join('')}
+        <button class="btn btn-sm" style="font-size:10px;padding:2px 8px;border-style:dashed;color:var(--text2)" onclick="openTplEditor()"><i class="ti ti-pencil" style="font-size:10px"></i> 문구 편집</button>
       </div>
       <textarea id="plan-memo-1"
         style="width:100%;height:90px;resize:none;font-size:12px;text-align:center;line-height:1.8"
@@ -6694,6 +6747,113 @@ function buildDegreeChecker(p,t,dr){
     </div>
   </div>`;
 }
+// ── 직원별 문구 설정: 등록 멘트 틀 + 비고 자주쓰는 문구 (userTemplates, 계정별 저장) ──
+const DEFAULT_REG_MSG=`네 가입되셨으면 로그인 후
+수강신청 > {기수} {개강일} 개강반에서
+
+지정해드린
+
+{과목목록}
+
+총 {과목수}과목 선택 후 등록 진행해주세요
+
+쿠폰 :
+
+등록 완료되시면 교육원 아이디와 연락처 보내주세요!
+정상등록 되었는지 확인해드리겠습니다 :)`;
+const TPL_KEYS=['이름','교육원','학기명','기수','개강일','과목목록','과목수'];
+const DEFAULT_PRESETS=[
+  {l:'학사필수', t:'학사: 전공60 이상, 교양30 이상 이수 필수'},
+  {l:'전문학사필수', t:'전문학사: 전공45 이상, 교양15 이상 이수 필수'},
+  {l:'학사일반한도', t:'학사 일반학점 최대 50학점까지만 인정 가능'},
+  {l:'전문학사일반한도', t:'전문학사 일반학점 최대 20학점까지만 인정 가능'},
+  {l:'학위신청 27.12→2월', t:'12/15-1/15 학위신청, 27년 2월 학위수여'},
+  {l:'학위신청 27.6→8월', t:'27년 6/15-7/15 학위신청, 27년 8월 학위수여'},
+  {l:'독학사3단계', t:'독학사 3단계 6/30-7/7 접수 8/9 시험'},
+];
+const DEFAULT_PRESETS2=[
+  {l:'매경/텔레/ADsP ~27.10', t:'자격증(매경테스트 우수, 텔레마케팅관리사, ADsP) 27년 10월까지 취득'},
+  {l:'독학사1단계 27.1접수/2시험', t:'독학사 1단계: 27년 1월 접수 / 2월 시험 (60점 이상 통과)'},
+  {l:'독학사2단계 27.4접수/5시험', t:'독학사 2단계: 27년 4월 접수 / 5월 시험 (60점 이상 통과)'},
+  {l:'학위신청→28.2수여', t:'학위신청 27년 12/15-1/15 → 학위수여 28년 2월'},
+  {l:'27하반기 학사편입가능', t:'27년 하반기 학사편입 지원 가능'},
+];
+function tplPresets(g){ const v=g===2?userTemplates.presets2:userTemplates.presets; return Array.isArray(v)?v:(g===2?DEFAULT_PRESETS2:DEFAULT_PRESETS); }
+function fillTpl(tpl,vals){ return String(tpl).replace(/\{([^{}]+)\}/g,(m,k)=>k in vals?String(vals[k]):m); }
+function appendMemoPresetIdx(g,i){ const x=tplPresets(g)[i]; if(x) appendMemoPreset(x.t); }
+let _tplDraft=null;
+function openTplEditor(){
+  _tplDraft={regMsg:userTemplates.regMsg||DEFAULT_REG_MSG,
+    presets:tplPresets(1).map(x=>({...x})),presets2:tplPresets(2).map(x=>({...x}))};
+  let ov=document.getElementById('tpl-modal'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='tpl-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  document.body.appendChild(ov); renderTplEditor();
+}
+function tplSync(){
+  const ta=document.getElementById('tpl-reg'); if(ta) _tplDraft.regMsg=ta.value;
+  ['presets','presets2'].forEach(k=>{
+    _tplDraft[k]=_tplDraft[k].map((x,i)=>({l:(document.getElementById(`tpl-${k}-l-${i}`)?.value??x.l),t:(document.getElementById(`tpl-${k}-t-${i}`)?.value??x.t)}));
+  });
+}
+function renderTplEditor(){
+  const ov=document.getElementById('tpl-modal'); if(!ov) return;
+  const list=k=>_tplDraft[k].map((x,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <input id="tpl-${k}-l-${i}" value="${pmEsc(x.l)}" placeholder="버튼 이름" style="width:140px;font-size:12px;padding:5px 7px">
+      <input id="tpl-${k}-t-${i}" value="${pmEsc(x.t)}" placeholder="비고에 들어갈 문장" style="flex:1;font-size:12px;padding:5px 7px">
+      <button class="btn btn-icon btn-sm" onclick="tplMove('${k}',${i},-1)" title="위로"><i class="ti ti-arrow-up"></i></button>
+      <button class="btn btn-icon btn-sm" style="color:var(--red)" onclick="tplDel('${k}',${i})" title="삭제"><i class="ti ti-trash"></i></button>
+    </div>`).join('');
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:720px;width:100%;max-height:90vh;overflow:auto;padding:22px;box-shadow:0 10px 40px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:16px;font-weight:700"><i class="ti ti-pencil"></i> 내 문구 설정</div>
+      <button class="btn btn-icon" onclick="document.getElementById('tpl-modal').remove()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px">내 계정에만 저장돼요. 다른 직원 문구에는 영향이 없어요.</div>
+
+    <div style="font-size:13px;font-weight:700;margin-bottom:6px">📋 등록 멘트 틀</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;font-size:11px;align-items:center">
+      <span style="color:var(--text2)">자동으로 채워지는 칸 (누르면 커서 위치에 들어가요):</span>
+      ${TPL_KEYS.map(k=>`<button class="btn btn-sm" style="font-size:11px;padding:1px 7px" onclick="tplInsert('{${k}}')">{${k}}</button>`).join('')}
+    </div>
+    <textarea id="tpl-reg" style="width:100%;height:230px;font-size:12.5px;line-height:1.7;padding:10px;border:1px solid #ddd;border-radius:8px;font-family:inherit">${pmEsc(_tplDraft.regMsg)}</textarea>
+    <div style="text-align:right;margin-top:4px"><button class="btn btn-sm" style="font-size:11px" onclick="tplSync();_tplDraft.regMsg=DEFAULT_REG_MSG;renderTplEditor()">기본 멘트로 되돌리기</button></div>
+
+    <div style="font-size:13px;font-weight:700;margin:16px 0 6px">➕ 비고 자주쓰는 문구</div>
+    ${list('presets')}
+    <button class="btn btn-sm" style="font-size:11px" onclick="tplAdd('presets')"><i class="ti ti-plus"></i> 문구 추가</button>
+
+    <div style="font-size:13px;font-weight:700;margin:16px 0 6px">➕ 자격증 / 독학사 일정 문구</div>
+    ${list('presets2')}
+    <button class="btn btn-sm" style="font-size:11px" onclick="tplAdd('presets2')"><i class="ti ti-plus"></i> 문구 추가</button>
+
+    <div style="display:flex;justify-content:space-between;gap:8px;margin-top:18px">
+      <button class="btn btn-sm" style="font-size:11px" onclick="if(confirm('등록 멘트와 문구를 모두 기본값으로 되돌릴까요?')){_tplDraft={regMsg:DEFAULT_REG_MSG,presets:DEFAULT_PRESETS.map(x=>({...x})),presets2:DEFAULT_PRESETS2.map(x=>({...x}))};renderTplEditor();}">전체 기본값으로</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="document.getElementById('tpl-modal').remove()">취소</button>
+        <button class="btn btn-primary" onclick="saveTplEditor()">저장</button>
+      </div>
+    </div></div>`;
+}
+function tplInsert(t){
+  const ta=document.getElementById('tpl-reg'); if(!ta) return;
+  const a=ta.selectionStart??ta.value.length, b=ta.selectionEnd??a;
+  ta.value=ta.value.slice(0,a)+t+ta.value.slice(b); ta.focus(); ta.selectionStart=ta.selectionEnd=a+t.length;
+}
+function tplAdd(k){ tplSync(); _tplDraft[k].push({l:'',t:''}); renderTplEditor(); }
+function tplDel(k,i){ tplSync(); _tplDraft[k].splice(i,1); renderTplEditor(); }
+function tplMove(k,i,d){ tplSync(); const j=i+d; if(j<0||j>=_tplDraft[k].length) return; const a=_tplDraft[k]; [a[i],a[j]]=[a[j],a[i]]; renderTplEditor(); }
+function saveTplEditor(){
+  tplSync();
+  const clean=a=>a.map(x=>({l:String(x.l||'').trim(),t:String(x.t||'').trim()})).filter(x=>x.t).map(x=>({l:x.l||x.t.slice(0,12),t:x.t}));
+  userTemplates={...userTemplates,regMsg:_tplDraft.regMsg.trim()===DEFAULT_REG_MSG.trim()?'':_tplDraft.regMsg,
+    presets:clean(_tplDraft.presets),presets2:clean(_tplDraft.presets2)};
+  save();
+  document.getElementById('tpl-modal').remove();
+  if(curPid&&plans[curPid]) renderPlanEditor(plans[curPid]);
+  showToast('✓ 내 문구를 저장했어요');
+}
+
 // ── 등록 멘트 (가입 후 수강신청 안내) ─────────────────────────────
 // 플랜표 학기의 기수(2-5 → 2학기 5기수)·개강일·과목을 넣어 생성, 쿠폰은 공란
 function generateRegMsg(si){
@@ -6733,21 +6893,13 @@ function generateRegMsg(si){
   const subs=subjOf(sem);
   if(!subs.length) missing.push('⚠️ 과목 미입력');
   if(subs.some(x=>/지정|미정/.test(x))) missing.push('⚠️ "개강 후 지정/미정" 과목이 있어요 — 확정 과목명으로 바꿔주세요');
-  const msg=[
-    '네 가입되셨으면 로그인 후',
-    `수강신청 > ${kisuTxt} ${startTxt} 개강반에서`,
-    '',
-    '지정해드린',
-    '',
-    subs.join('\n'),
-    '',
-    `총 ${subs.length}과목 선택 후 등록 진행해주세요`,
-    '',
-    '쿠폰 : ',
-    '',
-    '등록 완료되시면 교육원 아이디와 연락처 보내주세요! ',
-    '정상등록 되었는지 확인해드리겠습니다 :)'
-  ].join('\n');
+  const tpl=userTemplates.regMsg||DEFAULT_REG_MSG;
+  const nm=String(p.clientName||'').trim();
+  const msg=fillTpl(tpl,{
+    '이름':/^[가-힣]{3,5}$/.test(nm)?(['남궁','황보','제갈','선우','독고','사공','서문'].includes(nm.slice(0,2))&&nm.length>=4?nm.slice(2):nm.slice(1)):nm,
+    '기수':kisuTxt,'개강일':startTxt,'과목목록':subs.join('\n'),'과목수':subs.length,
+    '교육원':sem.edu||'','학기명':sem.name||''
+  });
   // 표시 (카톡 멘트 창 재사용)
   document.getElementById('kakao-msg-title').textContent='등록 멘트';
   const sel=document.getElementById('kakao-sem-select');
