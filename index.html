@@ -2396,22 +2396,33 @@ function savePlansStorage(){
 }
 
 let _saveTimer = null;
+// 이 탭이 직접 저장한 lastUpdated 기록 — 내 저장을 '다른 탭 저장'으로 오인하지 않도록
+const _myWrites = new Set();
+let _saving=false, _saveAgain=false;
 function saveToFirebase(){
   if(!currentUser||!fbDb) return;
   clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(async ()=>{
+  _saveTimer=setTimeout(runSaveToFirebase, 800);
+}
+async function runSaveToFirebase(){
+  if(!currentUser||!fbDb) return;
+  // 저장은 한 번에 하나씩: 진행 중이면 끝난 뒤 한 번 더 저장
+  if(_saving){ _saveAgain=true; return; }
+  _saving=true;
+  {
     const docRef=fbDb.collection('userData').doc(currentUser.uid);
     try{
       // 다른 기기/탭에서 먼저 저장한 변경사항이 있는지 확인 (동시저장 덮어쓰기 방지)
       const snap=await docRef.get({source:'server'}).catch(()=>null);
       if(snap && snap.exists){
         const serverLastUpdated=snap.data().lastUpdated||null;
-        if(_loadedLastUpdated && serverLastUpdated && serverLastUpdated!==_loadedLastUpdated){
+        if(_loadedLastUpdated && serverLastUpdated && serverLastUpdated!==_loadedLastUpdated && !_myWrites.has(serverLastUpdated)){
           const ok=confirm('다른 기기(또는 탭)에서 먼저 저장한 변경사항이 있어요.\n지금 저장하면 그 변경사항이 덮어써질 수 있어요.\n\n계속 저장할까요?\n(취소 후 새로고침하면 최신 데이터를 먼저 확인할 수 있어요)');
           if(!ok) return;
         }
       }
       const newLastUpdated=new Date().toISOString();
+      _myWrites.add(newLastUpdated);
       await docRef.set({
         learners, schedules, mktActivities, mktGoals, prospects, userTemplates,
         rewardTable, todos, plans,
@@ -2421,7 +2432,11 @@ function saveToFirebase(){
       _loadedLastUpdated=newLastUpdated;
       syncLearnerPortals();
     } catch(e){ console.warn('Firebase 저장 실패:', e); }
-  }, 800);
+    finally{
+      _saving=false;
+      if(_saveAgain){ _saveAgain=false; runSaveToFirebase(); }
+    }
+  }
 }
 
 // ── 학습자 포털 (학습자용 조회 페이지 learner.html) ──────────────
@@ -2934,6 +2949,7 @@ async function transferAndRetire(uid,name,src,tuid){
     const newLearners=[...(t.learners||[]),...L];
     const newSchedules=[...(t.schedules||[]),...S];
     const lastUpdated=new Date().toISOString();
+    if(tuid===currentUser?.uid) _myWrites.add(lastUpdated);
     await tRef.set({learners:newLearners,schedules:newSchedules,plans:newPlans,lastUpdated},{merge:true});
     if(tuid===currentUser?.uid){
       learners=newLearners; schedules=newSchedules; plans=newPlans; _loadedLastUpdated=lastUpdated;
@@ -4958,10 +4974,11 @@ function importDataJson(event){
       // Firebase + 로컬 저장
       save();
       if(currentUser && fbDb){
+        const _impLU=new Date().toISOString(); _myWrites.add(_impLU); _loadedLastUpdated=_impLU;
         fbDb.collection('userData').doc(currentUser.uid).set({
           learners, schedules, plans, memos, memoCategories,
           blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates,
-          lastUpdated: new Date().toISOString()
+          lastUpdated: _impLU
         }, {merge:false}).then(()=>{
           showToast('✅ 데이터 가져오기 완료! Firebase에 저장됐어요.');
           renderLearners(); renderSchedule(); renderSales(); renderDashboard();
