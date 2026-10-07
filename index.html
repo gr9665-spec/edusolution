@@ -1987,8 +1987,8 @@ async function loadUserData(){
       else { const lb=LS.get('hk_blog'); if(lb) blogKeywords=lb; }
       if(d.plans)  plans=d.plans;
       _loadedLastUpdated = d.lastUpdated || null;
-      const _auto=autoLinkPlans();
-      if(_auto) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast(`플랜표 ${_auto}개를 이름·연락처가 같은 학습자와 자동 연결했어요`); },1500);
+      const _auto=autoLinkPlans(), _paid=autoPaidPlans();
+      if(_auto||_paid) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast([_auto?`플랜표 ${_auto}개를 이름·연락처가 같은 학습자와 자동 연결`:'',_paid?`학습자와 연결된 플랜표 ${_paid}개를 결제완료로 변경`:''].filter(Boolean).join(' · ')+'했어요'); },1500);
     } else {
       // 첫 로그인 — 직급 기본값 적용
       rewardTable = Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
@@ -2484,7 +2484,7 @@ async function runSaveToFirebase(){
           if(!ok) return;
         }
       }
-      autoLinkPlans();
+      autoLinkPlans(); autoPaidPlans();
       const newLastUpdated=new Date().toISOString();
       _myWrites.add(newLastUpdated);
       await docRef.set({
@@ -2543,6 +2543,16 @@ function autoLinkPlans(){
     const ph=normPhone(p.phone); if(!ph) return;
     const l=byKey.get(p.clientName.trim()+'|'+ph);
     if(l){ p.linkedLearner=l.name; p.linkedPhone=l.phone||''; n++; }
+  });
+  if(n) LS.set('hk_plans',plans);
+  return n;
+}
+// 학습자 관리와 연결된(직접 연결 또는 이름+연락처 자동 연결) 플랜표는 결제완료로 (가망 → 결제완료 한 방향만)
+function autoPaidPlans(){
+  let n=0;
+  Object.values(plans||{}).forEach(p=>{
+    if(p.status==='결제완료'||!p.linkedLearner) return;
+    if(learners.some(l=>planMatchesLearner(p,l))){ p.status='결제완료'; n++; }
   });
   if(n) LS.set('hk_plans',plans);
   return n;
@@ -3622,6 +3632,7 @@ function confirmPlanLink(){
     Object.values(plans).forEach(p=>{ if(p.linkedLearner&&planMatchesLearner(p,l)){ p.linkedLearner=''; p.linkedPhone=''; } });
     plans[selPid].linkedLearner=l.name;
     plans[selPid].linkedPhone=l.phone||'';
+    autoPaidPlans();
     plans[selPid].clientName=l.name;
     LS.set('hk_plans',plans); saveToFirebase();
     switchTab('plan',document.querySelectorAll('.tab')[3]);
@@ -7752,7 +7763,7 @@ function saveSubjModal(){
 }
 
 function upP(key,val){ if(!curPid) return; plans[curPid][key]=val;
-  if(key==='linkedLearner'){ const l=learners.find(x=>x.name===val); plans[curPid].linkedPhone=val&&l?(l.phone||''):''; }
+  if(key==='linkedLearner'){ const l=learners.find(x=>x.name===val); plans[curPid].linkedPhone=val&&l?(l.phone||''):''; if(val&&autoPaidPlans()){ renderPlanEditor(plans[curPid]); renderPlanList(); } }
   LS.set('hk_plans',plans); saveToFirebase(); }
 
 // ── 인쇄 미리보기 ────────────────────────────────────────────────
