@@ -1997,7 +1997,7 @@ async function loadUserData(){
       else { const lb=LS.get('hk_blog'); if(lb) blogKeywords=lb; }
       if(d.plans)  plans=d.plans;
       _loadedLastUpdated = d.lastUpdated || null;
-      const _auto=autoLinkPlans(), _paid=autoPaidPlans();
+      const _auto=autoLinkPlans(), _paid=autoPaidPlans(); autoLinkProspects();
       if(_auto||_paid) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast([_auto?`플랜표 ${_auto}개를 이름·연락처가 같은 학습자와 자동 연결`:'',_paid?`학습자와 연결된 플랜표 ${_paid}개를 결제완료로 변경`:''].filter(Boolean).join(' · ')+'했어요'); },1500);
     } else {
       // 첫 로그인 — 직급 기본값 적용
@@ -2494,7 +2494,7 @@ async function runSaveToFirebase(){
           if(!ok) return;
         }
       }
-      autoLinkPlans(); autoPaidPlans();
+      autoLinkPlans(); autoPaidPlans(); autoLinkProspects();
       const newLastUpdated=new Date().toISOString();
       _myWrites.add(newLastUpdated);
       await docRef.set({
@@ -2555,6 +2555,20 @@ function autoLinkPlans(){
     if(l){ p.linkedLearner=l.name; p.linkedPhone=l.phone||''; n++; }
   });
   if(n) LS.set('hk_plans',plans);
+  return n;
+}
+// 가망노트 ↔ 플랜표: 연결 안 된 가망 중 이름+연락처가 같은 플랜표가 있으면 자동 연결 (planId)
+function autoLinkProspects(){
+  const byKey=new Map();
+  Object.values(plans||{}).forEach(p=>{ const ph=normPhone(p.phone); if(p.clientName&&ph) byKey.set(p.clientName.trim()+'|'+ph,p); });
+  let n=0;
+  (prospects||[]).forEach(x=>{
+    if(x.planId&&plans[x.planId]) return;
+    const ph=normPhone(x.contact); if(!x.name||!ph) return;
+    const p=byKey.get(x.name.trim()+'|'+ph);
+    if(p){ x.planId=p.id; n++; }
+  });
+  if(n) LS.set('hk_prospects',prospects);
   return n;
 }
 // 학습자 관리와 연결된(직접 연결 또는 이름+연락처 자동 연결) 플랜표는 결제완료로 (가망 → 결제완료 한 방향만)
@@ -4789,25 +4803,25 @@ function renderSourceStats(){
   const kst=new Date(new Date().getTime()+9*60*60*1000);
   const ym=`${kst.getUTCFullYear()}-${String(kst.getUTCMonth()+1).padStart(2,'0')}`;
 
-  // 가망노트 기준 (소스 = 문의경로)
-  const thisMonth=prospects.filter(x=>(x.date||'').startsWith(ym));
+  // 플랜표(상담일·문의경로) + 가망노트(날짜·소스). 가망노트가 플랜표와 연결돼 있으면 플랜표 쪽만 셈
+  const planLabel=p=>p.source==='기타'?(p.sourceCustom?`기타(${p.sourceCustom})`:'기타'):(p.source||'미입력');
+  const mPlans=Object.values(plans||{}).filter(p=>(p.counselDate||'').startsWith(ym));
+  const mPros=(prospects||[]).filter(x=>(x.date||'').startsWith(ym)&&!(x.planId&&plans[x.planId]&&(plans[x.planId].counselDate||'').startsWith(ym)));
+  const thisMonth=[...mPlans.map(planLabel),...mPros.map(prospectSrcLabel)];
   if(!thisMonth.length){
-    el.innerHTML='<div class="empty"><i class="ti ti-chart-bar"></i>이번달 가망노트 등록 건이 없어요</div>';
+    el.innerHTML='<div class="empty"><i class="ti ti-chart-bar"></i>이번달 상담 등록 건이 없어요</div>';
     return;
   }
 
   const counts={};
-  thisMonth.forEach(x=>{
-    const label=prospectSrcLabel(x);
-    counts[label]=(counts[label]||0)+1;
-  });
+  thisMonth.forEach(label=>{ counts[label]=(counts[label]||0)+1; });
   const thisMonthPlans=thisMonth;
   const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
   const max=Math.max(...entries.map(e=>e[1]));
   const total=thisMonthPlans.length;
   const colors=['var(--navy)','#5c7cfa','#7048e8','#e67700','#2f9e44','#c92a2a','#1a5fa8'];
 
-  el.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:10px">총 ${total}건</div>`
+  el.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:10px">총 ${total}건 <span style="color:var(--text3)">(플랜표 ${mPlans.length}${mPros.length?` · 가망노트 ${mPros.length}`:''})</span></div>`
     + entries.map(([label,count],i)=>{
         const pct=Math.round((count/max)*100);
         const pctOfTotal=Math.round((count/total)*100);
