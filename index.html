@@ -7376,6 +7376,12 @@ function generateKakaoMsg(goal){
   const memo=p.memo||'';
   const memoLines=memo.split('\n');
   const missing=[];
+  // 목표 학위가 '기타'면 입력칸(degreeCustom)의 목표로 표시 (예: 건축설비기사 → 106학점 플랜)
+  const isEtc=degree==='기타';
+  const custom=String(p.degreeCustom||'').trim();
+  const targetName=custom.replace(/\s*응시\s*자격.*$/,'').trim();
+  const etcLabel=/산업기사/.test(custom)?'41학점':/기사/.test(custom)?'106학점':`${planTotals(p).grand}학점`;
+  const headLabel=isEtc?etcLabel:`${major} ${degree}`.trim();
 
   // ── 학기 일자 ──
   const semDates=p.semesters.map(s=>({name:s.name||'',date:s.date||''}));
@@ -7417,33 +7423,20 @@ function generateKakaoMsg(goal){
   if(certNames&&!certDeadline) missing.push('⚠️ 자격증 마감일 미입력 (비고에 "XX년 XX월까지" 필요)');
   if(!certDeadline) certDeadline='__년 __월';
 
-  // ── 독학사 (specials 기준, 없으면 비고 기준) ──
-  const dohakSpec=(p.specials||[]).filter(s=>s.type==='dohak');
-  const hasDohakInPlan=dohakSpec.length>0;
-  const hasDohak1=hasDohakInPlan?dohakSpec.length>=1:(memo.includes('독학사 1단계')||memo.includes('독학사1단계'));
-  const hasDohak2=hasDohakInPlan?dohakSpec.length>=2:(memo.includes('독학사 2단계')||memo.includes('독학사2단계'));
-  const hasDohak=hasDohak1||hasDohak2;
-
-  let d1year='27년',d1month='2월',d2year='27년',d2month='5월';
-  let d1found=false,d2found=false;
-  for(const ln of memoLines){
-    if(ln.includes('1단계')&&ln.includes('시험')){
-      const my=ln.match(/(\d{2}년)/);if(my)d1year=my[1];
-      const mm=ln.match(/(\d+월)\s*시험/);if(mm)d1month=mm[1];
-      d1found=true;
-    }
-    if(ln.includes('2단계')&&ln.includes('시험')){
-      const my=ln.match(/(\d{2}년)/);if(my)d2year=my[1];
-      const mm=ln.match(/(\d+월)\s*시험/);if(mm)d2month=mm[1];
-      d2found=true;
-    }
-  }
-  if(hasDohak1&&!d1found) missing.push('⚠️ 독학사 1단계 시험일정 미입력 (비고 프리셋 추가 필요)');
-  if(hasDohak2&&!d2found) missing.push('⚠️ 독학사 2단계 시험일정 미입력 (비고 프리셋 추가 필요)');
-
-  const countSubjs=(sp)=>[...(sp.req||[]),...(sp.elec||[]),...(sp.gen||[]),...(sp.lib||[])].filter(x=>x&&x.subject).length;
-  const dohak1Count=dohakSpec.length>=1?countSubjs(dohakSpec[0]):0;
-  const dohak2Count=dohakSpec.length>=2?countSubjs(dohakSpec[1]):0;
+  // ── 독학사: 플랜표 독학사 칸의 단계(없으면 비고) + 비고 일정 "독학사 1단계: 27년 1월 접수 / 2월 시험" ──
+  const dohakStages=new Set();
+  (p.specials||[]).filter(sp=>sp.type==='doksa').forEach(sp=>certGroups(sp).forEach(g=>{ if(g.stage) dohakStages.add(g.stage); }));
+  if(!dohakStages.size){ for(const m of memo.matchAll(/독학사\s*(\d)\s*단계/g)) dohakStages.add(+m[1]); }
+  if(!dohakStages.size&&(p.specials||[]).some(sp=>sp.type==='doksa')) dohakStages.add(1);
+  const hasDohak=dohakStages.size>0;
+  const dohakLines=[...dohakStages].sort((a,b)=>a-b).map(n=>{
+    const ln=memoLines.find(x=>x.includes(`${n}단계`)&&x.includes('시험'));
+    if(!ln){ missing.push(`⚠️ 독학사 ${n}단계 시험일정 미입력 (비고 프리셋 추가 필요)`); return `${n}단계 __년 __월 접수 / __월 시험`; }
+    const y=(ln.match(/(\d{2}년)/)||[])[1]||'__년';
+    const ap=(ln.match(/(\d{1,2}월)\s*접수/)||[])[1];
+    const ex=(ln.match(/(\d{1,2}월)\s*시험/)||[])[1]||'__월';
+    return `${n}단계 ${y} ${ap?ap+' 접수 / ':''}${ex} 시험`;
+  });
 
   // ── 학위 수여 시기: 비고 "27년 8월 학위수여" 우선, 없으면 마지막 학기 종강일로 계산 ──
   // (2월 학위는 1/15까지, 8월 학위는 7/15까지 종강해야 함 — cb.or.kr)
@@ -7461,8 +7454,11 @@ function generateKakaoMsg(goal){
       degreeWhen=`${String(yy).slice(2)}년 ${mm}월`;
     }
   }
-  if(!degreeWhen) missing.push('⚠️ 학위 수여 시기 미확인 (비고에 "XX년 X월 학위수여" 입력 또는 학기 일자 확인)');
-  const degreeDate=degreeWhen?`해당 플랜으로 마무리 후 학위는 ${degreeWhen}에 수여`:'';
+  if(!degreeWhen&&!isEtc) missing.push('⚠️ 학위 수여 시기 미확인 (비고에 "XX년 X월 학위수여" 입력 또는 학기 일자 확인)');
+  const degreeDate=!isEtc&&degreeWhen?`해당 플랜으로 마무리 후 학위는 ${degreeWhen}에 수여`:'';
+  // 학위가 '기타'(기사 응시자격 등)면 응시 시기 문장 — 회차는 직접 입력
+  const examKind=/산업기사/.test(custom)?'정기 산업기사':/기사/.test(custom)?'정기기사':'';
+  const examLine=isEtc?(examKind?`해당 플랜으로 마무리 후 __년 __회차 ${examKind} 시험부터 응시 가능합니다 :)`:`해당 플랜으로 마무리 후 __부터 응시 가능합니다 :)`):'';
 
   // ── 공통 블록 빌더 ──
   const buildSemBlock=()=>semLines?`온라인강의 학습기간은\n${semLines}`:'';
@@ -7475,17 +7471,16 @@ function generateKakaoMsg(goal){
   };
   const buildDohakBlock=()=>{
     if(!hasDohak) return '';
-    let s='*독학사는 대학전공 난이도이지만 교양과목이라 마찬가지로 독학 2주로 합격 가능한 난이도 입니다.\n';
-    if(hasDohak1){s+=`1단계 ${d1year} ${d1month} 시험`;if(dohak1Count)s+=` ${dohak1Count}과목`;s+='\n';}
-    if(hasDohak2){s+=`2단계 ${d2year} ${d2month} 시험`;if(dohak2Count)s+=` ${dohak2Count}과목`;s+='\n';}
-    return s.trim();
+    return ['*독학사는 대학 검정고시같은 시험으로 과목당 합격시 학점으로 인정됩니다.',
+            '교양과목이라 마찬가지로 독학 2-3주로 합격 가능한 난이도 입니다.',
+            ...dohakLines].join('\n');
   };
 
   // ── 목표별 멘트 템플릿 ──
   let parts=[];
 
   if(goal==='학위취득'){
-    parts.push(`${name}님이 진행하실 ${major} ${degree} 플랜입니다`);
+    parts.push(`${name}님이 진행하실 ${headLabel} 플랜입니다`);
     if(semLines) parts.push(buildSemBlock());
     if(certNames) parts.push(buildCertBlock());
     if(hasDohak) parts.push(buildDohakBlock());
@@ -7497,7 +7492,7 @@ function generateKakaoMsg(goal){
     let transferType=degree.includes('전문학사')?'일반편입':'학사편입';
     if(isMedical2) transferType='수의대 '+transferType;
 
-    parts.push(`${name}님이 진행하실 ${major} ${degree} (${transferType}) 플랜입니다`);
+    parts.push(`${name}님이 진행하실 ${headLabel} (${transferType}) 플랜입니다`);
     if(semLines) parts.push(buildSemBlock());
     if(certNames) parts.push(buildCertBlock(`${transferType}으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니,`));
     else parts.push(`${transferType}으로 준비하시게 되면 원서는 내년 후반기에 넣으실거니, 준비 일정 맞춰드리겠습니다.`);
@@ -7505,7 +7500,7 @@ function generateKakaoMsg(goal){
     if(degreeDate) parts.push(degreeDate);
 
   } else if(goal==='대졸자전형'){
-    parts.push(`${name}님이 진행하실 ${major} ${degree} 플랜입니다`);
+    parts.push(`${name}님이 진행하실 ${headLabel} 플랜입니다`);
     parts.push(`대졸자전형 지원자격 취득을 목표로 설계해드렸습니다.`);
     if(semLines) parts.push(buildSemBlock());
     if(certNames) parts.push(buildCertBlock());
@@ -7513,12 +7508,13 @@ function generateKakaoMsg(goal){
     if(degreeDate) parts.push(degreeDate);
 
   } else if(goal==='자격증응시'){
-    parts.push(`${name}님이 진행하실 ${major} ${degree} 플랜입니다`);
-    parts.push(`자격증 응시자격 취득을 목표로 설계해드렸습니다.`);
+    parts.push(`${name}님이 진행하실 ${headLabel} 플랜입니다`);
+    parts.push(`${isEtc&&targetName?targetName:'자격증'} 응시자격 취득을 목표로 설계해드렸습니다.`);
     if(semLines) parts.push(buildSemBlock());
     if(certNames) parts.push(buildCertBlock());
     if(hasDohak) parts.push(buildDohakBlock());
     if(degreeDate) parts.push(degreeDate);
+    if(examLine){ parts.push(examLine); missing.push('✏️ 응시 회차(__년 __회차)는 직접 입력해주세요'); }
   }
 
   // 누락 항목
