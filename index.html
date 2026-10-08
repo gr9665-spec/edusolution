@@ -7829,38 +7829,43 @@ function buildPlanCardHtml(p){
 
   // 한 분류의 과목들 → 과목명 목록 + "개강 후 확정" 개수 + 학점합 + 학점 없는 안내문
   const group=arr=>{
-    const names=[],notes=[]; let tbd=0,cr=0;
+    const names=[],items=[],notes=[]; let tbd=0,cr=0;
     (arr||[]).forEach(r=>{
       if(!r) return;
       const c=parseInt(r.credit)||0, s=(r.subject||'').trim();
       if(!c){ if(s) notes.push(s); return; }
       cr+=c;
-      if(!s||/개강\s*후|미정/.test(s)) tbd++; else names.push(s);
+      if(!s||/개강\s*후|미정/.test(s)) tbd++; else { names.push(s); items.push([s,c]); }
     });
-    return {names,notes,tbd,cr};
+    return {names,items,notes,tbd,cr};
   };
-  const row=(badge,cls,text,cr)=>`<div class="pcv-row"><span class="pcv-type ${cls}">${badge}</span><span>${text}</span><span class="pcv-cr">${cr}</span></div>`;
+  const row=(badge,cls,text,cr,top)=>`<div class="pcv-row${top?' pcv-top':''}"><span class="pcv-type ${cls}">${badge}</span><span class="pcv-x">${text}</span><span class="pcv-cr">${cr}</span></div>`;
   const listText=g=>g.names.join(', ')+(g.tbd?`${g.names.length?' + ':''}<span class="pcv-tbd">${g.tbd}과목 · 개강 후 확정</span>`:'');
-  const catRows=src=>{
+  // chips=true: 보유학점처럼 과목별 학점까지 보여줘야 할 때 (구성 실수 체크용)
+  const catRows=(src,chips)=>{
     let h='',notes=[];
     CATS.forEach(([k,lbl,cls])=>{
       const g=group(src[k]); notes=notes.concat(g.notes);
-      if(g.cr) h+=row(lbl,cls,listText(g),g.cr);
+      if(!g.cr) return;
+      const text=chips
+        ? `<span class="pcv-chips">${g.items.map(([s,c])=>`<i>${s} <b>${c}</b></i>`).join('')}${g.tbd?`<i>미정 ${g.tbd}과목</i>`:''}</span>`
+        : listText(g);
+      h+=row(lbl,cls,text,g.cr,chips);
     });
     return {h,notes};
   };
-  // 자격증/독학사 행 — 자격증은 과목별, 독학사는 단계별로 과목을 묶음
+  // 자격증/독학사 행 — 앞 태그는 인정 분류(전공필수/일반 등), 독학사는 단계별로 과목을 묶음
   const specialRows=list=>{
     let h='',notes=[];
     (list||[]).forEach(sp=>{
       const isCert=sp.type==='cert';
-      CATS.forEach(([k,lbl])=>{
+      CATS.forEach(([k,lbl,cls])=>{
         const items=(sp[k]||[]).filter(r=>r&&(r.subject||'').trim());
         items.filter(r=>!(parseInt(r.credit)||0)).forEach(r=>notes.push(r.subject.trim()));
         const valid=items.filter(r=>parseInt(r.credit)||0);
         if(!valid.length) return;
         if(isCert){
-          valid.forEach(r=>{ h+=row('자격증','pcv-cert',`${r.subject.trim()} <span class="pcv-hint">· ${lbl} 인정</span>`,parseInt(r.credit)); });
+          valid.forEach(r=>{ h+=row(lbl,cls,r.subject.trim(),parseInt(r.credit)); });
         }else{
           const steps=[]; let cur='';
           valid.forEach(r=>{
@@ -7871,7 +7876,7 @@ function buildPlanCardHtml(p){
             let st=steps.find(x=>x.step===cur); if(!st){ st={step:cur,subs:[],cr:0}; steps.push(st); }
             st.subs.push(s); st.cr+=parseInt(r.credit)||0;
           });
-          steps.forEach(st=>{ h+=row('독학사','pcv-dok',`${st.step?st.step+'단계 ':''}${st.subs.join('·')} <span class="pcv-hint">· ${lbl} 인정</span>`,st.cr); });
+          steps.forEach(st=>{ h+=row(lbl,cls,`독학사${st.step?' '+st.step+'단계':''} <span class="pcv-tbd">${st.subs.join('·')}</span>`,st.cr); });
         }
       });
     });
@@ -7879,120 +7884,119 @@ function buildPlanCardHtml(p){
   };
   const noteHtml=notes=>notes.length?`<div class="pcv-note">${notes.map(n=>'※ '+n).join('<br>')}</div>`:'';
 
-  // 상단 요약
-  const ok='<span class="pcv-ok">✓</span>';
-  let chips='';
+  // 상단 큰 숫자
+  let hero='',nums='';
   if(isTaJeon){
-    chips=`<div class="pcv-s pcv-total"><div class="k">전공 (기준 ${needMajor})</div><div class="v">${totMajor}${totMajor>=needMajor?' ✓':''}</div></div>`;
+    const ok=totMajor>=needMajor;
+    hero=`<div class="pcv-big${ok?'':' pcv-short'}">${totMajor}<small>/${needMajor} 전공학점</small></div><span class="pcv-pill${ok?'':' pcv-short'}">${ok?'✓ 전공학점 충족':(needMajor-totMajor)+'학점 부족'}</span>`;
   }else if(isEtcDegree){
-    chips=`<div class="pcv-s pcv-total"><div class="k">총 학점</div><div class="v">${t.grand}</div></div>`;
+    hero=`<div class="pcv-big">${t.grand}<small>학점</small></div>`;
   }else{
-    chips=`<div class="pcv-s pcv-total${t.grand>=dr.total?'':' pcv-short'}"><div class="k">총 학점 (기준 ${dr.total})</div><div class="v">${t.grand}${t.grand>=dr.total?' ✓':''}</div></div>
-      <div class="pcv-s"><div class="k">전공</div><div class="v">${totMajor} <small>/${needMajor}</small> ${totMajor>=needMajor?ok:''}</div></div>
-      <div class="pcv-s"><div class="k">교양</div><div class="v">${t.totLib} <small>/${dr.lib}</small> ${t.totLib>=dr.lib?ok:''}</div></div>
-      <div class="pcv-s"><div class="k">일반</div><div class="v">${t.totGen}</div></div>`;
+    const ok=t.grand>=dr.total;
+    hero=`<div class="pcv-big${ok?'':' pcv-short'}">${t.grand}<small>/${dr.total}학점</small></div><span class="pcv-pill${ok?'':' pcv-short'}">${ok?'✓ 졸업요건 충족':(dr.total-t.grand)+'학점 부족'}</span>`;
+    nums=`<div class="pcv-nums">
+      <div class="pcv-n"><div class="k">전공</div><div class="v">${totMajor}<small>/${needMajor}</small></div></div>
+      <div class="pcv-n"><div class="k">교양</div><div class="v">${t.totLib}<small>/${dr.lib}</small></div></div>
+      <div class="pcv-n"><div class="k">일반</div><div class="v">${t.totGen}</div></div>
+    </div>`;
   }
 
   // 학점 구성 막대 (보유 / 수강 / 자격증·독학사) — 두 종류 이상일 때만
   const semAll=t.semReq+t.semElec+t.semGen+t.semLib, specAll=t.specReq+t.specElec+t.specGen+t.specLib;
-  const segs=[[t.ownAll,'보유','pcv-b-have','이미 가진 학점'],[semAll,'수강','pcv-b-study','앞으로 수강'],[specAll,'자격증·독학사','pcv-b-cert','자격증·독학사 취득']].filter(s=>s[0]>0);
+  const specKinds=[...new Set((p.specials||[]).map(s=>s.type==='cert'?'자격증':'독학사'))].join('·')||'자격증';
+  const segs=[[t.ownAll,'보유','#9aa5b8'],[semAll,'수강',PLAN_BLUE],[specAll,specKinds,'#5b9bd5']].filter(s=>s[0]>0);
   const barTot=segs.reduce((a,s)=>a+s[0],0);
-  const bar=segs.length>1?`<div class="pcv-comp"><div class="pcv-bar">${segs.map(s=>`<span class="${s[2]}" style="width:${(s[0]/barTot*100).toFixed(1)}%">${s[1]} ${s[0]}</span>`).join('')}</div>
-    <div class="pcv-legend">${segs.map(s=>`<span><i class="${s[2]}"></i>${s[3]}</span>`).join('')}</div></div>`:'';
+  const bar=segs.length>1?`<div class="pcv-bar">${segs.map(s=>`<span style="width:${(s[0]/barTot*100).toFixed(1)}%;background:${s[2]}">${s[1]} ${s[0]}</span>`).join('')}</div>`:'';
 
   // 지금 할 일 — 아직 이수 안 한 첫 학기의 개강일 기준
   const next=(p.semesters||[]).find(s=>!s.completed);
   const nextStart=next&&(next.date||'').split('-')[0].trim();
-  const todo=nextStart?`<div class="pcv-todo"><span class="pcv-tag">지금 할 일</span><p>${nextStart} 개강 전까지 ${next.name||'다음 학기'} 수강신청 완료 (선착순 마감)</p></div>`:'';
+  const todo=nextStart?`<div class="pcv-todo">📌 ${nextStart} 개강 전 수강신청 필수</div>`:'';
 
   // 본문 블록
   let blocks='';
-  const own=catRows(p.owned||{}), ownSp=specialRows((p.owned||{}).specials);
+  const own=catRows(p.owned||{},true), ownSp=specialRows((p.owned||{}).specials);
   if(t.ownAll>0){
-    blocks+=`<div class="pcv-blk pcv-have"><div class="pcv-blk-h"><h2>✔ 이미 가진 학점</h2><span class="pcv-sum">${t.ownAll}학점</span></div>${own.h}${ownSp.h}${noteHtml(own.notes.concat(ownSp.notes))}</div>`;
+    blocks+=`<div class="pcv-blk pcv-have"><div class="pcv-blk-h"><h2>✔ 이미 가진 학점</h2><span class="pcv-sum">${t.ownAll}<small>학점</small></span></div>${own.h}${ownSp.h}${noteHtml(own.notes.concat(ownSp.notes))}</div>`;
   }
   const circled='①②③④⑤⑥⑦⑧⑨⑩';
   (p.semesters||[]).forEach((sem,i)=>{
     const r=catRows(sem);
     const tot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
     const meta=[sem.edu||'교육원 추후 안내',sem.date||''].filter(Boolean).join(' · ');
-    blocks+=`<div class="pcv-blk${sem.completed?' pcv-done':''}"><div class="pcv-blk-h"><h2>${circled[i]||(i+1)+'.'} ${sem.name||''}${sem.completed?' <span class="pcv-ok">✓ 이수완료</span>':''}<span class="pcv-meta">${meta}</span></h2><span class="pcv-sum">${tot}학점</span></div>${r.h}${noteHtml(r.notes)}</div>`;
+    blocks+=`<div class="pcv-blk${sem.completed?' pcv-done':''}"><div class="pcv-blk-h"><h2>${circled[i]||(i+1)+'.'} ${sem.name||''}${sem.completed?' <span class="pcv-okt">✓ 이수완료</span>':''}<span class="pcv-meta">${meta}</span></h2><span class="pcv-sum">${tot}<small>학점</small></span></div>${r.h}${noteHtml(r.notes)}</div>`;
   });
   if((p.specials||[]).length){
     const sp=specialRows(p.specials);
-    const kinds=[...new Set(p.specials.map(s=>s.type==='cert'?'자격증':'독학사'))].join(' · ');
-    if(sp.h) blocks+=`<div class="pcv-blk"><div class="pcv-blk-h"><h2>${kinds}</h2><span class="pcv-sum">${specAll}학점</span></div>${sp.h}${noteHtml(sp.notes)}</div>`;
+    if(sp.h) blocks+=`<div class="pcv-blk"><div class="pcv-blk-h"><h2>${specKinds.replace('·',' · ')}</h2><span class="pcv-sum">${specAll}<small>학점</small></span></div>${sp.h}${noteHtml(sp.notes)}</div>`;
   }
 
-  const memo=p.memo?`<div class="pcv-memo"><b>📌 일정 · 참고</b>${p.memo.split('\n').filter(l=>l.trim()).map(l=>`<div>${l}</div>`).join('')}</div>`:'';
+  const memo=p.memo?`<div class="pcv-memo">${p.memo.split('\n').filter(l=>l.trim()).map(l=>`<div>· ${l}</div>`).join('')}</div>`:'';
 
   return `<style>
-    .pcv{width:600px;margin:0 auto;font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;color:#1f2937;font-size:14px;line-height:1.5;background:#f5f6f8;padding:14px}
-    .pcv-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;overflow:hidden}
-    .pcv-head{background:${PLAN_BLUE};color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
-    .pcv-head h1{margin:0;font-size:21px;font-weight:800}
-    .pcv-head .d{opacity:.85;font-size:12px}
-    .pcv-head .g{text-align:right;font-size:12px;opacity:.95}
-    .pcv-head .g b{font-size:16px;display:block}
-    .pcv-sumrow{display:flex;gap:8px;padding:14px 16px 8px}
-    .pcv-s{flex:1;background:#eef2fa;border-radius:8px;padding:8px;text-align:center}
-    .pcv-s .k{font-size:11px;color:#6b7280}
-    .pcv-s .v{font-weight:800;font-size:16px}
-    .pcv-s .v small{font-weight:500;font-size:12px;color:#6b7280}
-    .pcv-total{flex:1.3;background:#e9f7ee}
-    .pcv-total .v{color:#15803d;font-size:18px}
-    .pcv-short{background:#fdf0e6}.pcv-short .v{color:#b45309}
-    .pcv-ok{color:#15803d;font-size:12px}
-    .pcv-comp{padding:4px 16px 14px}
-    .pcv-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;font-size:11px;font-weight:700;color:#fff}
+    .pcv{width:600px;margin:0 auto;font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif;color:#1f2937;font-size:15px;line-height:1.45;background:#f5f6f8;padding:14px}
+    .pcv-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:12px;overflow:hidden}
+    .pcv-head{background:${PLAN_BLUE};color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .pcv-head h1{margin:0;font-size:22px;font-weight:800}
+    .pcv-head .d{opacity:.8;font-size:12px}
+    .pcv-head .g{font-size:18px;font-weight:800;text-align:right}
+    .pcv-hero{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:18px 22px 6px}
+    .pcv-big{font-size:56px;font-weight:900;color:#15803d;line-height:1}
+    .pcv-big small{font-size:20px;font-weight:700;color:#6b7280;margin-left:4px}
+    .pcv-pill{background:#e9f7ee;color:#15803d;font-weight:800;font-size:17px;padding:8px 16px;border-radius:999px;white-space:nowrap}
+    .pcv-big.pcv-short{color:#b45309}.pcv-pill.pcv-short{background:#fdf0e6;color:#b45309}
+    .pcv-nums{display:flex;gap:10px;padding:12px 18px 4px}
+    .pcv-n{flex:1;background:#eef2fa;border-radius:10px;padding:10px 6px;text-align:center}
+    .pcv-n .k{font-size:14px;color:#4b5563;font-weight:700}
+    .pcv-n .v{font-size:32px;font-weight:900;color:#2e4878;line-height:1.15}
+    .pcv-n .v small{font-size:16px;color:#6b7280;font-weight:700}
+    .pcv-bar{display:flex;height:34px;margin:12px 18px 18px;border-radius:8px;overflow:hidden;color:#fff;font-weight:800;font-size:15px}
     .pcv-bar span{display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
-    .pcv-b-have{background:#9aa5b8}.pcv-b-study{background:${PLAN_BLUE}}.pcv-b-cert{background:#5b9bd5}
-    .pcv-legend{display:flex;gap:14px;font-size:11px;color:#6b7280;margin-top:6px}
-    .pcv-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
-    .pcv-todo{border:2px solid ${PLAN_BLUE};background:#fff;border-radius:12px;padding:10px 16px;margin-bottom:12px;display:flex;gap:10px;align-items:center}
-    .pcv-tag{background:${PLAN_BLUE};color:#fff;font-weight:700;font-size:12px;padding:3px 9px;border-radius:6px;white-space:nowrap}
-    .pcv-todo p{margin:0;font-weight:500;font-size:13px}
-    .pcv-blk{padding:12px 18px;border-bottom:1px solid #e5e7eb}
+    .pcv-hero+.pcv-bar{margin-top:8px}
+    .pcv-todo{background:${PLAN_BLUE};color:#fff;border-radius:14px;padding:14px 20px;margin-bottom:12px;font-size:18px;font-weight:800;text-align:center}
+    .pcv-blk{padding:14px 20px;border-bottom:1px solid #e5e7eb}
     .pcv-blk:last-child{border-bottom:0}
-    .pcv-have{background:#f8f9fb}
+    .pcv-have{background:#f6f7f9}
     .pcv-done{opacity:.55}
-    .pcv-blk-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px}
-    .pcv-blk-h h2{margin:0;font-size:15px;font-weight:800;color:#2e4878}
-    .pcv-have .pcv-blk-h h2,.pcv-have .pcv-sum{color:#4b5563}
-    .pcv-meta{font-size:12px;color:#6b7280;font-weight:400;margin-left:6px}
-    .pcv-sum{font-weight:800;color:${PLAN_BLUE};white-space:nowrap}
-    .pcv-row{display:flex;gap:8px;padding:4px 0;font-size:13px;align-items:baseline}
-    .pcv-row>span:nth-child(2){flex:1}
-    .pcv-cr{width:34px;text-align:right;font-weight:700}
-    .pcv-type{width:70px;flex-shrink:0;font-size:11px;font-weight:700;padding:2px 6px;border-radius:5px;text-align:center}
+    .pcv-blk-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+    .pcv-blk-h h2{margin:0;font-size:19px;font-weight:800;color:#2e4878}
+    .pcv-have .pcv-blk-h h2,.pcv-have .pcv-sum{color:#6b7280}
+    .pcv-meta{font-size:13px;color:#6b7280;font-weight:500;margin-left:8px}
+    .pcv-okt{color:#15803d;font-size:13px}
+    .pcv-sum{font-size:26px;font-weight:900;color:${PLAN_BLUE};white-space:nowrap}
+    .pcv-sum small{font-size:14px;font-weight:700}
+    .pcv-row{display:flex;gap:10px;padding:5px 0;align-items:center;font-size:15px}
+    .pcv-row.pcv-top{align-items:flex-start}
+    .pcv-x{flex:1}
+    .pcv-cr{width:40px;text-align:right;font-size:20px;font-weight:900}
+    .pcv-type{width:74px;flex-shrink:0;font-size:13px;font-weight:800;padding:3px 0;border-radius:6px;text-align:center}
     .pcv-req{background:#dbe4f5;color:#2e4878}.pcv-sel{background:#eef0f3;color:#4b5563}
     .pcv-lib{background:#fdf0dc;color:#a3620a}.pcv-free{background:#ece9f7;color:#5b4a9e}
-    .pcv-cert{background:#e8f2fc;color:#1d6fb8}.pcv-dok{background:#eaf6ec;color:#2f7d3a}
-    .pcv-tbd,.pcv-hint{color:#6b7280}.pcv-hint{font-size:12px}
-    .pcv-note{font-size:11px;color:#6b7280;margin-top:4px}
-    .pcv-memo{background:#e9f7ee;border-radius:12px;padding:10px 18px;margin-bottom:12px;font-size:13px}
-    .pcv-memo b{display:block;color:#15803d;margin-bottom:2px}
-    .pcv-foot{font-size:11px;color:#6b7280;padding:0 4px}
-    .pcv-foot p{margin:2px 0}
+    .pcv-tbd{color:#6b7280}
+    .pcv-chips{display:flex;flex-wrap:wrap;gap:4px}
+    .pcv-chips i{font-style:normal;font-size:12px;color:#4b5563;background:#fff;border:1px solid #e5e7eb;border-radius:5px;padding:1px 6px}
+    .pcv-chips b{color:#2e4878;font-weight:800;border-left:1px solid #d1d5db;padding-left:5px;margin-left:2px}
+    .pcv-note{font-size:12px;color:#6b7280;margin-top:4px}
+    .pcv-memo{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:10px 18px;margin-bottom:10px;font-size:12px;color:#4b5563;line-height:1.6}
+    .pcv-foot{font-size:12px;color:#6b7280;text-align:center}
   </style>
   <div class="pcv">
     <div class="pcv-card">
       <div class="pcv-head">
-        <div><h1>${p.clientName||'학습자'} 님 학습 플랜</h1><div class="d">상담일 ${p.counselDate||''}</div></div>
-        <div class="g"><b>목표: ${degName}</b>${dr.note?'졸업요건 '+dr.note:''}</div>
+        <div><h1>${p.clientName||'학습자'} 님</h1><div class="d">상담일 ${p.counselDate||''}</div></div>
+        <div class="g">${degName}</div>
       </div>
-      <div class="pcv-sumrow">${chips}</div>
+      <div class="pcv-hero">${hero}</div>
+      ${nums}
       ${bar}
     </div>
     ${todo}
     <div class="pcv-card">${blocks}</div>
     ${memo}
-    <div class="pcv-foot">
-      <p>· 국가평생교육진흥원 표준교육과정 기반 · 정식인가 교육훈련기관 소속으로 상담비·대행료 등 추가 비용 없음</p>
-      <p>· 수강신청은 선착순 마감이라 과목 마감 시 변경될 수 있습니다.</p>
-    </div>
+    <div class="pcv-foot">정식인가 교육훈련기관 · 상담비·대행료 없음 · 수강신청 선착순 마감</div>
   </div>`;
 }
+
 // 플랜표 이미지/인쇄용 HTML — 학습자 포털(learner.html)에서도 같은 표로 사용
 function buildPlanPrintHtml(p){
   const _dupSubjects=getDupSubjects(p);
