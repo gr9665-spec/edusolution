@@ -1145,6 +1145,11 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option value="closed">과정끝·환불만</option>
         <option value="done">과정끝만</option>
         <option value="refund">환불만</option>
+        <optgroup label="상태별로 보기">
+          <option value="st:미연락">미연락</option><option value="st:연락완료">연락완료</option><option value="st:등록예정">등록예정</option>
+          <option value="st:결제완료">결제완료</option><option value="st:잠정보류">잠정보류</option><option value="st:특이사항">특이사항</option>
+          <option value="st:신청오류">신청오류</option><option value="st:환불">환불</option><option value="st:과정끝">과정끝</option>
+        </optgroup>
       </select>
     </div>
   </div>
@@ -4353,7 +4358,8 @@ function renderSeason(){
       <div><div style="font-size:11px;color:var(--text2)">예상매출</div><div style="font-size:22px;font-weight:800;color:var(--navy)">${won(expect)}</div></div>
       <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:22px;font-weight:800;color:var(--green)">${won(paid)}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
-        ${SS_STATUS.map(v=>`<span style="font-size:12px;border:1px solid ${v.c}44;background:${v.c}10;color:${v.c};border-radius:99px;padding:3px 10px;font-weight:600">${v.k} ${cnt[v.k]||0}</span>`).join('')}
+        ${SS_STATUS.map(v=>{ const on=document.getElementById('ss-filter').value==='st:'+v.k;
+          return `<button type="button" onclick="ssPickStatus('${v.k}')" title="${v.k}만 보기 (다시 누르면 해제)" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`; }).join('')}
       </div>
     </div>`;
   if(f==='active') rows=rows.filter(r=>!['과정끝','환불'].includes(r.v.status));
@@ -4362,6 +4368,7 @@ function renderSeason(){
   if(f==='closed') rows=rows.filter(r=>['과정끝','환불'].includes(r.v.status));
   if(f==='done') rows=rows.filter(r=>r.v.status==='과정끝');
   if(f==='refund') rows=rows.filter(r=>r.v.status==='환불');
+  if(f.startsWith('st:')) rows=rows.filter(r=>r.v.status===f.slice(3));
   if(q) rows=rows.filter(r=>(r.last.name||'').toLowerCase().includes(q)||(r.last.phone||'').includes(q));
   const order=Object.fromEntries(SS_STATUS.map((v,i)=>[v.k,i]));
   const srt=document.getElementById('ss-sort')?.value||'pay';
@@ -4393,6 +4400,11 @@ function renderSeason(){
         :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
     </tr>`;
   }).join('');
+}
+function ssPickStatus(k){
+  const sel=document.getElementById('ss-filter');
+  sel.value=sel.value==='st:'+k?'active':'st:'+k;
+  renderSeason();
 }
 function setSeasonField(K,field,val){
   const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
