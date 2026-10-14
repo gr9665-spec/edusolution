@@ -1302,6 +1302,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option value="nomat">자료배포 안 함</option>
         <option value="nolearner">학습자 등록 전</option>
         <option value="open">미처리 (상담중·미분류)</option>
+        <option value="stale">7일 이상 연락 없음 (미처리)</option>
       </select>
       <button class="btn btn-sm" onclick="downloadProspectTemplate()"><i class="ti ti-download"></i> 양식</button>
       <label class="btn btn-sm" style="cursor:pointer"><i class="ti ti-file-import"></i> 엑셀 가져오기<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importProspectFile(this)"></label>
@@ -1314,7 +1315,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div id="pm-year" style="margin-top:10px;overflow-x:auto"></div>
   </details>
   <div class="card" style="padding:0;overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1010px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1160px">
       <thead><tr style="background:var(--bg2)">
         <th style="padding:8px 6px;text-align:center;width:62px">날짜</th>
         <th style="padding:8px 6px;text-align:center;width:70px">소스</th>
@@ -1326,6 +1327,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <th style="padding:8px 6px;text-align:center;width:52px">결제<br>안내</th>
         <th style="padding:8px 6px;text-align:center;width:52px">자료<br>배포</th>
         <th style="padding:8px 6px;text-align:center;width:96px">진행상태</th>
+        <th style="padding:8px 6px;text-align:center;width:150px">마지막 연락</th>
         <th style="padding:8px 6px;text-align:center;width:150px">연결</th>
         <th style="padding:8px 6px;text-align:center;width:64px">관리</th>
       </tr></thead>
@@ -1365,6 +1367,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>결제안내</label><select id="pm-pay"><option value="">-</option><option>O</option><option>X</option></select></div>
     <div class="fg"><label>자료배포</label><select id="pm-mat"><option value="">-</option><option>O</option><option>X</option></select></div>
   </div>
+  <div class="fg"><label>마지막 연락일</label><div style="display:flex;gap:6px"><input type="date" id="pm-lastc" style="flex:1"><button type="button" class="btn btn-sm" onclick="document.getElementById('pm-lastc').value=pmToday()">오늘</button></div></div>
   <div class="fg"><label>진행상태</label><select id="pm-stage"><option value="">미분류</option><option>상담중</option><option>결제</option><option>가망없음</option><option>장기</option><option>못받는소스</option></select></div>
   <div class="fg"><label>상담내용 / 특이사항</label><textarea id="pm-note" rows="4" placeholder="상담 내용, 특이사항"></textarea></div>
   <div style="display:flex;justify-content:space-between;gap:8px;margin-top:14px">
@@ -4975,6 +4978,7 @@ function renderProspects(){
   if(f==='nomat') list=list.filter(x=>x.mat!=='O');
   if(f==='nolearner') list=list.filter(x=>!x.learnerId);
   if(f==='open') list=list.filter(x=>!PSTAGE_DONE.includes(x.stage));
+  if(f==='stale') list=list.filter(x=>!PSTAGE_DONE.includes(x.stage)&&pmDaysSince(x.lastContact||x.date)>=7);
   list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''));
   const tb=document.getElementById('pm-tbody'), em=document.getElementById('pm-empty');
   if(document.getElementById('pm-year-wrap')?.open) renderProspectYear();
@@ -4999,6 +5003,11 @@ function renderProspects(){
       <td style="padding:6px;text-align:center;font-size:12px">${pmEsc(x.contact)}${x.ctype?`<div style="font-size:10px;color:var(--text2)">${pmEsc(x.ctype)}</div>`:''}</td>
       ${ox(x,'plan')}${ox(x,'pay')}${ox(x,'mat')}
       ${stageSel(x)}
+      ${(()=>{const lc=x.lastContact||'', dd=lc?pmDaysSince(lc):null, open=!PSTAGE_DONE.includes(x.stage), stale=open&&pmDaysSince(lc||x.date)>=7;
+        return `<td style="padding:6px;text-align:center;white-space:nowrap${stale?';background:#fff4e6':''}">
+          <input type="date" value="${lc}" onchange="setProspectContact('${x.id}',this.value)" style="font-size:11.5px;padding:2px 3px;width:112px">
+          <button type="button" class="btn btn-sm" style="font-size:10.5px;padding:1px 6px" onclick="setProspectContact('${x.id}',pmToday())" title="오늘 연락함">오늘</button>
+          <div style="font-size:10.5px;color:${stale?'#d9480f':'var(--text3)'};font-weight:${stale?700:400}">${lc?(dd===0?'오늘':dd+'일 전'):(stale?'기록 없음 · 등록 '+pmDaysSince(x.date)+'일 전':'기록 없음')}</div></td>`;})()}
       <td style="padding:6px;text-align:center;white-space:nowrap">
         ${plan?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="goProspectPlan('${x.id}')"><i class="ti ti-clipboard-check"></i> 플랜</button>`
               :`<button class="btn btn-sm" style="font-size:11px" onclick="prospectToPlan('${x.id}')"><i class="ti ti-clipboard-plus"></i> 플랜</button>`}
@@ -5007,8 +5016,14 @@ function renderProspects(){
       </td>
       <td style="padding:6px;text-align:center"><button class="btn btn-icon btn-sm" onclick="openProspectModal('${x.id}')" title="수정"><i class="ti ti-edit"></i></button></td>
     </tr>
-    ${x.note?`<tr><td style="padding:2px 6px 8px;font-size:11px;color:var(--text2);text-align:center;vertical-align:top">상담내용</td><td colspan="11" style="padding:2px 6px 8px;font-size:12px;color:var(--text2);white-space:pre-wrap">${pmEsc(x.note)}</td></tr>`:''}`;
+    ${x.note?`<tr><td style="padding:2px 6px 8px;font-size:11px;color:var(--text2);text-align:center;vertical-align:top">상담내용</td><td colspan="12" style="padding:2px 6px 8px;font-size:12px;color:var(--text2);white-space:pre-wrap">${pmEsc(x.note)}</td></tr>`:''}`;
   }).join('');
+}
+function pmToday(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
+function pmDaysSince(d){ if(!d) return 0; return Math.max(0,Math.round((new Date(pmToday()+'T00:00:00')-new Date(String(d).slice(0,10)+'T00:00:00'))/864e5)); }
+function setProspectContact(id,v){
+  const x=prospects.find(p=>p.id===id); if(!x) return;
+  x.lastContact=v||''; save(); renderProspects();
 }
 function setProspectStage(id,v){
   const x=prospects.find(p=>p.id===id); if(!x) return;
@@ -5070,7 +5085,7 @@ function openProspectModal(id){
   const set=(f,v)=>{document.getElementById('pm-'+f).value=v??'';};
   set('date',x?x.date:def); set('name',x?.name); set('edu',x?.edu); set('price',x?.price);
   set('contact',x?.contact); set('ctype',x?.ctype); set('plan',x?.plan); set('pay',x?.pay); set('mat',x?.mat);
-  set('note',x?.note); set('src-custom',x?.srcCustom); set('stage',x?x.stage:'상담중');
+  set('note',x?.note); set('src-custom',x?.srcCustom); set('stage',x?x.stage:'상담중'); set('lastc',x?(x.lastContact||''):'');
   const ct=x?.ctype||'', ctSel=document.getElementById('pm-ctype');
   const known=[...ctSel.options].some(o=>o.value===ct&&o.value!=='기타');
   ctSel.value=known||!ct?ct:'기타';
@@ -5084,7 +5099,7 @@ function saveProspect(){
   const date=g('date'), name=g('name');
   if(!date||!name){ alert('날짜와 성함은 꼭 입력해주세요'); return; }
   const data={date,name,src:_pmSrc,srcCustom:_pmSrc==='G'?g('src-custom'):'',edu:g('edu'),price:g('price'),
-    contact:g('contact'),ctype:g('ctype')==='기타'?(g('ctype-custom')||'기타'):g('ctype'),plan:g('plan'),pay:g('pay'),mat:g('mat'),stage:g('stage'),note:document.getElementById('pm-note').value.trim()};
+    contact:g('contact'),ctype:g('ctype')==='기타'?(g('ctype-custom')||'기타'):g('ctype'),plan:g('plan'),pay:g('pay'),mat:g('mat'),stage:g('stage'),lastContact:g('lastc'),note:document.getElementById('pm-note').value.trim()};
   if(_pmEditId){ const x=prospects.find(v=>v.id===_pmEditId); if(x) Object.assign(x,data); }
   else prospects.push({id:'pr'+Date.now()+Math.random().toString(36).slice(2,6),createdAt:new Date().toISOString(),...data});
   _pmMonth=date.slice(0,7);
@@ -5124,7 +5139,7 @@ function prospectToLearner(id){
   openModal('modal-learner');
 }
 // 엑셀 양식 / 가져오기 (시트에서 옮길 직원용)
-const PM_COLS=['날짜','소스','성함/닉네임','최종학력','단가','연락처','연락방식','플랜안내','결제안내','자료배포','진행상태','상담내용'];
+const PM_COLS=['날짜','소스','성함/닉네임','최종학력','단가','연락처','연락방식','플랜안내','결제안내','자료배포','진행상태','마지막연락','상담내용'];
 function pmLoadXLSX(){
   return new Promise((res,rej)=>{
     if(window.XLSX){res();return;}
@@ -5135,8 +5150,8 @@ function pmLoadXLSX(){
 }
 function downloadProspectTemplate(){
   pmLoadXLSX().then(()=>{
-    const ws=XLSX.utils.aoa_to_sheet([PM_COLS,['2026-09-30','H','홍길동','4년제졸','40','010-0000-0000','카톡','O','X','O','상담중','상담 내용 예시']]);
-    ws['!cols']=PM_COLS.map((c,i)=>({wch:i===11?40:i===2||i===5?16:10}));
+    const ws=XLSX.utils.aoa_to_sheet([PM_COLS,['2026-09-30','H','홍길동','4년제졸','40','010-0000-0000','카톡','O','X','O','상담중','2026-10-01','상담 내용 예시']]);
+    ws['!cols']=PM_COLS.map((c,i)=>({wch:i===12?40:i===2||i===5||i===11?14:10}));
     const guide=XLSX.utils.aoa_to_sheet([['소스 입력값'],...PROSPECT_SOURCES.map(v=>[`${v.k} 또는 ${v.label}`]),[''],['플랜안내·결제안내·자료배포는 O 또는 X'],['진행상태: 결제 / 가망없음 / 장기 / 못받는소스 / 상담중 (비우면 미분류)'],['날짜는 2026-09-30 또는 26-09-30 형식']]);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'가망노트');
@@ -5163,7 +5178,7 @@ function importProspectFile(input){
         if(hi<0){ alert('"성함/닉네임" 제목 줄을 찾지 못했어요. [양식] 버튼으로 받은 파일에 맞춰 입력해주세요.'); return; }
         const H=rows[hi].map(c=>String(c).trim());
         const ci=k=>H.findIndex(h=>h.includes(k));
-        const C={date:ci('날짜'),src:ci('소스'),name:ci('성함'),edu:ci('학력'),price:ci('단가'),contact:ci('연락처'),ctype:ci('연락방식'),plan:ci('플랜'),pay:ci('결제'),mat:ci('자료'),stage:ci('진행'),note:ci('상담')};
+        const C={date:ci('날짜'),src:ci('소스'),name:ci('성함'),edu:ci('학력'),price:ci('단가'),contact:ci('연락처'),ctype:ci('연락방식'),plan:ci('플랜'),pay:ci('결제'),mat:ci('자료'),stage:ci('진행'),lastc:ci('마지막'),note:ci('상담')};
         const val=(r,k)=>C[k]>=0?String(r[C[k]]??'').trim():'';
         const oxv=v=>/^[oO○ㅇ]$/.test(v)?'O':/^[xX×]$/.test(v)?'X':'';
         const srcOf=v=>{ if(!v) return ['','']; const t=v.trim(); const s=PROSPECT_SOURCES.find(p=>t===p.k||t.toUpperCase()===p.k||t.includes(p.label)); return s?[s.k,'']:['G',t]; };
@@ -5176,7 +5191,7 @@ function importProspectFile(input){
           const [src,srcCustom]=srcOf(val(r,'src'));
           const it={id:'pr'+Date.now()+i+Math.random().toString(36).slice(2,5),createdAt:new Date().toISOString(),
             date,name,src,srcCustom,edu:val(r,'edu'),price:val(r,'price'),contact:val(r,'contact'),ctype:val(r,'ctype'),
-            plan:oxv(val(r,'plan')),pay:oxv(val(r,'pay')),mat:oxv(val(r,'mat')),stage:(PSTAGES.find(v=>v.k===val(r,'stage').replace(/\s/g,''))||{}).k||'',note:val(r,'note')};
+            plan:oxv(val(r,'plan')),pay:oxv(val(r,'pay')),mat:oxv(val(r,'mat')),stage:(PSTAGES.find(v=>v.k===val(r,'stage').replace(/\s/g,''))||{}).k||'',lastContact:C.lastc>=0?pmParseDate(r[C.lastc]):'',note:val(r,'note')};
           const key=`${it.date}|${it.name}|${it.contact}`;
           if(ex.has(key)){ skip++; return; }
           ex.add(key); items.push(it);
