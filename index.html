@@ -4304,6 +4304,17 @@ function seasonPeople(L,P,seasonKey){
 }
 // 허브 학습자 + 엑셀에서 가져온 대상(seasons[k].extra) 합치기. 허브에 같은 사람(이름+번호)이 있으면 허브 기록 사용
 function seasonAllRows(k,L,P,sd){
+  const rows=seasonAllRowsBase(k,L,P,sd);
+  // 성수기에서 직접 연결한 플랜이 있으면 그걸 사용 (sd.people[key].planId — 'none'이면 연결 안 함)
+  rows.forEach(r=>{
+    const d=sd&&sd.people&&sd.people[r.key]; if(!d||!d.planId) return;
+    const pl=d.planId==='none'?null:(P||{})[d.planId];
+    if(d.planId!=='none'&&!pl) return;
+    Object.assign(r,{plan:pl,manualPlan:true,noTerm:false},planTermInfo(pl,seasonTargetTerm(k)));
+  });
+  return rows;
+}
+function seasonAllRowsBase(k,L,P,sd){
   const rows=seasonPeople(L,P,k);
   const extra=(sd&&sd.extra)||[];
   if(!extra.length) return rows;
@@ -4386,7 +4397,12 @@ function renderSeason(){
     const c=(SS_STATUS.find(x=>x.k===status)||{}).c||'#868e96';
     const paidL=d.paidLearnerId&&learners.some(x=>x.id===d.paidLearnerId);
     return `<tr style="border-top:1px solid var(--border);${status==='과정끝'||status==='환불'?'opacity:.6':''}">
-      <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;font-weight:700;color:#2b8a3e;background:#ebfbee;border:1px solid #b2f2bb;border-radius:3px;padding:0 4px" title="엑셀에서 가져온 학생 (허브 학습자 관리에는 없음)">엑셀</span>':''}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div></td>
+      <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;font-weight:700;color:#2b8a3e;background:#ebfbee;border:1px solid #b2f2bb;border-radius:3px;padding:0 4px" title="엑셀에서 가져온 학생 (허브 학습자 관리에는 없음)">엑셀</span>':''}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div>
+        <div style="display:flex;gap:3px;margin-top:4px;align-items:center">
+          ${r.plan?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy)" onclick="openPrintPreview('${r.plan.id}')" title="플랜표 미리보기 (${pmEsc(r.plan.clientName||'')})"><i class="ti ti-clipboard-list"></i> 플랜</button>
+            <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px" onclick="ssOpenPlanTab('${r.plan.id}')" title="플랜표 탭에서 열어 수정"><i class="ti ti-pencil"></i></button>`:''}
+          <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:${r.manualPlan?'var(--green)':'var(--text3)'}" onclick="ssPickPlan('${K}')" title="${r.plan?(r.manualPlan?'직접 연결한 플랜 — 바꾸기':'자동 연결된 플랜 — 바꾸기'):'플랜 직접 연결'}"><i class="ti ti-link"></i>${r.plan?'':' 연결'}</button>
+        </div></td>
       <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${l.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회 결제`:''}</div></td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${r.autoCredits??'-'}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':r.noTerm?'플랜표에 이번 시즌 학기가 없어요 — 필요하면 직접 입력':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':r.nextName?pmEsc(r.nextName):r.noTerm?`플랜에 ${seasonTargetTerm(document.getElementById('ss-season').value)}학기 없음`:r.plan?'':'플랜 없음'}</div></td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" step="500" value="${priceManual?d.price:''}" placeholder="${defPrice||'-'}" title="기본: 최근 결제 단가 ${defPrice?defPrice.toLocaleString()+'원':'없음'} — 비우면 기본값" onchange="setSeasonField('${K}','price',this.value)" style="width:76px;font-size:12px;padding:3px 5px;text-align:right"><div style="font-size:10px;color:var(--text3)">${priceManual?'직접입력':'최근 단가'}</div></td>
@@ -4400,6 +4416,76 @@ function renderSeason(){
         :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
     </tr>`;
   }).join('');
+}
+function ssOpenPlanTab(pid){
+  if(!plans[pid]) return;
+  const tabEl=[...document.querySelectorAll('.tab')].find(t=>(t.getAttribute('onclick')||'').includes("'plan'"));
+  switchTab('plan',tabEl);
+  setTimeout(()=>selectPlan(pid),60);
+}
+function ssPickPlan(K){
+  const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
+  const row=seasonAllRows(k,learners,plans,seasons[k]||{people:{}}).find(r=>r.key===key); if(!row) return;
+  const nm=row.last.name||'', ph=normPhone(row.last.phone);
+  const cur=row.plan?row.plan.id:'';
+  let ov=document.getElementById('ss-plan-modal'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='ss-plan-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:150;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;max-height:85vh;display:flex;flex-direction:column;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-size:15px;font-weight:700"><i class="ti ti-link"></i> ${pmEsc(nm)}님 플랜 연결</div>
+      <button class="btn btn-icon" onclick="document.getElementById('ss-plan-modal').remove()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">${row.extra?'엑셀 학생은 이 성수기 기록에만 연결돼요.':'플랜표의 "학습자 연결"도 이 학습자로 함께 맞춰져요.'}</div>
+    <input type="text" id="ss-plan-q" placeholder="이름·연락처로 플랜 검색" value="${pmEsc(nm)}" oninput="ssPlanList('${K}')" style="margin-bottom:8px">
+    <div id="ss-plan-list" style="overflow:auto;flex:1;border:1px solid var(--border);border-radius:8px"></div>
+    <div style="display:flex;justify-content:space-between;gap:6px;margin-top:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" style="font-size:11px" onclick="ssSetPlan('${K}','')">자동 연결로 되돌리기</button>
+        <button class="btn btn-sm" style="font-size:11px;color:var(--red)" onclick="ssSetPlan('${K}','none')">연결 안 함</button>
+      </div>
+      <button class="btn btn-sm" onclick="document.getElementById('ss-plan-modal').remove()">닫기</button>
+    </div></div>`;
+  ov.dataset.cur=cur; ov.dataset.ph=ph;
+  document.body.appendChild(ov);
+  ssPlanList(K);
+}
+function ssPlanList(K){
+  const ov=document.getElementById('ss-plan-modal'); if(!ov) return;
+  const q=(document.getElementById('ss-plan-q').value||'').trim().toLowerCase(), qd=q.replace(/\D/g,'');
+  const cur=ov.dataset.cur, ph=ov.dataset.ph;
+  let list=Object.values(plans||{}).filter(p=>!q||(p.clientName||'').toLowerCase().includes(q)||(qd.length>=3&&normPhone(p.phone).includes(qd)));
+  list.sort((a,b)=>(b.id===cur)-(a.id===cur)||((ph&&normPhone(b.phone)===ph)-(ph&&normPhone(a.phone)===ph))||String(b.counselDate||'').localeCompare(String(a.counselDate||'')));
+  const el=document.getElementById('ss-plan-list');
+  if(!list.length){ el.innerHTML='<div class="empty" style="padding:20px">찾는 플랜표가 없어요</div>'; return; }
+  el.innerHTML=list.slice(0,60).map(p=>{
+    const deg=(p.degree==='기타'?(p.degreeCustom||'기타'):p.degree)||'';
+    const maj=p.major==='기타'?(p.majorCustom||''):(p.major||'');
+    const on=p.id===cur, same=ph&&normPhone(p.phone)===ph;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);${on?'background:#e7f6ea':''}">
+      <div style="flex:1;min-width:0"><b>${pmEsc(p.clientName||'(이름 없음)')}</b> <span style="font-size:11px;color:var(--text2)">${pmEsc(maj)} ${pmEsc(deg)}</span>
+        <div style="font-size:11px;color:var(--text3)">${pmEsc(p.phone||'연락처 없음')}${same?' · <span style="color:var(--green);font-weight:700">번호 일치</span>':''} · 상담 ${pmEsc(p.counselDate||'-')} · ${pmEsc(p.status||'가망')}</div></div>
+      <button class="btn btn-sm" style="font-size:11px" onclick="openPrintPreview('${p.id}')" title="미리보기"><i class="ti ti-eye"></i></button>
+      ${on?'<span style="font-size:11px;color:var(--green);font-weight:700">연결됨</span>':`<button class="btn btn-sm btn-primary" style="font-size:11px" onclick="ssSetPlan('${K}','${p.id}')">연결</button>`}
+    </div>`;
+  }).join('');
+}
+function ssSetPlan(K,pid){
+  const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
+  const sd=seasonData(k), d=sd.people[key]=sd.people[key]||{};
+  if(pid) d.planId=pid; else delete d.planId;
+  // 허브 학습자면 플랜표 '학습자 연결'도 맞춰줌 (엑셀 학생은 성수기 기록에만)
+  const row=seasonAllRowsBase(k,learners,plans,sd).find(r=>r.key===key);
+  if(pid&&pid!=='none'&&row&&!row.extra&&plans[pid]){
+    const l=row.last, p=plans[pid];
+    Object.values(plans).forEach(x=>{ if(x!==p&&x.linkedLearner===l.name&&normPhone(x.linkedPhone)===normPhone(l.phone)){ x.linkedLearner=''; x.linkedPhone=''; } });
+    p.linkedLearner=l.name; p.linkedPhone=l.phone||'';
+    autoPaidPlans(); LS.set('hk_plans',plans);
+  }
+  save();
+  const ov=document.getElementById('ss-plan-modal'); if(ov) ov.remove();
+  renderSeason();
+  showToast(pid==='none'?'플랜 연결을 끊었어요':pid?'플랜을 연결했어요':'자동 연결로 되돌렸어요');
 }
 function ssPickStatus(k){
   const sel=document.getElementById('ss-filter');
