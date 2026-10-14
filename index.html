@@ -1303,6 +1303,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option value="nolearner">학습자 등록 전</option>
         <option value="open">미처리 (상담중·미분류)</option>
         <option value="stale">7일 이상 연락 없음 (미처리)</option>
+        <optgroup label="진행상태별로 보기">
+          <option value="st:상담중">상담중</option><option value="st:결제">결제</option><option value="st:가망없음">가망없음</option>
+          <option value="st:장기">장기</option><option value="st:못받는소스">못받는소스</option><option value="st:미분류">미분류</option>
+        </optgroup>
       </select>
       <button class="btn btn-sm" onclick="downloadProspectTemplate()"><i class="ti ti-download"></i> 양식</button>
       <label class="btn btn-sm" style="cursor:pointer"><i class="ti ti-file-import"></i> 엑셀 가져오기<input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importProspectFile(this)"></label>
@@ -4963,10 +4967,12 @@ function renderProspects(){
       </div>
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
-      ${PSTAGES.map(v=>`<span style="font-size:12px;border:1px solid ${v.c}44;background:${v.c}10;color:${v.c};border-radius:99px;padding:3px 10px;font-weight:600">${v.k} ${st[v.k]||0}</span>`).join('')}
-      ${st['']?`<span style="font-size:12px;border:1px dashed #adb5bd;color:#868e96;border-radius:99px;padding:3px 10px;font-weight:600">미분류 ${st['']}</span>`:''}
-      <span style="margin-left:auto;font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;${month.length&&!openN?'background:#e7f6ea;color:#2f9e44':'background:#fff4e6;color:#d9480f'}">
-        ${!month.length?'이 달 유입 없음':!openN?'✓ 모두 처리 완료':`⚠️ 미처리 ${openN}명 (상담중·미분류)`}</span>
+      ${(()=>{ const fv=document.getElementById('pm-filter')?.value||'';
+        const chip=(k,label,c,dashed)=>{ const on=fv==='st:'+k;
+          return `<button type="button" onclick="pmPickStage('${k}')" title="${label}만 보기 (다시 누르면 해제)" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px ${dashed&&!on?'dashed':'solid'} ${on?c:c+'55'};background:${on?c:c+'10'};color:${on?'#fff':c};border-radius:99px;padding:3px 10px;font-weight:700">${label} ${k==='미분류'?(st['']||0):(st[k]||0)}</button>`; };
+        return PSTAGES.map(v=>chip(v.k,v.k,v.c)).join('')+(st['']||fv==='st:미분류'?chip('미분류','미분류','#868e96',true):''); })()}
+      <button type="button" onclick="${openN?"pmPickStage('open')":''}" title="${openN?'미처리만 보기 (다시 누르면 해제)':''}" style="margin-left:auto;font-family:inherit;border:${(document.getElementById('pm-filter')?.value||'')==='open'?'2px solid #d9480f':'0'};cursor:${openN?'pointer':'default'};font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;${month.length&&!openN?'background:#e7f6ea;color:#2f9e44':'background:#fff4e6;color:#d9480f'}">
+        ${!month.length?'이 달 유입 없음':!openN?'✓ 모두 처리 완료':`⚠️ 미처리 ${openN}명 (상담중·미분류)`}</button>
       <span style="font-size:11px;color:var(--text2);width:100%">플랜안내 ${done('plan')} · 결제안내 ${done('pay')} · 자료배포 ${done('mat')} · 학습자 등록 ${month.filter(x=>x.learnerId).length}</span>
     </div>`;
   // 목록
@@ -4978,6 +4984,7 @@ function renderProspects(){
   if(f==='nomat') list=list.filter(x=>x.mat!=='O');
   if(f==='nolearner') list=list.filter(x=>!x.learnerId);
   if(f==='open') list=list.filter(x=>!PSTAGE_DONE.includes(x.stage));
+  if(f.startsWith('st:')){ const sk=f.slice(3); list=list.filter(x=>(x.stage||'')===(sk==='미분류'?'':sk)); }
   if(f==='stale') list=list.filter(x=>!PSTAGE_DONE.includes(x.stage)&&pmDaysSince(x.lastContact||x.date)>=7);
   list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''));
   const tb=document.getElementById('pm-tbody'), em=document.getElementById('pm-empty');
@@ -5018,6 +5025,10 @@ function renderProspects(){
     </tr>
     ${x.note?`<tr><td style="padding:2px 6px 8px;font-size:11px;color:var(--text2);text-align:center;vertical-align:top">상담내용</td><td colspan="12" style="padding:2px 6px 8px;font-size:12px;color:var(--text2);white-space:pre-wrap">${pmEsc(x.note)}</td></tr>`:''}`;
   }).join('');
+}
+function pmPickStage(k){
+  const sel=document.getElementById('pm-filter'), v=k==='open'?'open':'st:'+k;
+  sel.value=sel.value===v?'':v; renderProspects();
 }
 function pmToday(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
 function pmDaysSince(d){ if(!d) return 0; return Math.max(0,Math.round((new Date(pmToday()+'T00:00:00')-new Date(String(d).slice(0,10)+'T00:00:00'))/864e5)); }
