@@ -215,10 +215,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="tab" data-tab="plan" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
   <div class="tab" data-tab="schedule" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
   <div class="tab" data-tab="season" onclick="switchTab('season',this)"><i class="ti ti-flame"></i>성수기</div>
+  <div class="tab" data-tab="sales" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" data-tab="prospect" onclick="switchTab('prospect',this)"><i class="ti ti-address-book"></i>가망노트</div>
   <div class="tab" data-tab="worklog" onclick="switchTab('worklog',this)"><i class="ti ti-notebook"></i>업무일지</div>
   <div class="tab" data-tab="memo" onclick="switchTab('memo',this)"><i class="ti ti-note"></i>메모</div>
-  <div class="tab" data-tab="sales" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" data-tab="import" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
   <div class="tab" data-tab="export" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
   <div class="tab" data-tab="certinfo" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격증/편입정보</div>
@@ -3646,11 +3646,11 @@ function toggleCertCard(headEl){
 // ── 위쪽 메뉴: 큰 묶음(홈·학습자·상담영업·업무·매출·자료·팀현황) + 세부 탭 ──
 const TAB_GROUPS=[
   {k:'home',label:'홈',icon:'ti-home',tabs:['dashboard']},
-  {k:'learner',label:'학습자',icon:'ti-users',tabs:['learners','plan','schedule','season']},
-  {k:'sales',label:'상담·영업',icon:'ti-address-book',tabs:['prospect']},
+  {k:'learner',label:'학습자',icon:'ti-users',tabs:['learners','plan','schedule','season','sales']},
   {k:'work',label:'업무',icon:'ti-notebook',tabs:['worklog','memo']},
-  {k:'money',label:'매출',icon:'ti-coin',tabs:['sales','import','export']},
+  {k:'sales',label:'가망노트',icon:'ti-address-book',tabs:['prospect']},
   {k:'ref',label:'자료',icon:'ti-books',tabs:['certinfo']},
+  {k:'money',label:'가져오기·내보내기',icon:'ti-transfer',tabs:['import','export']},
   {k:'team',label:'팀 현황',icon:'ti-crown',tabs:['admin'],admin:true},
 ];
 let _tabGroup='home'; const _groupLast={};
