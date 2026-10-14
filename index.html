@@ -212,10 +212,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <div class="tabs">
   <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard',this)"><i class="ti ti-layout-dashboard"></i>대시보드</div>
   <div class="tab" data-tab="learners" onclick="switchTab('learners',this)"><i class="ti ti-users"></i>학습자 관리</div>
+  <div class="tab" data-tab="sales" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" data-tab="plan" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
   <div class="tab" data-tab="schedule" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
   <div class="tab" data-tab="season" onclick="switchTab('season',this)"><i class="ti ti-flame"></i>성수기</div>
-  <div class="tab" data-tab="sales" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
   <div class="tab" data-tab="prospect" onclick="switchTab('prospect',this)"><i class="ti ti-address-book"></i>가망노트</div>
   <div class="tab" data-tab="worklog" onclick="switchTab('worklog',this)"><i class="ti ti-notebook"></i>업무일지</div>
   <div class="tab" data-tab="memo" onclick="switchTab('memo',this)"><i class="ti ti-note"></i>메모</div>
@@ -3646,7 +3646,7 @@ function toggleCertCard(headEl){
 // ── 위쪽 메뉴: 큰 묶음(홈·학습자·상담영업·업무·매출·자료·팀현황) + 세부 탭 ──
 const TAB_GROUPS=[
   {k:'home',label:'홈',icon:'ti-home',tabs:['dashboard']},
-  {k:'learner',label:'학습자',icon:'ti-users',tabs:['learners','plan','schedule','season','sales']},
+  {k:'learner',label:'학습자',icon:'ti-users',tabs:['learners','sales','plan','schedule','season']},
   {k:'work',label:'업무',icon:'ti-notebook',tabs:['worklog','memo']},
   {k:'sales',label:'가망노트',icon:'ti-address-book',tabs:['prospect']},
   {k:'ref',label:'자료',icon:'ti-books',tabs:['certinfo']},
@@ -4251,14 +4251,19 @@ function renderLearners(){
     const mNS=!noSchedOnly||!hasNonStartSchedule(l);
     return mQ&&mY&&mM&&mT&&mE&&mNS;
   });
-  // 입금일 오름차순 정렬
+  // 입금일 빠른순 정렬 (매출 관리와 같은 기준: 연→월→일, 글자순 비교 시 '6월 10일'이 '6월 2일'보다 앞서던 문제 수정)
+  const payNum=l=>{
+    const y=parseInt(l.year)||now.getFullYear(), m=parseInt(l.month)||0, pd=l.paydate||'';
+    if(!m&&!pd) return 0;
+    const d=parseInt(pd.match(/(\d+)\s*일/)?.[1])||parseInt(pd.match(/\d{4}\D\d{1,2}\D(\d{1,2})/)?.[1])||parseInt(pd.match(/\d+\D+(\d+)/)?.[1])||0;
+    return y*10000+m*100+d;
+  };
   filtered.sort((a,b)=>{
-    const da=a.paydate||'';
-    const db=b.paydate||'';
-    if(!da&&!db) return 0;
-    if(!da) return 1;
-    if(!db) return -1;
-    return da.localeCompare(db);
+    const pa=payNum(a), pb=payNum(b);
+    if(!pa&&!pb) return learners.indexOf(a)-learners.indexOf(b);
+    if(!pa) return 1;
+    if(!pb) return -1;
+    return pa-pb||learners.indexOf(a)-learners.indexOf(b);
   });
   // 이름+번호 동일한 중복 학습자 그룹핑
   const dupToggleShow = window._dupToggleShow || new Set();
