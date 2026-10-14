@@ -29,7 +29,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sa
   .topbar-title{display:none}
 }
 .badge{font-size:12px;background:var(--blue-bg);border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;color:var(--navy);white-space:nowrap;display:flex;align-items:center;gap:4px;flex-wrap:wrap;max-width:200px}
-.tabs{display:flex;background:var(--bg);border-bottom:1px solid var(--border);padding:0 24px;position:sticky;top:53px;z-index:40;overflow-x:auto}
+.nav-sticky{position:sticky;top:53px;z-index:40;background:var(--bg)}
+.tab-groups{display:flex;gap:4px;padding:8px 24px 6px;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--bg)}
+.tg-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:99px;border:1px solid transparent;background:none;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text2);font-family:inherit;white-space:nowrap}
+.tg-btn:hover:not(.active){background:var(--bg2);color:var(--text)}
+.tg-btn.active{background:var(--navy);color:#fff}
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto}
 .tab{padding:11px 16px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;transition:color .15s;white-space:nowrap}
 .tab.active{color:var(--navy);border-bottom-color:var(--navy);font-weight:600}
 .tab:hover:not(.active){color:var(--text)}
@@ -202,19 +207,22 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
 </div>
 
+<div class="nav-sticky">
+<div class="tab-groups" id="tab-groups"></div>
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('dashboard',this)"><i class="ti ti-layout-dashboard"></i>대시보드</div>
-  <div class="tab" onclick="switchTab('learners',this)"><i class="ti ti-users"></i>학습자 관리</div>
-  <div class="tab" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
-  <div class="tab" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
-  <div class="tab" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
-  <div class="tab" onclick="switchTab('prospect',this)"><i class="ti ti-address-book"></i>가망노트</div>
-  <div class="tab" onclick="switchTab('season',this)"><i class="ti ti-flame"></i>성수기</div>
-  <div class="tab" onclick="switchTab('worklog',this)"><i class="ti ti-notebook"></i>업무일지</div>
-  <div class="tab" onclick="switchTab('memo',this)"><i class="ti ti-notebook"></i>메모</div>
-  <div class="tab" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격증/편입정보</div>
-  <div class="tab" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
-  <div class="tab" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
+  <div class="tab active" data-tab="dashboard" onclick="switchTab('dashboard',this)"><i class="ti ti-layout-dashboard"></i>대시보드</div>
+  <div class="tab" data-tab="learners" onclick="switchTab('learners',this)"><i class="ti ti-users"></i>학습자 관리</div>
+  <div class="tab" data-tab="plan" onclick="switchTab('plan',this)"><i class="ti ti-clipboard-list"></i>플랜표</div>
+  <div class="tab" data-tab="schedule" onclick="switchTab('schedule',this)"><i class="ti ti-calendar"></i>학사일정</div>
+  <div class="tab" data-tab="season" onclick="switchTab('season',this)"><i class="ti ti-flame"></i>성수기</div>
+  <div class="tab" data-tab="prospect" onclick="switchTab('prospect',this)"><i class="ti ti-address-book"></i>가망노트</div>
+  <div class="tab" data-tab="worklog" onclick="switchTab('worklog',this)"><i class="ti ti-notebook"></i>업무일지</div>
+  <div class="tab" data-tab="memo" onclick="switchTab('memo',this)"><i class="ti ti-note"></i>메모</div>
+  <div class="tab" data-tab="sales" onclick="switchTab('sales',this)"><i class="ti ti-chart-bar"></i>매출 관리</div>
+  <div class="tab" data-tab="import" onclick="switchTab('import',this)"><i class="ti ti-file-import"></i>매출파일 가져오기</div>
+  <div class="tab" data-tab="export" onclick="switchTab('export',this)"><i class="ti ti-table-export"></i>엑셀 내보내기</div>
+  <div class="tab" data-tab="certinfo" onclick="switchTab('certinfo',this)"><i class="ti ti-certificate"></i>자격증/편입정보</div>
+</div>
 </div>
 
 <!-- 대시보드 -->
@@ -2172,6 +2180,7 @@ async function showApp(){
     setTimeout(()=>showToast(`누락된 일정 정보 ${totalFix}건을 자동 복구했어요`),800);
   }
   renderDashboard();
+  restoreLastTab();
 }
 
 // ── Firebase 데이터 읽기/쓰기 ─────────────────────────────
@@ -3634,11 +3643,46 @@ function toggleCertCard(headEl){
   body.style.display=collapsed?'block':'none';
   if(chevron) chevron.style.transform=collapsed?'rotate(0deg)':'rotate(-90deg)';
 }
+// ── 위쪽 메뉴: 큰 묶음(홈·학습자·상담영업·업무·매출·자료·팀현황) + 세부 탭 ──
+const TAB_GROUPS=[
+  {k:'home',label:'홈',icon:'ti-home',tabs:['dashboard']},
+  {k:'learner',label:'학습자',icon:'ti-users',tabs:['learners','plan','schedule','season']},
+  {k:'sales',label:'상담·영업',icon:'ti-address-book',tabs:['prospect']},
+  {k:'work',label:'업무',icon:'ti-notebook',tabs:['worklog','memo']},
+  {k:'money',label:'매출',icon:'ti-coin',tabs:['sales','import','export']},
+  {k:'ref',label:'자료',icon:'ti-books',tabs:['certinfo']},
+  {k:'team',label:'팀 현황',icon:'ti-crown',tabs:['admin'],admin:true},
+];
+let _tabGroup='home'; const _groupLast={};
+function tabNameOf(el){ return el.dataset.tab||((el.getAttribute('onclick')||'').match(/switchTab\('([a-z]+)'/)||[])[1]; }
+function tabElOf(name){ return [...document.querySelectorAll('.tabs > .tab')].find(t=>tabNameOf(t)===name)||null; }
+function renderTabGroups(){
+  const bar=document.getElementById('tab-groups'); if(!bar) return;
+  const hasAdmin=!!tabElOf('admin');
+  bar.innerHTML=TAB_GROUPS.filter(g=>!g.admin||hasAdmin).map(g=>`<button type="button" class="tg-btn${g.k===_tabGroup?' active':''}" onclick="pickTabGroup('${g.k}')"><i class="ti ${g.icon}"></i>${g.label}</button>`).join('');
+  const g=TAB_GROUPS.find(x=>x.k===_tabGroup);
+  document.querySelectorAll('.tabs > .tab').forEach(t=>{ t.style.display=g&&g.tabs.includes(tabNameOf(t))?'':'none'; });
+  const bar2=document.querySelector('.tabs'); if(bar2) bar2.style.display=g&&g.tabs.length>1?'':'none';
+}
+function pickTabGroup(k){
+  const g=TAB_GROUPS.find(x=>x.k===k); if(!g) return;
+  const name=_groupLast[k]&&g.tabs.includes(_groupLast[k])?_groupLast[k]:g.tabs[0];
+  if(!document.getElementById('panel-'+name)) return;
+  switchTab(name,tabElOf(name));
+}
+function restoreLastTab(){
+  let last=null; try{ last=localStorage.getItem('hubLastTab'); }catch(e){}
+  if(last&&last!=='dashboard'&&tabElOf(last)&&document.getElementById('panel-'+last)) switchTab(last,tabElOf(last));
+  else renderTabGroups();
+}
 function switchTab(name,el){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tabs > .tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
-  if(el) el.classList.add('active');
+  const tabEl=tabElOf(name); if(tabEl) tabEl.classList.add('active');
+  const grp=TAB_GROUPS.find(g=>g.tabs.includes(name));
+  if(grp){ _tabGroup=grp.k; _groupLast[grp.k]=name; try{ localStorage.setItem('hubLastTab',name); }catch(e){} }
+  renderTabGroups();
   if(name==='dashboard') renderDashboard();
   if(name==='learners') renderLearners();
   if(name==='schedule') renderSchedule();
@@ -7233,7 +7277,7 @@ function newPlan(){
 }
 function planStickyTop(){
   // 상단 바 + 탭 높이만큼 아래에 목록 고정
-  const tb=document.querySelector('.topbar'), tabs=document.querySelector('.tabs');
+  const tb=document.querySelector('.topbar'), tabs=document.querySelector('.nav-sticky')||document.querySelector('.tabs');
   const h=(tb?tb.offsetHeight:53)+(tabs?tabs.offsetHeight:44)+10;
   document.documentElement.style.setProperty('--plan-sticky-top',h+'px');
   return h;
