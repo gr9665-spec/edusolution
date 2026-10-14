@@ -754,21 +754,124 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
 
   <div id="certinfo-sub-transfer" class="certinfo-sub" style="display:none">
-    <div class="card">
-      <div style="padding:40px 20px;text-align:center;color:var(--text2)">
-        <i class="ti ti-school" style="font-size:32px;color:var(--border2);margin-bottom:8px;display:block"></i>
-        편입 관련 정보는 준비 중이에요.
-      </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#e8f0fe;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-arrows-exchange" style="color:#1a5fa8"></i>일반편입 vs 학사편입 한눈에 보기</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s"></i>
     </div>
+    <div class="cert-card-body" style="padding:16px">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left;width:110px">구분</th><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left">일반편입</th><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left">학사편입</th></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">입학 학년</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top"><b style="color:var(--navy)">3학년</b></td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top"><b style="color:var(--navy)">3학년</b></td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">지원 자격</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">· 전문학사 학위 취득(예정)<br>· 4년제 2학년(4개 학기) 수료(예정) — 수료 기준은 학교 학칙<br>· 학점은행제: 전문학사 취득 또는 학사과정 일정 학점 이상 (대학별 상이, 예: 방송대 63학점)</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">· 4년제 졸업(예정) / 학사학위 소지<br>· 학점은행제 학사학위 포함</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">전공</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">대체로 무관 (일부 학과 계열 제한)</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">대체로 무관</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">학점은행제 역할</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전문학사 80학점 또는 대학 기준 학점 채우기</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">학사 140학점 채우기</td></tr>
+      </table>
+      <div style="font-size:12px;color:#c0392b;margin-top:8px">⚠ 4년제 편입은 일반·학사편입 모두 <b>무조건 3학년</b>이에요. "2학년 편입"은 전문대학 편입에만 있어요.</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:10px">※ 지원자격·전형방법·일정은 대학과 연도마다 달라요. 상담 시 목표 대학의 최신 모집요강으로 꼭 다시 확인하세요.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#f3f0ff;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-list-check" style="color:#7048e8"></i>전형 유형별 특징</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s;transform:rotate(-90deg)"></i>
+    </div>
+    <div class="cert-card-body" style="padding:16px;display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left;width:130px">유형</th><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left">평가 요소</th><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left">상담 포인트</th></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">필기형</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">편입영어 · 전공필기 (+ 전적대 성적)</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">시험 준비 기간 고려</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">무시험(성적형)</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전적대 성적 (+ 면접)</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">성적이 사실상 전부 · 합격선 4.0(4.5만점) 이상에서 형성되는 경우 많음<br>예) 강남대, 가톨릭관동대, 동국대 WISE, 세명대, 경일대 — 같은 대학도 학과별로 다름</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">메디컬<br><span style="font-weight:400;color:var(--text2)">약·수의·간호 등</span></td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">공인영어 · 면접 · 전공필기 등</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">지원자격 점수는 <b>최소 기준</b>일 뿐, 실제 합격은 만점권 → <b>고고익선</b></td></tr>
+      </table>
+      <div style="font-size:12.5px;margin-top:10px;line-height:1.8">💡 이미 받은 성적이 낮으면 그 성적표는 고칠 수 없어요 → <b>학점은행제로 새 학위를 취득해 성적 자체를 고득점으로 다시 설계</b>하는 흐름으로 안내해요.</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:10px">※ 지원자격·전형방법·일정은 대학과 연도마다 달라요. 상담 시 목표 대학의 최신 모집요강으로 꼭 다시 확인하세요.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#fdeaea;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-alert-circle" style="color:#c0392b"></i>상담할 때 자주 헷갈리는 것</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s;transform:rotate(-90deg)"></i>
+    </div>
+    <div class="cert-card-body" style="padding:16px;display:none">
+<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.85;color:var(--text)"><li>정규 4년제 <b>재학생</b>은 "몇 학점"이 아니라 <b>2학년 수료</b>가 기준이에요 (수료 학점은 학교 학칙). 62~64학점 같은 숫자 기준은 <b>학점은행제</b> 이야기예요.</li><li>간호학과는 학교에 따라 <b>학사편입만</b> 모집하기도 해요. 예) 성신여대 간호학과 — 학사편입만(4년제 졸업·학사학위 필수), 1단계 공인어학 100% → 2단계 어학 60 + 면접 40. 다른 학과는 일반편입 가능.</li><li>충북대 수의예과는 2027학년도부터 학제가 2+4 → <b>1+5년제</b>로 바뀌어, 편입생 실질 재학 기간이 1년 늘었어요. 전형은 1단계 공인영어 60 → 2단계 공인영어 60 + 면접·전공구술 20 + 전공필기 20 (전적대 성적 항목 없음).</li><li>전적대 학점인정: 전문대 최대 80학점, 4년제는 제적한 학점에 한해 최대 140학점 (졸업한 4년제 학점은 인정 안 됨). 새 전공과 맞는 정도에 따라 실제 인정 범위는 달라져요.</li></ul>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#e8f5e9;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-school" style="color:#2e7d32"></i>한국방송통신대학교 편입 (2026학년도 기준)</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s;transform:rotate(-90deg)"></i>
+    </div>
+    <div class="cert-card-body" style="padding:16px;display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700;width:110px">3학년 편입</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">대학(전문대 포함) 졸업(예정), 4년제 2학년(4개 학기) 이상 수료, 독학사 학사, 학점은행제 <b>전문학사</b> 또는 <b>학사과정 63학점 이상</b> — <b>전공 무관</b><br><span style="color:#c0392b">단, 간호학과 = 간호사 면허, 유아교육과 = 유치원 정교사 자격증 소지자만</span></td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">2학년 편입</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전문학사 취득(예정) 또는 학사과정 30학점 이상 등</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">전형</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전 학년 성적 '성적군별 성적순' — 학점은행제는 3군(실점 → 동점 시 총 취득학점 → 연장자)<br>학점인정 신청 시기에 따라 회보 성적이 낮게 나오면 입학 취소될 수 있음</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">일정 (2026)</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">1학기: 2025.12.3 ~ 2026.1.6 (추가 1.23 ~ 2.3)<br>2학기: 2026.6.8 ~ 7.7 (합격 발표 7.27)</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">영양사</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">식품영양학 편입생은 영양사 응시 과목을 <b>편입 후 방송대에서 모두 다시 이수</b> → 학점은행제는 편입 자격 만들기 역할</td></tr>
+      </table>
+      <div style="font-size:11px;color:var(--text2);margin-top:10px">※ 지원자격·전형방법·일정은 대학과 연도마다 달라요. 상담 시 목표 대학의 최신 모집요강으로 꼭 다시 확인하세요.</div>
+    </div>
+  </div>
   </div>
 
   <div id="certinfo-sub-grad" class="certinfo-sub" style="display:none">
-    <div class="card">
-      <div style="padding:40px 20px;text-align:center;color:var(--text2)">
-        <i class="ti ti-briefcase" style="font-size:32px;color:var(--border2);margin-bottom:8px;display:block"></i>
-        대졸자전형 관련 정보는 준비 중이에요.
-      </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#fff3e0;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-briefcase" style="color:#e07a1f"></i>대졸자전형이란?</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s"></i>
     </div>
+    <div class="cert-card-body" style="padding:16px">
+<ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.85;color:var(--text)"><li><b>전문대학</b>이 운영하는 <b>정원 외 특별전형</b>으로, 이미 학위·학력이 있는 사람이 <b>1학년 1학기로 새로 입학</b>해요.</li><li>고등학교 내신·수능 성적 없이 지원할 수 있고, <b>수시·정시</b> 모두 모집하는 경우가 많아요.</li><li>편입보다 모집 인원이 많은 편이고, <b>전공 무관</b>으로 지원할 수 있어 비전공자가 보건계열로 진입하는 대표 경로예요.</li><li>간호·물리치료·치위생·방사선 등 <b>면허 학과</b>는 졸업 후 국가시험에 합격해야 면허를 받아요.</li></ul>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#e8f0fe;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-clipboard-check" style="color:#1a5fa8"></i>지원 자격 · 전형 방법</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s;transform:rotate(-90deg)"></i>
+    </div>
+    <div class="cert-card-body" style="padding:16px;display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700;width:110px">지원 자격<br><span style="font-weight:400;color:var(--text2)">(예: 부천대 간호)</span></td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전문대 졸업(예정) 또는 4년제 2학년 2학기 이상 수료(예정)와 <b>동등 이상 학력</b> · 4년제 학사학위자도 전공 무관 지원</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">학점은행제</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">고졸이면 학점은행제로 <b>전문학사 이상</b>을 먼저 취득해 자격을 갖춰요</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">전형 방법</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전적대 성적 + 면접이 일반적 (예: 부천대 간호 = 전적대 성적 80% + 면접 20%)<br>성적 100%만 보는 곳, 공인영어성적을 요구하는 곳도 있어요</td></tr>
+      </table>
+      <div style="font-size:12.5px;margin-top:10px;line-height:1.8">💡 전적대 성적 비중이 커서, 학점은행제 성적을 관리할 때부터 대졸자전형을 염두에 두고 설계해요.</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:10px">※ 지원자격·전형방법·일정은 대학과 연도마다 달라요. 상담 시 목표 대학의 최신 모집요강으로 꼭 다시 확인하세요.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#f3f0ff;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-arrows-diff" style="color:#7048e8"></i>편입 vs 대졸자전형 비교</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s;transform:rotate(-90deg)"></i>
+    </div>
+    <div class="cert-card-body" style="padding:16px;display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left;width:100px">구분</th><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left">편입</th><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left">대졸자전형</th></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">학교</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">4년제 (일부 3년제 학과)</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전문대학</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">입학 학년</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">3학년</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">1학년 1학기</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">자격</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">일반: 전문학사·2학년 수료 등 / 학사: 학사학위</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전문대 졸업 또는 그와 동등 이상 학력</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">전형</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">필기·무시험·공인영어 등 대학별</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전적대 성적 + 면접 위주</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">장점</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">졸업까지 기간이 짧음</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">수능 없이 지원, 모집 인원 많은 편, 기초부터 다시</td></tr>
+      </table>
+      <div style="font-size:11px;color:var(--text2);margin-top:10px">※ 지원자격·전형방법·일정은 대학과 연도마다 달라요. 상담 시 목표 대학의 최신 모집요강으로 꼭 다시 확인하세요.</div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-head" style="background:#e8f5e9;cursor:pointer" onclick="toggleCertCard(this)">
+      <h3><i class="ti ti-route" style="color:#2e7d32"></i>학력별 준비 경로</h3>
+      <i class="ti ti-chevron-down cert-chevron" style="font-size:16px;color:var(--text2);transition:transform .2s;transform:rotate(-90deg)"></i>
+    </div>
+    <div class="cert-card-body" style="padding:16px;display:none">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left;width:130px">현재 학력</th><th style="padding:7px 9px;border:1px solid var(--border);background:var(--bg2);font-weight:700;text-align:left">준비 방법</th></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">고졸</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">학점은행제로 <b>전문학사</b> 취득 → 지원 자격 갖추기 (성적 고득점 관리)</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">대학 중퇴</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">2학년 2학기 수료 기준 충족 여부 확인 → 부족하면 학점은행제로 보완</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">전문대 졸업</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">이미 자격 충족 → 성적이 낮으면 학점은행제로 새 학위·성적 재설계 검토, 면접 준비</td></tr>
+        <tr><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top;font-weight:700">4년제 졸업</td><td style="padding:7px 9px;border:1px solid var(--border);vertical-align:top">전공 무관 지원 가능 → 성적·면접 준비</td></tr>
+      </table>
+      <div style="font-size:11px;color:var(--text2);margin-top:10px">※ 지원자격·전형방법·일정은 대학과 연도마다 달라요. 상담 시 목표 대학의 최신 모집요강으로 꼭 다시 확인하세요.</div>
+    </div>
+  </div>
   </div>
 </div>
 
