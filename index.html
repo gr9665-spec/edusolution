@@ -194,6 +194,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <h1 class="topbar-title">학점은행제 플래너 허브</h1>
   </div>
   <div class="topbar-right">
+    <button class="btn btn-sm" id="noti-btn" onclick="toggleNotiPanel()" title="코멘트 알림" style="position:relative;margin-right:8px;padding:4px 9px"><i class="ti ti-bell" style="font-size:16px"></i><span id="noti-count" style="display:none;position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;border-radius:99px;background:#e03131;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;padding:0 4px"></span></button>
+    <div id="noti-panel" style="display:none;position:fixed;top:56px;right:12px;width:min(420px,calc(100vw - 24px));max-height:70vh;overflow:auto;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);z-index:120;padding:12px"></div>
     <span class="badge" id="user-badge"><i class="ti ti-user" style="font-size:12px"></i> 상희경 주임</span>
     <button class="btn btn-sm" onclick="switchTab('settings',null)" style="margin-left:8px"><i class="ti ti-settings"></i> 수당 세팅</button>
   </div>
@@ -1390,6 +1392,33 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">
     <div id="atab-members" class="tab active" onclick="switchAdminTab('members')" style="border-bottom:2px solid var(--navy)">팀원 관리</div>
     <div id="atab-stats" class="tab" onclick="switchAdminTab('stats')">매출 현황</div>
+    <div id="atab-review" class="tab" onclick="switchAdminTab('review')" style="display:none">성수기 점검</div>
+  </div>
+
+  <!-- 성수기 점검 (팀장 전용, 보기 전용 + 코멘트) -->
+  <div id="admin-tab-review" style="display:none">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <select id="rv-member" onchange="rvChangeMember()" style="width:150px"></select>
+      <select id="rv-season" onchange="renderReview()" style="width:220px"></select>
+      <select id="rv-scope" onchange="renderReview()" style="width:140px"><option value="recent">직전 학기 등록자</option><option value="all">학습자 전체</option></select>
+      <input type="text" id="rv-search" placeholder="이름 검색" style="width:120px" oninput="renderReview()">
+      <button class="btn btn-sm" onclick="loadAllMembersData().then(()=>{rvFillMembers();renderReview();})"><i class="ti ti-refresh"></i> 새로고침</button>
+    </div>
+    <div class="card" style="padding:10px 14px;margin-bottom:10px" id="rv-summary"></div>
+    <div class="card" style="padding:0;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1040px">
+        <thead><tr style="background:var(--bg2)">
+          <th style="padding:8px 6px;text-align:left;width:130px">이름</th><th style="padding:8px 6px;text-align:left;width:160px">최근 결제</th>
+          <th style="padding:8px 6px;text-align:center;width:80px">다음학기</th><th style="padding:8px 6px;text-align:right;width:90px">예상매출</th>
+          <th style="padding:8px 6px;text-align:center;width:84px">상태</th><th style="padding:8px 6px;text-align:center;width:90px">카톡</th>
+          <th style="padding:8px 6px;text-align:center;width:110px">등록예정</th><th style="padding:8px 6px;text-align:left">비고</th>
+          <th style="padding:8px 6px;text-align:center;width:150px">점검</th>
+        </tr></thead>
+        <tbody id="rv-tbody"></tbody>
+      </table>
+      <div id="rv-empty" class="empty" style="display:none">조건에 맞는 학생이 없어요</div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:8px">보기 전용이에요. 💬 코멘트를 남기면 해당 직원의 🔔 알림에 바로 떠요.</div>
   </div>
 
   <!-- 팀원 관리 -->
@@ -1925,6 +1954,8 @@ async function showApp(){
       logoutBtn.onclick=doLogout;
       document.getElementById('user-badge').after(logoutBtn);
     }
+    startReviewNotes();
+    const rvTab=document.getElementById('atab-review'); if(rvTab) rvTab.style.display=isReviewer()?'':'none';
   }
 
   // 관리자 탭
@@ -2927,13 +2958,14 @@ async function loadAllMembersData(){
 }
 
 function switchAdminTab(tab){
-  ['members','stats'].forEach(t=>{
+  ['members','stats','review'].forEach(t=>{
     document.getElementById(`atab-${t}`).classList.toggle('active',t===tab);
     document.getElementById(`atab-${t}`).style.borderBottom=t===tab?'2px solid var(--navy)':'2px solid transparent';
     document.getElementById(`admin-tab-${t}`).style.display=t===tab?'block':'none';
   });
   if(tab==='stats'){ renderAdminStats(); renderAdminProspects(); renderAdminSeason(); }
   if(tab==='members') renderAdminMembers();
+  if(tab==='review') openReviewTab();
 }
 
 function renderAdminMembers(){
@@ -4237,6 +4269,191 @@ function renderDashboard(){
   renderSourceStats();
 }
 
+// ══ 성수기 점검(팀장) · 코멘트 알림 ══════════════════════════════════
+// reviewNotes/{id} = {toUid,toName,fromUid,fromName,seasonKey,studentKey,studentName,planId,text,createdAt,read,resolved,reply,repliedAt}
+const REVIEWER_EMAILS=['yelim753@naver.com']; // 성수기 점검·코멘트 가능한 사람 (김예림 팀장)
+function isReviewer(){ return !!(currentUser&&REVIEWER_EMAILS.includes(currentUser.email)); }
+let _reviewNotes=[], _reviewUnsub=null, _rvNotes=[], _rvUnsub=null, _rvFilter='';
+function fmtNoteTime(iso){ if(!iso) return ''; const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+// 직원: 나에게 온 코멘트 실시간 수신
+function startReviewNotes(){
+  if(!fbDb||!currentUser||_reviewUnsub) return;
+  _reviewUnsub=fbDb.collection('reviewNotes').where('toUid','==',currentUser.uid).onSnapshot(snap=>{
+    _reviewNotes=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+    renderNotiBadge();
+    if(document.getElementById('noti-panel').style.display!=='none') renderNotiPanel();
+    if(document.getElementById('panel-season')?.classList.contains('active')) renderSeason();
+  },err=>console.warn('코멘트 알림 불러오기 실패 (Firebase 규칙 확인):',err.message));
+}
+function renderNotiBadge(){
+  const n=_reviewNotes.filter(x=>!x.read).length, el=document.getElementById('noti-count');
+  if(!el) return; el.style.display=n?'':'none'; el.textContent=n>99?'99+':n;
+}
+function toggleNotiPanel(forceOpen){
+  const el=document.getElementById('noti-panel');
+  const open=forceOpen===true||el.style.display==='none';
+  el.style.display=open?'block':'none';
+  if(open) renderNotiPanel();
+}
+function renderNotiPanel(){
+  const el=document.getElementById('noti-panel');
+  const list=_reviewNotes;
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <b style="font-size:14px"><i class="ti ti-bell"></i> 코멘트 알림</b>
+      <div style="display:flex;gap:4px">${list.some(x=>!x.read)?'<button class="btn btn-sm" style="font-size:11px" onclick="notiReadAll()">모두 확인</button>':''}
+      <button class="btn btn-icon btn-sm" onclick="toggleNotiPanel()"><i class="ti ti-x"></i></button></div></div>
+    ${list.length?list.map(x=>`<div style="border:1px solid ${x.read?'var(--border)':'#ffa8a8'};background:${x.resolved?'#f8f9fa':x.read?'#fff':'#fff5f5'};border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--text2)">
+        <span>${pmEsc(x.fromName||'팀장')} · ${pmEsc(seasonLabel(x.seasonKey||'2026-11').split(' (')[0])}</span><span>${fmtNoteTime(x.createdAt)}</span></div>
+      <div style="margin:4px 0"><a href="javascript:void(0)" onclick="notiGoStudent('${x.id}')" style="font-weight:700;color:var(--navy)">${pmEsc(x.studentName||'')}</a>
+        ${x.resolved?'<span style="font-size:10.5px;color:#2f9e44;font-weight:700;margin-left:4px">✓ 수정완료</span>':x.read?'<span style="font-size:10.5px;color:var(--text3);margin-left:4px">확인함</span>':'<span style="font-size:10.5px;color:#e03131;font-weight:700;margin-left:4px">NEW</span>'}</div>
+      <div style="font-size:13px;white-space:pre-wrap;line-height:1.6">${pmEsc(x.text)}</div>
+      ${x.reply?`<div style="font-size:12px;color:var(--text2);background:var(--bg2);border-radius:6px;padding:5px 8px;margin-top:6px;white-space:pre-wrap">↳ ${pmEsc(x.reply)}</div>`:''}
+      <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap">
+        ${x.read?'':`<button class="btn btn-sm" style="font-size:11px" onclick="notiUpdate('${x.id}',{read:true})">확인</button>`}
+        ${x.resolved?'':`<button class="btn btn-sm" style="font-size:11px;color:#2f9e44" onclick="notiUpdate('${x.id}',{read:true,resolved:true})">수정완료</button>`}
+        <button class="btn btn-sm" style="font-size:11px" onclick="notiReply('${x.id}')">답글</button>
+        <button class="btn btn-sm" style="font-size:11px" onclick="notiGoStudent('${x.id}')">학생 보기</button>
+      </div></div>`).join(''):'<div class="empty" style="padding:24px">받은 코멘트가 없어요</div>'}`;
+}
+function notiUpdate(id,patch){
+  fbDb.collection('reviewNotes').doc(id).update(patch).catch(e=>alert('저장 실패: '+e.message));
+}
+function notiReadAll(){ _reviewNotes.filter(x=>!x.read).forEach(x=>notiUpdate(x.id,{read:true})); }
+function notiReply(id){
+  const x=_reviewNotes.find(n=>n.id===id); if(!x) return;
+  const t=prompt(`${x.studentName} 코멘트에 답글 (팀장님께 보여요)`,x.reply||''); if(t===null) return;
+  notiUpdate(id,{reply:t.trim(),repliedAt:new Date().toISOString(),read:true});
+}
+function notiGoStudent(id){
+  const x=_reviewNotes.find(n=>n.id===id); if(!x) return;
+  if(!x.read) notiUpdate(id,{read:true});
+  const tabEl=[...document.querySelectorAll('.tab')].find(t=>(t.getAttribute('onclick')||'').includes("'season'"));
+  switchTab('season',tabEl);
+  const sel=document.getElementById('ss-season');
+  if(![...sel.options].some(o=>o.value===x.seasonKey)){ const o=document.createElement('option'); o.value=x.seasonKey; o.textContent=seasonLabel(x.seasonKey); sel.appendChild(o); }
+  sel.value=x.seasonKey; document.getElementById('ss-filter').value=''; document.getElementById('ss-scope').value='all';
+  document.getElementById('ss-search').value=x.studentName||''; renderSeason();
+  document.getElementById('noti-panel').style.display='none';
+}
+document.addEventListener('click',e=>{
+  const pn=document.getElementById('noti-panel'), bt=document.getElementById('noti-btn');
+  if(!e.target.isConnected) return; // 패널 안 버튼을 눌러 다시 그려진 경우
+  if(pn&&pn.style.display!=='none'&&!pn.contains(e.target)&&!bt.contains(e.target)&&!e.target.closest('[onclick*="toggleNotiPanel"]')) pn.style.display='none';
+});
+
+// 팀장: 성수기 점검 탭
+async function openReviewTab(){
+  if(!isReviewer()){ document.getElementById('admin-tab-review').innerHTML='<div class="empty">팀장님만 볼 수 있어요</div>'; return; }
+  if(!Object.keys(allMembersData||{}).length) await loadAllMembersData();
+  rvFillMembers(); rvChangeMember();
+}
+function rvFillMembers(){
+  const sel=document.getElementById('rv-member'), prev=sel.value;
+  const ms=Object.values(allMembersData||{}).filter(m=>m.approved!==false).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  sel.innerHTML=ms.map(m=>`<option value="${m.uid}" ${m.uid===prev?'selected':''}>${pmEsc(m.name||m.email||'-')}${m.rank?' · '+pmEsc(m.rank):''}</option>`).join('');
+}
+function rvChangeMember(){
+  const uid=document.getElementById('rv-member').value; const m=(allMembersData||{})[uid];
+  const sel=document.getElementById('rv-season');
+  const {cur}=seasonOptions();
+  const keys=[...new Set([cur,...Object.keys((m&&m.seasons)||{})])].sort().reverse();
+  sel.innerHTML=keys.map(x=>`<option value="${x}" ${x===cur?'selected':''}>${seasonLabel(x)}</option>`).join('');
+  if(_rvUnsub){ _rvUnsub(); _rvUnsub=null; } _rvNotes=[];
+  if(uid&&fbDb) _rvUnsub=fbDb.collection('reviewNotes').where('toUid','==',uid).onSnapshot(snap=>{
+    _rvNotes=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
+    renderReview();
+  },err=>{ console.warn(err); document.getElementById('rv-summary').innerHTML='<span style="color:var(--red)">코멘트를 불러오지 못했어요 — Firebase 규칙(reviewNotes)을 확인해주세요.</span>'; });
+  _rvFilter=''; renderReview();
+}
+function rvPick(st){ _rvFilter=_rvFilter===st?'':st; renderReview(); }
+function rvRows(){
+  const uid=document.getElementById('rv-member').value, m=(allMembersData||{})[uid]; if(!m) return {m:null,rows:[],k:''};
+  const k=document.getElementById('rv-season').value, sd=((m.seasons||{})[k])||{people:{}};
+  let rows=seasonAllRows(k,m.learners||[],m.plans||{},sd).map(r=>({...r,v:seasonRowView(r,sd)}));
+  if(document.getElementById('rv-scope').value==='recent') rows=rows.filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status));
+  return {m,rows,k,uid};
+}
+function renderReview(){
+  const tb=document.getElementById('rv-tbody'); if(!tb) return;
+  const {m,rows:all,k,uid}=rvRows();
+  if(!m){ tb.innerHTML=''; return; }
+  const cnt={}; all.forEach(r=>cnt[r.v.status]=(cnt[r.v.status]||0)+1);
+  const won=n=>`${Math.round(n/10000).toLocaleString()}만원`;
+  const exp=all.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+r.v.sales,0);
+  const open=_rvNotes.filter(x=>x.seasonKey===k&&!x.resolved).length;
+  document.getElementById('rv-summary').innerHTML=`<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
+    <b>${pmEsc(m.name||'')}</b><span style="font-size:12px;color:var(--text2)">대상 ${all.length}명 · 예상매출 ${won(exp)} · 미해결 코멘트 ${open}건</span>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">${SS_STATUS.map(v=>{const on=_rvFilter===v.k;return `<button type="button" onclick="rvPick('${v.k}')" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`;}).join('')}</div></div>`;
+  let rows=_rvFilter?all.filter(r=>r.v.status===_rvFilter):all.filter(r=>!['과정끝','환불'].includes(r.v.status));
+  const q=(document.getElementById('rv-search').value||'').trim(); if(q) rows=rows.filter(r=>(r.last.name||'').includes(q));
+  rows.sort((a,b)=>a.payKey.localeCompare(b.payKey));
+  const em=document.getElementById('rv-empty');
+  if(!rows.length){ tb.innerHTML=''; em.style.display='block'; return; }
+  em.style.display='none';
+  const ek=x=>encodeURIComponent(x).replace(/'/g,'%27');
+  tb.innerHTML=rows.map(r=>{
+    const {d,status,credits,sales}=r.v, l=r.last, c=(SS_STATUS.find(x=>x.k===status)||{}).c||'#868e96';
+    const ns=_rvNotes.filter(x=>x.seasonKey===k&&x.studentKey===r.key);
+    const nOpen=ns.filter(x=>!x.resolved).length;
+    return `<tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;color:#2b8a3e">엑셀</span>':''}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div></td>
+      <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${l.credit||0}학점</div></td>
+      <td style="padding:6px;text-align:center">${credits??'-'}<div style="font-size:10px;color:var(--text3)">${r.nextName?pmEsc(r.nextName):r.plan?'':'플랜 없음'}</div></td>
+      <td style="padding:6px;text-align:right;font-weight:700">${sales?sales.toLocaleString():'-'}</td>
+      <td style="padding:6px;text-align:center"><span style="font-size:12px;font-weight:700;color:${c};background:${c}12;border:1px solid ${c}55;border-radius:99px;padding:2px 8px">${status}</span></td>
+      <td style="padding:6px;text-align:center;font-size:12px">${d.kakao?d.kakao.slice(5).replace('-','/'):'-'}</td>
+      <td style="padding:6px;text-align:center;font-size:12px">${d.regDate?d.regDate.slice(5).replace('-','/'):'-'} ${pmEsc(d.regTime||'')}</td>
+      <td style="padding:6px;font-size:12px">${pmEsc(d.note||'')}</td>
+      <td style="padding:6px;text-align:center;white-space:nowrap">
+        ${r.plan?`<button class="btn btn-sm" style="font-size:11px" onclick="rvPreview('${uid}','${r.plan.id}')"><i class="ti ti-clipboard-list"></i> 플랜</button>`:'<span style="font-size:11px;color:var(--text3)">플랜 없음</span>'}
+        <button class="btn btn-sm" style="font-size:11px;${nOpen?'color:#fff;background:#e03131;border-color:#e03131':''}" onclick="rvComment('${ek(r.key)}')"><i class="ti ti-message"></i> ${ns.length?ns.length:'코멘트'}</button>
+      </td></tr>`;
+  }).join('');
+}
+function rvPreview(uid,pid){
+  const p=(((allMembersData||{})[uid]||{}).plans||{})[pid]; if(!p) return;
+  window._printPlanObj=p; renderPlanPrintContent(); openModal('modal-plan-print');
+}
+function rvComment(K){
+  const key=decodeURIComponent(K); const {m,rows,k,uid}=rvRows();
+  const r=rows.find(x=>x.key===key); if(!r) return;
+  const ns=_rvNotes.filter(x=>x.seasonKey===k&&x.studentKey===key);
+  let ov=document.getElementById('rv-modal'); if(ov) ov.remove();
+  ov=document.createElement('div'); ov.id='rv-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:150;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:480px;width:100%;max-height:85vh;overflow:auto;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,.2)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <b style="font-size:15px"><i class="ti ti-message"></i> ${pmEsc(r.last.name)} · ${pmEsc(m.name||'')}님에게 코멘트</b>
+      <button class="btn btn-icon" onclick="document.getElementById('rv-modal').remove()"><i class="ti ti-x"></i></button></div>
+    ${ns.map(x=>`<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;background:${x.resolved?'#f8f9fa':'#fff'}">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)"><span>${fmtNoteTime(x.createdAt)} · ${x.resolved?'<b style="color:#2f9e44">✓ 수정완료</b>':x.read?'확인함':'<b style="color:#e03131">안 읽음</b>'}</span>
+        <a href="javascript:void(0)" onclick="rvDelete('${x.id}','${K}')" style="color:var(--red)">삭제</a></div>
+      <div style="font-size:13px;white-space:pre-wrap;margin-top:3px">${pmEsc(x.text)}</div>
+      ${x.reply?`<div style="font-size:12px;color:var(--text2);background:var(--bg2);border-radius:6px;padding:4px 8px;margin-top:5px">↳ ${pmEsc(x.reply)}</div>`:''}</div>`).join('')}
+    <textarea id="rv-text" rows="4" placeholder="수정할 부분이나 확인할 내용을 적어주세요 (예: 27-1학기 과목 수 다시 확인)" style="width:100%;margin-top:6px"></textarea>
+    <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:10px">
+      <button class="btn" onclick="document.getElementById('rv-modal').remove()">닫기</button>
+      <button class="btn btn-primary" onclick="rvSend('${K}')"><i class="ti ti-send"></i> 보내기</button></div></div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('rv-text').focus(),50);
+}
+async function rvSend(K){
+  const key=decodeURIComponent(K); const {m,rows,k,uid}=rvRows();
+  const r=rows.find(x=>x.key===key); const text=(document.getElementById('rv-text').value||'').trim();
+  if(!r||!text){ alert('코멘트 내용을 적어주세요'); return; }
+  try{
+    await fbDb.collection('reviewNotes').add({toUid:uid,toName:m.name||'',fromUid:currentUser.uid,fromName:window._currentUserName||'팀장',
+      seasonKey:k,studentKey:key,studentName:r.last.name||'',planId:r.plan?r.plan.id:'',text,createdAt:new Date().toISOString(),read:false,resolved:false});
+    document.getElementById('rv-modal').remove(); showToast(`${m.name||''}님에게 코멘트를 보냈어요`);
+  }catch(e){ alert('보내기 실패: '+e.message+'\n(Firebase 규칙에 reviewNotes가 추가됐는지 확인해주세요)'); }
+}
+function rvDelete(id,K){
+  if(!confirm('이 코멘트를 삭제할까요?')) return;
+  fbDb.collection('reviewNotes').doc(id).delete().then(()=>{ const ov=document.getElementById('rv-modal'); if(ov) ov.remove(); setTimeout(()=>rvComment(K),300); })
+    .catch(e=>alert('삭제 실패: '+e.message));
+}
+
 // ══ 성수기 ══════════════════════════════════════════════════════
 // 5월·11월: 지난 학기 끝난 학생에게 다음 학기 등록 안내. 시즌별 기록은 seasons[YYYY-MM].people[이름|연락처]
 const SS_STATUS=[
@@ -4397,7 +4614,7 @@ function renderSeason(){
     const c=(SS_STATUS.find(x=>x.k===status)||{}).c||'#868e96';
     const paidL=d.paidLearnerId&&learners.some(x=>x.id===d.paidLearnerId);
     return `<tr style="border-top:1px solid var(--border);${status==='과정끝'||status==='환불'?'opacity:.6':''}">
-      <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;font-weight:700;color:#2b8a3e;background:#ebfbee;border:1px solid #b2f2bb;border-radius:3px;padding:0 4px" title="엑셀에서 가져온 학생 (허브 학습자 관리에는 없음)">엑셀</span>':''}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div>
+      <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;font-weight:700;color:#2b8a3e;background:#ebfbee;border:1px solid #b2f2bb;border-radius:3px;padding:0 4px" title="엑셀에서 가져온 학생 (허브 학습자 관리에는 없음)">엑셀</span>':''}${(()=>{const n=_reviewNotes.filter(x=>x.seasonKey===k&&x.studentKey===r.key&&!x.resolved).length;return n?` <span onclick="toggleNotiPanel(true)" title="팀장 코멘트 ${n}건" style="cursor:pointer;font-size:10.5px;font-weight:700;color:#fff;background:#e03131;border-radius:99px;padding:1px 7px">💬 ${n}</span>`:'';})()}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div>
         <div style="display:flex;gap:3px;margin-top:4px;align-items:center">
           ${r.plan?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy)" onclick="openPrintPreview('${r.plan.id}')" title="플랜표 미리보기 (${pmEsc(r.plan.clientName||'')})"><i class="ti ti-clipboard-list"></i> 플랜</button>
             <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px" onclick="ssOpenPlanTab('${r.plan.id}')" title="플랜표 탭에서 열어 수정"><i class="ti ti-pencil"></i></button>`:''}
@@ -7900,6 +8117,7 @@ function upP(key,val){ if(!curPid) return; plans[curPid][key]=val;
 
 // ── 인쇄 미리보기 ────────────────────────────────────────────────
 function openPrintPreview(pid){
+  window._printPlanObj=null;
   const p=plans[pid||curPid]; if(!p) return;
   _curPrintPid=pid||curPid;
   renderPlanPrintContent();
@@ -7914,7 +8132,7 @@ function setPlanPrintStyle(s){
   renderPlanPrintContent();
 }
 function renderPlanPrintContent(){
-  const p=plans[_curPrintPid||curPid]; if(!p) return;
+  const p=window._printPlanObj||plans[_curPrintPid||curPid]; if(!p) return;
   const style=getPlanPrintStyle();
   const el=document.getElementById('plan-print-content');
   el.style.minWidth=style==='card'?'0':'700px';
