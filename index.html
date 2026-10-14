@@ -4696,6 +4696,7 @@ function renderSeason(){
       <div><div style="font-size:11px;color:var(--text2)">예상매출</div><div style="font-size:22px;font-weight:800;color:var(--navy)">${won(expect)}</div></div>
       <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:22px;font-weight:800;color:var(--green)">${won(paid)}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
+        ${(()=>{ const f=document.getElementById('ss-filter').value; return `<button type="button" onclick="ssShowAll()" title="필터 풀고 전체 보기" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px solid ${f===''?'var(--navy)':'#adb5bd'};background:${f===''?'var(--navy)':'#fff'};color:${f===''?'#fff':'var(--text)'};border-radius:99px;padding:3px 12px;font-weight:700">전체 ${rows.length}</button>`; })()}
         ${SS_STATUS.map(v=>{ const on=document.getElementById('ss-filter').value==='st:'+v.k;
           return `<button type="button" onclick="ssPickStatus('${v.k}')" title="${v.k}만 보기 (다시 누르면 해제)" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`; }).join('')}
       </div>
@@ -4813,6 +4814,10 @@ function ssSetPlan(K,pid){
   const ov=document.getElementById('ss-plan-modal'); if(ov) ov.remove();
   renderSeason();
   showToast(pid==='none'?'플랜 연결을 끊었어요':pid?'플랜을 연결했어요':'자동 연결로 되돌렸어요');
+}
+function ssShowAll(){
+  document.getElementById('ss-filter').value=''; const q=document.getElementById('ss-search'); if(q) q.value='';
+  renderSeason();
 }
 function ssPickStatus(k){
   const sel=document.getElementById('ss-filter');
@@ -4970,7 +4975,7 @@ function renderProspects(){
       ${(()=>{ const fv=document.getElementById('pm-filter')?.value||'';
         const chip=(k,label,c,dashed)=>{ const on=fv==='st:'+k;
           return `<button type="button" onclick="pmPickStage('${k}')" title="${label}만 보기 (다시 누르면 해제)" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px ${dashed&&!on?'dashed':'solid'} ${on?c:c+'55'};background:${on?c:c+'10'};color:${on?'#fff':c};border-radius:99px;padding:3px 10px;font-weight:700">${label} ${k==='미분류'?(st['']||0):(st[k]||0)}</button>`; };
-        return PSTAGES.map(v=>chip(v.k,v.k,v.c)).join('')+(st['']||fv==='st:미분류'?chip('미분류','미분류','#868e96',true):''); })()}
+        return `<button type="button" onclick="pmShowAll()" title="필터 풀고 전체 보기" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px solid ${!fv?'var(--navy)':'#adb5bd'};background:${!fv?'var(--navy)':'#fff'};color:${!fv?'#fff':'var(--text)'};border-radius:99px;padding:3px 12px;font-weight:700">전체 ${month.length}</button>`+PSTAGES.map(v=>chip(v.k,v.k,v.c)).join('')+(st['']||fv==='st:미분류'?chip('미분류','미분류','#868e96',true):''); })()}
       <button type="button" onclick="${openN?"pmPickStage('open')":''}" title="${openN?'미처리만 보기 (다시 누르면 해제)':''}" style="margin-left:auto;font-family:inherit;border:${(document.getElementById('pm-filter')?.value||'')==='open'?'2px solid #d9480f':'0'};cursor:${openN?'pointer':'default'};font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;${month.length&&!openN?'background:#e7f6ea;color:#2f9e44':'background:#fff4e6;color:#d9480f'}">
         ${!month.length?'이 달 유입 없음':!openN?'✓ 모두 처리 완료':`⚠️ 미처리 ${openN}명 (상담중·미분류)`}</button>
       <span style="font-size:11px;color:var(--text2);width:100%">플랜안내 ${done('plan')} · 결제안내 ${done('pay')} · 자료배포 ${done('mat')} · 학습자 등록 ${month.filter(x=>x.learnerId).length}</span>
@@ -5025,6 +5030,10 @@ function renderProspects(){
     </tr>
     ${x.note?`<tr><td style="padding:2px 6px 8px;font-size:11px;color:var(--text2);text-align:center;vertical-align:top">상담내용</td><td colspan="12" style="padding:2px 6px 8px;font-size:12px;color:var(--text2);white-space:pre-wrap">${pmEsc(x.note)}</td></tr>`:''}`;
   }).join('');
+}
+function pmShowAll(){
+  document.getElementById('pm-filter').value=''; const q=document.getElementById('pm-search'); if(q) q.value='';
+  renderProspects();
 }
 function pmPickStage(k){
   const sel=document.getElementById('pm-filter'), v=k==='open'?'open':'st:'+k;
