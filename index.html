@@ -1264,16 +1264,20 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <div class="card" style="margin-bottom:14px">
         <div class="card-head"><h3><i class="ti ti-broadcast"></i>콘텐츠 발행 현황</h3><span id="wl-week-label" style="font-size:11px;color:var(--text2)"></span></div>
         <div id="wl-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px"></div>
+        <div id="wl-acct-stats"></div>
       </div>
       <div class="card" style="margin-bottom:14px">
         <div class="card-head"><h3><i class="ti ti-plus"></i>발행 기록하기</h3></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
           <select id="wl-ch" style="width:130px"></select>
-          <input type="text" id="wl-link" placeholder="링크 붙여넣기 (채널 자동 선택)" oninput="wlDetect()" style="flex:2;min-width:180px">
-          <input type="text" id="wl-title" placeholder="제목 / 키워드" style="flex:1;min-width:120px" onkeydown="if(event.key==='Enter')wlAddLog()">
+          <input type="text" id="wl-acct" list="wl-acct-list" placeholder="어느 블로그/계정 (예: 희경쌤 블로그)" style="flex:1;min-width:160px">
+          <datalist id="wl-acct-list"></datalist>
+        </div>
+        <textarea id="wl-title" rows="3" placeholder="키워드 입력 — 여러 개면 한 줄에 하나씩 붙여넣기&#10;예) 사회복지사2급 자격증&#10;보육교사 학점은행제" style="width:100%;font-size:13px;line-height:1.6" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))wlAddLog()"></textarea>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+          <span style="font-size:11px;color:var(--text3);flex:1">줄 수만큼 건수로 기록돼요 · 위에서 고른 날짜 기준 · Ctrl+Enter로 추가</span>
           <button class="btn btn-primary btn-sm" onclick="wlAddLog()"><i class="ti ti-plus"></i> 추가</button>
         </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:6px">위에서 고른 날짜로 기록돼요</div>
       </div>
       <div class="card">
         <div class="card-head"><h3><i class="ti ti-list"></i>이번 주 발행 목록</h3></div>
@@ -4544,15 +4548,25 @@ function wlStatsHtml(logs,ds){
       <div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--text2)">이번 주</span><b>${week}</b></div></div>`;
   }).join('');
 }
+function wlAcctHtml(logs,ds){
+  const [ws,we]=weekRange(ds), m={};
+  logs.filter(x=>x.date>=ws&&x.date<=we).forEach(x=>{ const k=x.ch+'|'+(x.acct||''); m[k]=m[k]||{ch:x.ch,acct:x.acct||'',t:0,w:0}; m[k].w++; if(x.date===ds) m[k].t++; });
+  const rows=Object.values(m).sort((a,b)=>b.w-a.w);
+  if(!rows.length) return '';
+  return `<div style="font-size:11.5px;font-weight:700;color:var(--text2);margin:12px 0 6px">블로그·계정별 (오늘 / 이번 주)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${rows.map(r=>`<span style="font-size:12px;border:1px solid ${wlChColor(r.ch)}44;background:${wlChColor(r.ch)}0d;border-radius:8px;padding:4px 10px"><b style="color:${wlChColor(r.ch)}">${pmEsc(r.acct||r.ch)}</b>${r.acct?` <span style="color:var(--text3);font-size:10.5px">${pmEsc(r.ch)}</span>`:''} <b>${r.t}</b> / ${r.w}</span>`).join('')}</div>`;
+}
 function wlLinkHtml(x){
   const link=/^https?:\/\//i.test(x.link||'')?x.link:'';
   return `<span style="font-size:11px;font-weight:700;color:${wlChColor(x.ch)};background:${wlChColor(x.ch)}14;border:1px solid ${wlChColor(x.ch)}44;border-radius:99px;padding:1px 8px;white-space:nowrap">${pmEsc(x.ch)}</span>
-    ${link?`<a href="${pmEsc(link)}" target="_blank" rel="noopener" style="color:var(--navy)">${pmEsc(x.title||link)}</a>`:pmEsc(x.title||'(제목 없음)')}`;
+    ${x.acct?`<span style="font-size:11.5px;color:var(--text2);font-weight:600">${pmEsc(x.acct)} ·</span>`:''}
+    ${link?`<a href="${pmEsc(link)}" target="_blank" rel="noopener" style="color:var(--navy)">${pmEsc(x.title||link)}</a>`:pmEsc(x.title||'(키워드 없음)')}`;
 }
 function renderWorklog(){
   const ds=wlDate(); if(!document.getElementById('wl-ch')) return;
   const chSel=document.getElementById('wl-ch');
-  if(!chSel.options.length) chSel.innerHTML=WL_CHANNELS.map(c=>`<option>${c.k}</option>`).join('');
+  if(!chSel.options.length){ chSel.innerHTML=WL_CHANNELS.map(c=>`<option>${c.k}</option>`).join('');
+    try{ const lc=localStorage.getItem('wlLastCh'), la=localStorage.getItem('wlLastAcct'); if(lc) chSel.value=lc; if(la) document.getElementById('wl-acct').value=la; }catch(e){} }
   // 할 일
   const list=todos.filter(t=>t.date===ds);
   const done=list.filter(t=>t.done).length;
@@ -4572,6 +4586,9 @@ function renderWorklog(){
   const [ws,we]=weekRange(ds);
   document.getElementById('wl-week-label').textContent=`${+ds.slice(5,7)}/${+ds.slice(8)} 기준 · 이번 주 ${+ws.slice(5,7)}/${+ws.slice(8)}~${+we.slice(5,7)}/${+we.slice(8)}`;
   document.getElementById('wl-stats').innerHTML=wlStatsHtml(contentLogs,ds);
+  document.getElementById('wl-acct-stats').innerHTML=wlAcctHtml(contentLogs,ds);
+  const accts=[...new Set(contentLogs.map(x=>x.acct).filter(Boolean))];
+  document.getElementById('wl-acct-list').innerHTML=accts.map(a=>`<option value="${pmEsc(a)}">`).join('');
   const wk=contentLogs.filter(x=>x.date>=ws&&x.date<=we).sort((a,b)=>b.date.localeCompare(a.date)||String(b.createdAt).localeCompare(String(a.createdAt)));
   const DOWK=['일','월','화','수','목','금','토'];
   const byDate={}; wk.forEach(x=>(byDate[x.date]=byDate[x.date]||[]).push(x));
@@ -4591,16 +4608,15 @@ function wlNoteInput(){
   st.textContent='입력 중…'; clearTimeout(_wlNoteTimer);
   _wlNoteTimer=setTimeout(()=>{ if(v.trim()) dailyNotes[ds]=v; else delete dailyNotes[ds]; save(); st.textContent='저장됨'; },800);
 }
-function wlDetect(){
-  const v=document.getElementById('wl-link').value; const c=WL_CHANNELS.find(c=>c.re&&c.re.test(v));
-  if(c) document.getElementById('wl-ch').value=c.k;
-}
 function wlAddLog(){
-  const link=document.getElementById('wl-link').value.trim(), title=document.getElementById('wl-title').value.trim();
-  if(!link&&!title){ alert('링크나 제목을 입력해주세요'); return; }
-  contentLogs.push({id:'c'+Date.now()+Math.random().toString(36).slice(2,5),date:wlDate(),ch:document.getElementById('wl-ch').value,link,title,createdAt:new Date().toISOString()});
-  document.getElementById('wl-link').value=''; document.getElementById('wl-title').value='';
-  save(); renderWorklog();
+  const ch=document.getElementById('wl-ch').value, acct=document.getElementById('wl-acct').value.trim();
+  const kws=document.getElementById('wl-title').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  if(!kws.length){ alert('키워드를 입력해주세요 (여러 개면 한 줄에 하나씩)'); return; }
+  const now=new Date().toISOString(), base=Date.now();
+  kws.forEach((title,i)=>contentLogs.push({id:'c'+base+'_'+i+Math.random().toString(36).slice(2,5),date:wlDate(),ch,acct,link:'',title,createdAt:now}));
+  try{ localStorage.setItem('wlLastCh',ch); localStorage.setItem('wlLastAcct',acct); }catch(e){}
+  document.getElementById('wl-title').value='';
+  save(); renderWorklog(); showToast(`${kws.length}건 기록했어요`);
 }
 function wlDelLog(id){ if(!confirm('이 발행 기록을 삭제할까요?')) return; contentLogs=contentLogs.filter(x=>x.id!==id); save(); renderWorklog(); }
 
@@ -4631,7 +4647,7 @@ function renderAdminWork(){
       ${sec(`할 일 ${T.length?`(${T.filter(t=>t.done).length}/${T.length} 완료)`:''}`)}
       ${T.length?['오전','오후'].map(pp=>{ const it=T.filter(t=>(t.period||'오전')===pp); return it.length?`<div style="font-size:11px;color:var(--text3)">${pp}</div>`+it.map(t=>`<div style="font-size:13px;padding:2px 0;${t.done?'color:var(--text2);text-decoration:line-through':''}">${t.done?'✅':'⬜'} ${pmEsc(t.text)}</div>`).join(''):''; }).join(''):'<div style="font-size:12px;color:var(--text3)">작성한 할 일 없음</div>'}
       ${note?sec('자유 메모')+`<div style="font-size:12.5px;white-space:pre-wrap;line-height:1.6;background:var(--bg2);border-radius:8px;padding:8px 10px">${pmEsc(note)}</div>`:''}
-      ${sec(`이번 주 발행 ${L.length}건`)}
+      ${sec(`이번 주 발행 ${L.length}건`)}${wlAcctHtml(m.contentLogs||[],ds).replace('margin:12px 0 6px','margin:0 0 6px')}
       ${L.length?L.map(x=>`<div style="font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--border)"><span style="color:var(--text3);font-size:11px">${+x.date.slice(5,7)}/${+x.date.slice(8)}</span> ${wlLinkHtml(x)}</div>`).join(''):'<div style="font-size:12px;color:var(--text3)">발행 기록 없음</div>'}
     </div>`;
   }).join('')||'<div class="empty">팀원 데이터가 없어요</div>';
