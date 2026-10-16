@@ -1285,6 +1285,16 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       </div>
     </div>
   </div>
+  <div class="card" style="margin-top:14px">
+    <div class="card-head"><h3><i class="ti ti-calendar-stats"></i>날짜별 발행 수</h3>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn btn-sm" onclick="wlHistMove(-1)" title="이전 달"><i class="ti ti-chevron-left"></i></button>
+        <input type="month" id="wl-hist-month" onchange="renderWlHist()" style="width:150px;padding:5px 8px">
+        <button class="btn btn-sm" onclick="wlHistMove(1)" title="다음 달"><i class="ti ti-chevron-right"></i></button>
+      </div></div>
+    <div style="font-size:11px;color:var(--text3);margin:-4px 0 8px">날짜를 누르면 그날 업무일지로 이동해요</div>
+    <div id="wl-hist" style="overflow-x:auto"></div>
+  </div>
 </div>
 
 <!-- ═══ 성수기 ═══ -->
@@ -4587,6 +4597,8 @@ function renderWorklog(){
   document.getElementById('wl-week-label').textContent=`${+ds.slice(5,7)}/${+ds.slice(8)} 기준 · 이번 주 ${+ws.slice(5,7)}/${+ws.slice(8)}~${+we.slice(5,7)}/${+we.slice(8)}`;
   document.getElementById('wl-stats').innerHTML=wlStatsHtml(contentLogs,ds);
   document.getElementById('wl-acct-stats').innerHTML=wlAcctHtml(contentLogs,ds);
+  const hm=document.getElementById('wl-hist-month'); if(hm&&hm.dataset.forDate!==ds){ hm.value=ds.slice(0,7); hm.dataset.forDate=ds; }
+  renderWlHist();
   const accts=[...new Set(contentLogs.map(x=>x.acct).filter(Boolean))];
   document.getElementById('wl-acct-list').innerHTML=accts.map(a=>`<option value="${pmEsc(a)}">`).join('');
   const wk=contentLogs.filter(x=>x.date>=ws&&x.date<=we).sort((a,b)=>b.date.localeCompare(a.date)||String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -4596,6 +4608,41 @@ function renderWorklog(){
     byDate[d].map(x=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px"><div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${wlLinkHtml(x)}</div>
       <button class="btn btn-icon btn-sm" onclick="wlDelLog('${x.id}')" title="삭제"><i class="ti ti-trash" style="font-size:12px"></i></button></div>`).join('')).join('')
     :'<div style="font-size:12px;color:var(--text2);text-align:center;padding:12px 0">이번 주 발행 기록이 없어요</div>';
+}
+// 날짜별 발행 수 (월 단위, 주마다 소계)
+function wlHistMove(n){ const el=document.getElementById('wl-hist-month'); const [y,m]=(el.value||wlDate().slice(0,7)).split('-').map(Number); const t=new Date(y,m-1+n,1); el.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}`; renderWlHist(); }
+function wlGoDate(d){ document.getElementById('wl-date').value=d; renderWorklog(); window.scrollTo({top:0}); }
+function renderWlHist(){
+  const el=document.getElementById('wl-hist-month'); if(!el) return;
+  if(!el.value) el.value=wlDate().slice(0,7);
+  const ym=el.value, logs=contentLogs.filter(x=>(x.date||'').startsWith(ym));
+  const box=document.getElementById('wl-hist');
+  if(!logs.length){ box.innerHTML=`<div style="font-size:12px;color:var(--text2);text-align:center;padding:14px 0">${+ym.slice(5)}월 발행 기록이 없어요</div>`; return; }
+  const chs=WL_CHANNELS.filter(c=>logs.some(x=>x.ch===c.k));
+  const byDate={}; logs.forEach(x=>(byDate[x.date]=byDate[x.date]||[]).push(x));
+  const DOWK=['일','월','화','수','목','금','토'], today=pmToday(), sel=wlDate();
+  const th='padding:6px 8px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:12px;white-space:nowrap;text-align:center';
+  const td='padding:6px 8px;border-bottom:1px solid var(--border);font-size:12.5px;text-align:center';
+  const cnt=(L,k)=>L.filter(x=>x.ch===k).length;
+  const acctTxt=L=>{ const m={}; L.forEach(x=>{ const k=x.acct||x.ch; m[k]=(m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${pmEsc(k)} ${v}`).join(' · '); };
+  let rows='', wkKey='', wkL=[];
+  const flush=()=>{ if(!wkL.length) return; const [a,b]=weekRange(wkKey);
+    rows+=`<tr style="background:var(--bg2)"><td style="${td};text-align:left;font-size:11.5px;color:var(--text2)">${+a.slice(5,7)}/${+a.slice(8)}~${+b.slice(5,7)}/${+b.slice(8)} 주 소계</td><td style="${td};font-weight:700">${wkL.length}</td>${chs.map(c=>`<td style="${td};color:var(--text2)">${cnt(wkL,c.k)||'-'}</td>`).join('')}<td style="${td}"></td></tr>`; wkL=[]; };
+  Object.keys(byDate).sort().forEach(d=>{
+    const wk=weekRange(d)[0]; if(wk!==wkKey){ flush(); wkKey=wk; }
+    const L=byDate[d]; wkL=wkL.concat(L);
+    const dow=new Date(d+'T00:00:00').getDay();
+    rows+=`<tr style="cursor:pointer;${d===sel?'background:#eef4ff':''}" onclick="wlGoDate('${d}')" title="이 날 업무일지 보기">
+      <td style="${td};text-align:left;white-space:nowrap;font-weight:600;color:${dow===0?'#e03131':dow===6?'#1c7ed6':'var(--text)'}">${+d.slice(5,7)}/${+d.slice(8)} (${DOWK[dow]})${d===today?' <span style="font-size:10px;color:var(--navy)">오늘</span>':''}</td>
+      <td style="${td};font-weight:800;font-size:14px">${L.length}</td>
+      ${chs.map(c=>{ const n=cnt(L,c.k); return `<td style="${td};${n?`color:${c.c};font-weight:700`:'color:var(--text3)'}">${n||'-'}</td>`; }).join('')}
+      <td style="${td};text-align:left;font-size:11.5px;color:var(--text2)">${acctTxt(L)}</td></tr>`;
+  });
+  flush();
+  box.innerHTML=`<table style="width:100%;border-collapse:collapse;min-width:520px">
+    <thead><tr><th style="${th};text-align:left">날짜</th><th style="${th}">합계</th>${chs.map(c=>`<th style="${th};color:${c.c}">${c.k}</th>`).join('')}<th style="${th};text-align:left">블로그·계정별</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td style="${td};text-align:left;font-weight:700">${+ym.slice(5)}월 합계 (${Object.keys(byDate).length}일)</td><td style="${td};font-weight:800;font-size:14px;color:var(--navy)">${logs.length}</td>${chs.map(c=>`<td style="${td};font-weight:700">${cnt(logs,c.k)}</td>`).join('')}<td style="${td};text-align:left;font-size:11.5px;color:var(--text2)">${acctTxt(logs)}</td></tr></tfoot></table>`;
 }
 function wlAddTodo(){
   const inp=document.getElementById('wl-todo-input'), text=(inp.value||'').trim(); if(!text) return;
