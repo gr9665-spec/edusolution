@@ -273,6 +273,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:11px;color:var(--text2)" id="todo-date"></span>
           <button class="btn btn-sm" onclick="copyTodoList()" title="단톡 복사"><i class="ti ti-copy"></i> 복사</button>
+          <button class="btn btn-sm" onclick="const d=document.getElementById('wl-date');if(d)d.value=pmToday();switchTab('worklog',tabElOf('worklog'))" title="오늘 업무일지로 이동"><i class="ti ti-notebook"></i> 업무일지</button>
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
