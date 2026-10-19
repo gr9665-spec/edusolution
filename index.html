@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>학점은행제 플래너 허브</title>
+<link rel="manifest" href="hub.webmanifest">
+<meta name="theme-color" content="#3a5a96">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="플래너 허브">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="hub-icon-180.png">
+<link rel="icon" type="image/png" href="hub-icon-192.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -167,10 +175,14 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div style="font-size:36px;margin-bottom:8px">🎓</div>
     <h1>학점은행제 플래너 허브</h1>
     <p>팀 전용 관리 시스템</p>
-    <input class="login-input" type="email" id="login-email" placeholder="이메일">
-    <input class="login-input" type="password" id="login-pw" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <form id="login-form" autocomplete="on" onsubmit="doLogin();return false">
+    <input class="login-input" type="email" id="login-email" name="email" autocomplete="username" inputmode="email" placeholder="이메일">
+    <input class="login-input" type="password" id="login-pw" name="password" autocomplete="current-password" placeholder="비밀번호">
+    <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text2);margin:2px 0 10px;cursor:pointer;text-align:left">
+      <input type="checkbox" id="login-keep" checked style="width:16px;height:16px;margin:0;cursor:pointer"> 자동 로그인 <span style="font-size:11px;color:var(--text3)">(이 기기에서 로그인 유지)</span></label>
     <div id="login-error"></div>
-    <button class="login-btn" onclick="doLogin()">로그인</button>
+    <button type="submit" class="login-btn">로그인</button>
+    </form>
     <hr class="login-divider">
     <button class="login-btn secondary" onclick="showRegister()">처음 사용하시나요? 계정 만들기</button>
     <!-- 회원가입 폼 (숨김) -->
@@ -2058,6 +2070,9 @@ function initFirebase(){
     fbDb   = firebase.firestore();
     try { fbStorage = firebase.storage(); } catch(e){ console.warn('Storage 미사용:', e); }
     fbDb.enablePersistence().catch(()=>{});
+    try{ const em=localStorage.getItem('hubLoginEmail'), el=document.getElementById('login-email'); if(em&&el&&!el.value) el.value=em;
+      if(localStorage.getItem('hubLoginKeep')==='0'){ const k=document.getElementById('login-keep'); if(k) k.checked=false; } }catch(e){}
+    try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist(); }catch(e){}
     fbAuth.onAuthStateChanged(async user=>{
       if(user){
         currentUser=user; isAdmin=ADMIN_EMAILS.includes(user.email);
@@ -2089,7 +2104,13 @@ function doLogin(){
   const errEl=document.getElementById('login-error');
   errEl.textContent='';
   if(!email||!pw){errEl.textContent='이메일과 비밀번호를 입력해주세요';return;}
-  fbAuth.signInWithEmailAndPassword(email,pw)
+  const keep=document.getElementById('login-keep')?.checked!==false;
+  try{ if(keep) localStorage.setItem('hubLoginEmail',email); else localStorage.removeItem('hubLoginEmail'); localStorage.setItem('hubLoginKeep',keep?'1':'0'); }catch(e){}
+  // 자동 로그인: 이 기기(LOCAL)에 로그인 유지 / 해제 시 창을 닫으면 로그아웃(SESSION)
+  const P=firebase.auth.Auth.Persistence;
+  fbAuth.setPersistence(keep?P.LOCAL:P.SESSION).catch(()=>{})
+    .then(()=>fbAuth.signInWithEmailAndPassword(email,pw))
+    .then(()=>{ try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist(); }catch(e){} })
     .catch(e=>{
       errEl.textContent=e.code==='auth/wrong-password'||e.code==='auth/user-not-found'
         ?'이메일 또는 비밀번호가 틀렸어요':'로그인 실패: '+e.message;
