@@ -288,6 +288,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
     </select>
     <span style="font-size:12px;color:var(--text2)">기준</span>
+    <a id="btn-team-meeting" href="https://yerimteam-meeting.netlify.app/" target="_blank" rel="noopener" class="btn btn-sm" style="display:none;margin-left:auto;text-decoration:none;align-items:center;gap:5px;color:var(--navy);font-weight:600"><i class="ti ti-notes"></i> 팀 회의록</a>
   </div>
   <div class="metrics" style="grid-template-columns:repeat(2,1fr)">
     <div class="metric">
@@ -2202,6 +2203,7 @@ function showLoginScreen(){
   document.querySelector('.app').style.display='none';
 }
 
+const TEAM_MEETING_MEMBERS=['김주연','최준현','상희경','김지효','김예림'];
 async function showApp(){
   document.getElementById('login-screen').style.display='none';
   document.querySelector('.app').style.display='block';
@@ -2211,6 +2213,9 @@ async function showApp(){
     const udata=userDoc?.data()||{};
     const userName=udata.name||currentUser.email.split('@')[0];
     window._currentUserName=userName; // 전역 저장
+    // 팀 회의록 바로가기: 정해진 팀원만 보이게
+    const mt=document.getElementById('btn-team-meeting');
+    if(mt) mt.style.display=TEAM_MEETING_MEMBERS.includes(String(userName).replace(/\s+/g,''))?'inline-flex':'none';
     const rank=udata.rank||'';
     const rankColor={신입:'#6c757d',경력:'#5a6268',주임:'#1a5fa8',대리:'#2e6e10',부팀장:'#854F0B',팀장:'#9b1515'}[rank]||'#666';
 
