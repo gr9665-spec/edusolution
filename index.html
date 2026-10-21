@@ -5182,8 +5182,10 @@ function renderSeason(){
   const exRows=rows.filter(r=>ssExcluded(r,sd));
   if(!window._ssShowExcl) rows=rows.filter(r=>!ssExcluded(r,sd)); else rows=exRows;
   const mBox=document.getElementById('ss-months');
-  if(mBox) mBox.innerHTML=Object.keys(months).sort().map(mk=>{ const off=hide.includes(mk), o=months[mk];
-      return `<button type="button" onclick="ssToggleMonth('${mk}')" title="${off?'다시 넣기':'이번 시즌에서 빼기'} (${+mk.slice(5)}월 결제자 전체)" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px ${off?'dashed #adb5bd':'solid var(--navy)'};background:${off?'#f1f3f5':'#eef3fb'};color:${off?'#868e96':'var(--navy)'};border-radius:99px;padding:3px 11px;font-weight:700;${off?'text-decoration:line-through':''}">${String(mk.slice(2,4))}.${+mk.slice(5)}월 ${o.n}${o.ex&&!off?` <span style="font-weight:400">(뺌 ${o.ex})</span>`:''}</button>`; }).join('')
+  if(mBox) mBox.innerHTML=ssMonthGroups(Object.keys(months)).map(g=>{
+      const o=g.months.reduce((a,mk)=>({n:a.n+months[mk].n,ex:a.ex+months[mk].ex}),{n:0,ex:0});
+      const off=g.months.every(mk=>hide.includes(mk));
+      return `<button type="button" onclick="ssToggleMonth('${g.months.join(',')}')" title="${off?'다시 넣기':'이번 시즌에서 빼기'} (${g.label} 결제자 전체)" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px ${off?'dashed #adb5bd':'solid var(--navy)'};background:${off?'#f1f3f5':'#eef3fb'};color:${off?'#868e96':'var(--navy)'};border-radius:99px;padding:3px 11px;font-weight:700;${off?'text-decoration:line-through':''}">${g.label} ${o.n}${o.ex&&!off?` <span style="font-weight:400">(뺌 ${o.ex})</span>`:''}</button>`; }).join('')
     +`<button type="button" onclick="window._ssShowExcl=!window._ssShowExcl;renderSeason()" style="cursor:pointer;font-family:inherit;font-size:12px;margin-left:6px;border:1px solid ${window._ssShowExcl?'#e8590c':'#adb5bd'};background:${window._ssShowExcl?'#e8590c':'#fff'};color:${window._ssShowExcl?'#fff':'var(--text2)'};border-radius:99px;padding:3px 11px;font-weight:700">${window._ssShowExcl?'← 대상 목록으로':'뺀 사람 보기 '+exRows.length}</button>`;
   // 요약 (필터 전, 범위 기준)
   const cnt={}; rows.forEach(r=>cnt[r.v.status]=(cnt[r.v.status]||0)+1);
@@ -5327,12 +5329,28 @@ function ssPickStatus(k){
   sel.value=sel.value==='st:'+k?'active':'st:'+k;
   renderSeason();
 }
-function ssToggleMonth(mk){
+// 결제월 버튼 묶기: 이번 반기(와 이후)는 월별, 바로 전 반기가 속한 해는 상반기/하반기, 그보다 예전은 연도별
+function ssMonthGroups(mks){
+  const t=pmToday(), cy=+t.slice(0,4), cm=+t.slice(5,7);
+  const hix=(y,m)=>y*2+(m<=6?0:1), cur=hix(cy,cm), prevY=Math.floor((cur-1)/2);
+  const g=new Map();
+  mks.sort().forEach(mk=>{ const y=+mk.slice(0,4), m=+mk.slice(5,7), h=hix(y,m), yy=String(y).slice(2);
+    let key,label;
+    if(h>=cur){ key=mk; label=`${yy}.${m}월`; }
+    else if(y===prevY||y===cy){ key=`${y}-H${m<=6?1:2}`; label=`${yy}년 ${m<=6?'상반기':'하반기'}`; }
+    else { key=String(y); label=`${yy}년`; }
+    if(!g.has(key)) g.set(key,{label,months:[]}); g.get(key).months.push(mk); });
+  return [...g.values()];
+}
+function ssToggleMonth(list){
+  const mks=String(list).split(',').filter(Boolean);
   const k=document.getElementById('ss-season').value, sd=seasonData(k);
-  const h=new Set(sd.hideMonths||[]); if(h.has(mk)) h.delete(mk); else h.add(mk);
+  const h=new Set(sd.hideMonths||[]);
+  const allOff=mks.every(mk=>h.has(mk));
+  mks.forEach(mk=>{ if(allOff) h.delete(mk); else h.add(mk); });
   sd.hideMonths=[...h].sort();
   // 그 달 사람들의 개별 설정은 초기화 → 월 단위 설정을 그대로 따르게
-  seasonAllRows(k,learners,plans,sd).forEach(r=>{ if(ssPayMonth(r)===mk&&sd.people[r.key]) delete sd.people[r.key].excl; });
+  seasonAllRows(k,learners,plans,sd).forEach(r=>{ if(mks.includes(ssPayMonth(r))&&sd.people[r.key]) delete sd.people[r.key].excl; });
   save(); renderSeason();
 }
 function ssSetExcl(K,ex){
