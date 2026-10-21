@@ -1354,7 +1354,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div style="font-size:16px;font-weight:700"><i class="ti ti-flame" style="color:#e8590c"></i> 성수기</div>
-      <select id="ss-season" onchange="renderSeason()" style="width:210px"></select>
+      <select id="ss-season" onchange="window._ssShowExcl=false;renderSeason()" style="width:210px"></select>
       <label class="btn btn-sm" style="cursor:pointer" title="허브에 없는 예전 학생을 엑셀(재확인 목록)에서 이 시즌 대상으로 추가"><i class="ti ti-file-import"></i> 엑셀 대상 가져오기<input type="file" accept=".xlsx,.xls" style="display:none" onchange="importSeasonExtra(this)"></label>
       <button class="btn btn-sm" id="ss-extra-clear" style="font-size:11px;color:var(--text2);display:none" onclick="clearSeasonExtra()">가져온 대상 지우기</button>
     </div>
@@ -1385,6 +1385,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         </optgroup>
       </select>
     </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+    <span style="font-size:12px;font-weight:700;color:var(--text2);margin-right:2px" title="누르면 그 달 결제자를 이번 시즌 대상에서 빼거나 다시 넣어요">결제월</span>
+    <span id="ss-months" style="display:contents"></span>
   </div>
   <div class="card" style="padding:12px 14px;margin-bottom:12px" id="ss-summary"></div>
   <div class="card" style="padding:0;overflow-x:auto">
@@ -4962,6 +4966,7 @@ function rvRows(){
   const k=document.getElementById('rv-season').value, sd=((m.seasons||{})[k])||{people:{}};
   let rows=seasonAllRows(k,m.learners||[],m.plans||{},sd).map(r=>({...r,v:seasonRowView(r,sd)}));
   if(document.getElementById('rv-scope').value==='recent') rows=rows.filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status));
+  rows=rows.filter(r=>!ssExcluded(r,sd));
   return {m,rows,k,uid};
 }
 function renderReview(){
@@ -5138,6 +5143,13 @@ function seasonAllRowsBase(k,L,P,sd){
   });
   return rows;
 }
+// 이번 시즌에서 뺀 사람: 사람별(people[key].excl true/false)이 우선, 없으면 결제월(hideMonths) 기준
+function ssPayMonth(r){ return (r.payKey||'').slice(0,7); }
+function ssExcluded(r,sd){
+  const d=(sd.people||{})[r.key]||{};
+  if(d.excl===true) return true; if(d.excl===false) return false;
+  return (sd.hideMonths||[]).includes(ssPayMonth(r));
+}
 function seasonData(k){ if(!seasons[k]) seasons[k]={people:{}}; if(!seasons[k].people) seasons[k].people={}; return seasons[k]; }
 function seasonRowView(r,sd){
   const d=sd.people[r.key]||{};
@@ -5164,6 +5176,15 @@ function renderSeason(){
   const q=(document.getElementById('ss-search').value||'').trim().toLowerCase();
   let rows=all.map(r=>({...r,v:seasonRowView(r,sd)}));
   if(scope==='recent') rows=rows.filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status));
+  // 결제월 칩 + 뺀 사람
+  const months={}; rows.forEach(r=>{ const mk=ssPayMonth(r); if(!mk) return; months[mk]=months[mk]||{n:0,ex:0}; months[mk].n++; if(ssExcluded(r,sd)) months[mk].ex++; });
+  const hide=sd.hideMonths||[];
+  const exRows=rows.filter(r=>ssExcluded(r,sd));
+  if(!window._ssShowExcl) rows=rows.filter(r=>!ssExcluded(r,sd)); else rows=exRows;
+  const mBox=document.getElementById('ss-months');
+  if(mBox) mBox.innerHTML=Object.keys(months).sort().map(mk=>{ const off=hide.includes(mk), o=months[mk];
+      return `<button type="button" onclick="ssToggleMonth('${mk}')" title="${off?'다시 넣기':'이번 시즌에서 빼기'} (${+mk.slice(5)}월 결제자 전체)" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px ${off?'dashed #adb5bd':'solid var(--navy)'};background:${off?'#f1f3f5':'#eef3fb'};color:${off?'#868e96':'var(--navy)'};border-radius:99px;padding:3px 11px;font-weight:700;${off?'text-decoration:line-through':''}">${String(mk.slice(2,4))}.${+mk.slice(5)}월 ${o.n}${o.ex&&!off?` <span style="font-weight:400">(뺌 ${o.ex})</span>`:''}</button>`; }).join('')
+    +`<button type="button" onclick="window._ssShowExcl=!window._ssShowExcl;renderSeason()" style="cursor:pointer;font-family:inherit;font-size:12px;margin-left:6px;border:1px solid ${window._ssShowExcl?'#e8590c':'#adb5bd'};background:${window._ssShowExcl?'#e8590c':'#fff'};color:${window._ssShowExcl?'#fff':'var(--text2)'};border-radius:99px;padding:3px 11px;font-weight:700">${window._ssShowExcl?'← 대상 목록으로':'뺀 사람 보기 '+exRows.length}</button>`;
   // 요약 (필터 전, 범위 기준)
   const cnt={}; rows.forEach(r=>cnt[r.v.status]=(cnt[r.v.status]||0)+1);
   const salesRows=rows.filter(r=>!SS_NO_SALES.includes(r.v.status));
@@ -5172,7 +5193,7 @@ function renderSeason(){
   const won=n=>n>=10000?`${Math.round(n/10000).toLocaleString()}만원`:`${n.toLocaleString()}원`;
   document.getElementById('ss-summary').innerHTML=`
     <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
-      <div><div style="font-size:11px;color:var(--text2)">대상</div><div style="font-size:22px;font-weight:800">${rows.length}<span style="font-size:12px;font-weight:600">명</span></div></div>
+      <div><div style="font-size:11px;color:var(--text2)">${window._ssShowExcl?'<b style="color:#e8590c">뺀 사람</b>':'대상'}</div><div style="font-size:22px;font-weight:800">${rows.length}<span style="font-size:12px;font-weight:600">명</span></div></div>
       <div><div style="font-size:11px;color:var(--text2)">예상매출</div><div style="font-size:22px;font-weight:800;color:var(--navy)">${won(expect)}</div></div>
       <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:22px;font-weight:800;color:var(--green)">${won(paid)}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
@@ -5210,6 +5231,8 @@ function renderSeason(){
           ${r.plan?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy)" onclick="openPrintPreview('${r.plan.id}')" title="플랜표 미리보기 (${pmEsc(r.plan.clientName||'')})"><i class="ti ti-clipboard-list"></i> 플랜</button>
             <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px" onclick="ssOpenPlanTab('${r.plan.id}')" title="플랜표 탭에서 열어 수정"><i class="ti ti-pencil"></i></button>`:''}
           <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:${r.manualPlan?'var(--green)':'var(--text3)'}" onclick="ssPickPlan('${K}')" title="${r.plan?(r.manualPlan?'직접 연결한 플랜 — 바꾸기':'자동 연결된 플랜 — 바꾸기'):'플랜 직접 연결'}"><i class="ti ti-link"></i>${r.plan?'':' 연결'}</button>
+          ${window._ssShowExcl?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--green)" onclick="ssSetExcl('${K}',false)" title="이번 시즌 대상에 다시 넣기"><i class="ti ti-arrow-back-up"></i> 넣기</button>`
+            :`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:var(--text3)" onclick="ssSetExcl('${K}',true)" title="이번 시즌 대상에서 빼기 (다음 시즌 대상 등)"><i class="ti ti-eye-off"></i></button>`}
         </div></td>
       <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${l.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회 결제`:''}</div></td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${r.autoCredits??'-'}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':r.noTerm?'플랜표에 이번 시즌 학기가 없어요 — 필요하면 직접 입력':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':r.nextName?pmEsc(r.nextName):r.noTerm?`플랜에 ${seasonTargetTerm(document.getElementById('ss-season').value)}학기 없음`:r.plan?'':'플랜 없음'}</div></td>
@@ -5304,6 +5327,23 @@ function ssPickStatus(k){
   sel.value=sel.value==='st:'+k?'active':'st:'+k;
   renderSeason();
 }
+function ssToggleMonth(mk){
+  const k=document.getElementById('ss-season').value, sd=seasonData(k);
+  const h=new Set(sd.hideMonths||[]); if(h.has(mk)) h.delete(mk); else h.add(mk);
+  sd.hideMonths=[...h].sort();
+  // 그 달 사람들의 개별 설정은 초기화 → 월 단위 설정을 그대로 따르게
+  seasonAllRows(k,learners,plans,sd).forEach(r=>{ if(ssPayMonth(r)===mk&&sd.people[r.key]) delete sd.people[r.key].excl; });
+  save(); renderSeason();
+}
+function ssSetExcl(K,ex){
+  const key=decodeURIComponent(K), k=document.getElementById('ss-season').value, sd=seasonData(k);
+  const d=sd.people[key]=sd.people[key]||{};
+  const row=seasonAllRows(k,learners,plans,sd).find(r=>r.key===key);
+  const monthHidden=row&&(sd.hideMonths||[]).includes(ssPayMonth(row));
+  // 월 설정과 같으면 개별 설정 지움
+  if(ex===!!monthHidden) delete d.excl; else d.excl=ex;
+  save(); renderSeason();
+}
 function setSeasonField(K,field,val){
   const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
   const sd=seasonData(k);
@@ -5397,7 +5437,7 @@ function renderAdminSeason(){
   const {cur}=seasonOptions();
   const rows=Object.values(allMembersData).map(m=>{
     const sd=(m.seasons||{})[cur]||{people:{}};
-    const ppl=seasonAllRows(cur,m.learners||[],m.plans||{},sd).filter(r=>r.recent||(sd.people[r.key]&&sd.people[r.key].status)).map(r=>({...r,v:seasonRowView(r,sd)}));
+    const ppl=seasonAllRows(cur,m.learners||[],m.plans||{},sd).filter(r=>(r.recent||(sd.people[r.key]&&sd.people[r.key].status))&&!ssExcluded(r,sd)).map(r=>({...r,v:seasonRowView(r,sd)}));
     const n=s=>ppl.filter(r=>r.v.status===s).length;
     return {name:m.name||m.email||'-',total:ppl.length,todo:n('미연락'),plan:n('등록예정'),paid:n('결제완료'),
       expect:ppl.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+r.v.sales,0),
