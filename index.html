@@ -1397,13 +1397,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <thead><tr style="background:var(--bg2)">
         <th style="padding:8px 6px;text-align:left;width:120px">이름</th>
         <th style="padding:8px 6px;text-align:left;width:170px">최근 결제</th>
-        <th style="padding:8px 6px;text-align:center;width:92px">다음학기<br>학점</th>
-        <th style="padding:8px 6px;text-align:center;width:90px">단가</th>
-        <th style="padding:8px 6px;text-align:right;width:106px">예상매출</th>
+        <th class="ss-fh" data-f="credits" onclick="ssToggleFilled('credits')" style="padding:8px 6px;text-align:center;width:92px">다음학기<br>학점</th>
+        <th class="ss-fh" data-f="price" onclick="ssToggleFilled('price')" style="padding:8px 6px;text-align:center;width:90px">단가</th>
+        <th class="ss-fh" data-f="sales" onclick="ssToggleFilled('sales')" style="padding:8px 6px;text-align:right;width:106px">예상매출</th>
         <th style="padding:8px 6px;text-align:center;width:108px">상태</th>
-        <th style="padding:8px 6px;text-align:center;width:128px">카톡 보낸 날</th>
-        <th style="padding:8px 6px;text-align:center;width:190px">등록예정</th>
-        <th style="padding:8px 6px;text-align:left">비고</th>
+        <th class="ss-fh" data-f="kakao" onclick="ssToggleFilled('kakao')" style="padding:8px 6px;text-align:center;width:128px">카톡 보낸 날</th>
+        <th class="ss-fh" data-f="reg" onclick="ssToggleFilled('reg')" style="padding:8px 6px;text-align:center;width:190px">등록예정</th>
+        <th class="ss-fh" data-f="note" onclick="ssToggleFilled('note')" style="padding:8px 6px;text-align:left">비고</th>
         <th style="padding:8px 6px;text-align:center;width:96px">새 학기</th>
       </tr></thead>
       <tbody id="ss-tbody"></tbody>
@@ -5246,6 +5246,12 @@ function renderSeason(){
   if(f==='refund') rows=rows.filter(r=>r.v.status==='환불');
   if(f.startsWith('st:')) rows=rows.filter(r=>r.v.status===f.slice(3));
   if(f==='multi'){ const st=window._ssSt||new Set(); rows=rows.filter(r=>st.has(r.v.status)); }
+  // 칸 제목(다음학기 학점·단가·예상매출·카톡·등록예정·비고)을 누르면 직접 적은 사람만 (여러 칸 고르면 하나라도 적은 사람)
+  const fl=window._ssFilled||new Set();
+  document.querySelectorAll('#panel-season th.ss-fh').forEach(th=>{ const on=fl.has(th.dataset.f);
+    th.style.cursor='pointer'; th.title=on?'다시 누르면 전체 보기':'누르면 이 칸을 직접 적은 학생만 보기';
+    th.style.background=on?'#fff3bf':''; th.style.color=on?'#e67700':''; th.style.textDecoration=on?'underline':''; });
+  if(fl.size) rows=rows.filter(r=>[...fl].some(k=>ssFilled(r.v.d,k)));
   if(q) rows=rows.filter(r=>(r.last.name||'').toLowerCase().includes(q)||(r.last.phone||'').includes(q));
   const order=Object.fromEntries(SS_STATUS.map((v,i)=>[v.k,i]));
   const srt=document.getElementById('ss-sort')?.value||'pay';
@@ -5355,8 +5361,18 @@ function ssSetPlan(K,pid){
   renderSeason();
   showToast(pid==='none'?'플랜 연결을 끊었어요':pid?'플랜을 연결했어요':'자동 연결로 되돌렸어요');
 }
+function ssFilled(d,k){
+  const has=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
+  if(k==='reg') return has(d.regDate)||has(d.regTime);
+  return has(d[k]);
+}
+function ssToggleFilled(k){
+  const s=window._ssFilled=window._ssFilled||new Set();
+  if(s.has(k)) s.delete(k); else s.add(k);
+  renderSeason();
+}
 function ssShowAll(){
-  window._ssSt=new Set();
+  window._ssSt=new Set(); window._ssFilled=new Set();
   document.getElementById('ss-filter').value=''; const q=document.getElementById('ss-search'); if(q) q.value='';
   renderSeason();
 }
@@ -8722,7 +8738,7 @@ function renderSubjRows(rows){
   tbody.innerHTML=rows.map((r,i)=>`
     <tr id="psm-row-${i}" style="border-bottom:1px solid var(--border)">
       <td style="padding:2px 4px;text-align:center">
-        <input type="text" inputmode="numeric" value="${r.credit||''}" placeholder="${isSem?'3':''}" maxlength="2"
+        <input type="text" ${window.matchMedia&&matchMedia('(pointer:coarse)').matches?'inputmode="numeric"':''} value="${r.credit||''}" placeholder="${isSem?'3':''}" maxlength="2"
           oninput="this.value=this.value.replace(/[^0-9]/g,'')"
           style="width:58px;padding:5px 6px;font-size:13px;text-align:center;border:1px solid transparent;border-radius:4px;background:transparent"
           onfocus="this.style.border='1px solid var(--navy)';this.style.background='var(--bg)'"
