@@ -7993,15 +7993,19 @@ function buildPlanTableUI(p,t){
         <div class="sem-info-form" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
           <input id="sem-name-${si}" type="text" value="${sem.name||''}" placeholder="학기명"
             style="width:100px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onkeydown="semInfoEnter(event,${si},'name')"
             onchange="plans[curPid].semesters[${si}].name=this.value;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])">
           <input id="sem-edu-${si}" type="text" value="${sem.edu||''}" placeholder="교육원"
             style="width:85px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onkeydown="semInfoEnter(event,${si},'edu')"
             onchange="plans[curPid].semesters[${si}].edu=this.value;LS.set('hk_plans',plans);saveToFirebase()">
           <input id="sem-kisu-${si}" type="text" value="${sem.kisu||''}" placeholder="기수 (예: 2-1)"
             style="width:100px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onkeydown="semInfoEnter(event,${si},'kisu')"
             onchange="plans[curPid].semesters[${si}].kisu=this.value;LS.set('hk_plans',plans);saveToFirebase()">
           <input id="sem-date-${si}" type="text" value="${sem.date||''}" placeholder="일자 (예: 5/13~8/25)"
             style="width:115px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
+            onkeydown="semInfoEnter(event,${si},'date')"
             onchange="plans[curPid].semesters[${si}].date=this.value;LS.set('hk_plans',plans);saveToFirebase()">
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;font-size:11px;font-weight:600;color:${sem.completed?'#2e7d32':'var(--text2)'}"><input type="checkbox" ${sem.completed?'checked':''} style="accent-color:#2e7d32;width:14px;height:14px" onchange="plans[curPid].semesters[${si}].completed=this.checked;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])"> 이수완료</label>
           <button class="btn btn-sm" style="padding:3px 8px;font-size:10px;color:var(--red)" onclick="deleteSem(${si})"><i class="ti ti-trash"></i></button>
@@ -8718,7 +8722,8 @@ function renderSubjRows(rows){
   tbody.innerHTML=rows.map((r,i)=>`
     <tr id="psm-row-${i}" style="border-bottom:1px solid var(--border)">
       <td style="padding:2px 4px;text-align:center">
-        <input type="number" value="${r.credit||''}" placeholder="${isSem?'3':''}" min="1" max="10"
+        <input type="text" inputmode="numeric" value="${r.credit||''}" placeholder="${isSem?'3':''}" maxlength="2"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'')"
           style="width:58px;padding:5px 6px;font-size:13px;text-align:center;border:1px solid transparent;border-radius:4px;background:transparent"
           onfocus="this.style.border='1px solid var(--navy)';this.style.background='var(--bg)'"
           onblur="this.style.border='1px solid transparent';this.style.background='transparent';subjCtx.rows[${i}]={...subjCtx.rows[${i}],credit:this.value}"
@@ -8750,6 +8755,14 @@ function renderSubjRows(rows){
   },50);
 }
 
+// 플랜표 학기 정보칸: 엔터 → 학기명 → 교육원 → 기수 → 일자 순으로 다음 칸 (학기명 변경 시 표를 다시 그리므로 다시 찾아서 포커스)
+function semInfoEnter(e,si,field){
+  if(e.key!=='Enter'||e.isComposing||e.keyCode===229) return;
+  e.preventDefault();
+  const order=['name','edu','kisu','date'], next=order[order.indexOf(field)+1];
+  e.target.blur();
+  if(next) setTimeout(()=>{ const el=document.getElementById(`sem-${next}-${si}`); if(el){ el.focus(); el.select(); } },0);
+}
 function psmKeyNav(e, rowIdx, field){
   // 한글 조합 중이면 무시
   if(e.isComposing || e.keyCode===229) return;
@@ -8774,7 +8787,7 @@ function psmKeyNav(e, rowIdx, field){
     const id=field==='credit'?`psm-c-${next}`:`psm-s-${next}`;
     const el=document.getElementById(id);
     if(el) el.focus();
-    else addSubjRow();
+    else { addSubjRow(); if(field==='credit') setTimeout(()=>{ const c=document.getElementById(`psm-c-${next}`); if(c) c.focus(); },80); } // 학점칸이면 새 줄의 학점칸으로
   } else if(e.key==='Tab' && e.shiftKey){
     e.preventDefault();
     if(field==='subject'){
