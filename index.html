@@ -1361,8 +1361,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <input type="text" id="ss-search" placeholder="이름·연락처 검색" style="width:140px" oninput="renderSeason()">
       <select id="ss-scope" onchange="renderSeason()" style="width:150px">
+        <option value="all" selected>학습자 전체</option>
         <option value="recent">직전 학기 등록자</option>
-        <option value="all">학습자 전체</option>
       </select>
       <select id="ss-sort" onchange="renderSeason()" style="width:120px" title="정렬">
         <option value="pay">결제순</option>
@@ -5417,7 +5417,7 @@ function importSeasonExtra(input){
         if(!add.length){ alert(`새로 추가할 학생이 없어요.${ex?`\n(이미 가져온 ${ex}명 제외)`:''}`); return; }
         if(!confirm(`${seasonLabel(k)}에 엑셀 학생 ${add.length}명을 대상으로 추가할까요?\n\n· 학습자 관리·매출에는 들어가지 않아요\n· 허브 학습자 관리에 이미 있는 학생은 허브 기록으로 보여요${(skip=add.filter(x=>['과정끝','환불'].includes(x.status)).length)?`\n· 과정끝·환불 ${skip}명 포함 (평소엔 숨겨지고, 필터 '과정끝·환불만'에서 확인)`:''}${ex?`\n· 이미 가져온 ${ex}명은 건너뜀`:''}`)) return;
         sd.extra.push(...add); save();
-        document.getElementById('ss-scope').value='recent';
+        document.getElementById('ss-scope').value='all';
         renderSeason();
         alert(`✓ ${add.length}명을 가져왔어요.`);
       }catch(err){ alert('파일을 읽지 못했어요: '+err.message); }
