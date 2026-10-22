@@ -1428,7 +1428,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <input type="text" id="pm-search" placeholder="이름·연락처 검색" style="width:150px" oninput="renderProspects()">
-      <select id="pm-filter" onchange="renderProspects()" style="width:130px">
+      <select id="pm-filter" onchange="window._pmSt=new Set();renderProspects()" style="width:130px">
+        <option value="multi" id="pm-filter-multi" hidden>선택한 상태</option>
         <option value="">전체</option>
         <option value="noplan">플랜안내 안 함</option>
         <option value="nopay">결제안내 안 함</option>
@@ -4868,7 +4869,7 @@ function renderAdminPros(){
 // reviewNotes/{id} = {toUid,toName,fromUid,fromName,seasonKey,studentKey,studentName,planId,text,createdAt,read,resolved,reply,repliedAt}
 const REVIEWER_EMAILS=['yelim753@naver.com']; // 성수기 점검·코멘트 가능한 사람 (김예림 팀장)
 function isReviewer(){ return !!(currentUser&&REVIEWER_EMAILS.includes(currentUser.email)); }
-let _reviewNotes=[], _reviewUnsub=null, _rvNotes=[], _rvUnsub=null, _rvFilter='';
+let _reviewNotes=[], _reviewUnsub=null, _rvNotes=[], _rvUnsub=null, _rvFilter=new Set();
 function fmtNoteTime(iso){ if(!iso) return ''; const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 // 직원: 나에게 온 코멘트 실시간 수신
 function startReviewNotes(){
@@ -4959,9 +4960,9 @@ function rvChangeMember(){
     _rvNotes=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
     renderReview();
   },err=>{ console.warn(err); document.getElementById('rv-summary').innerHTML='<span style="color:var(--red)">코멘트를 불러오지 못했어요 — Firebase 규칙(reviewNotes)을 확인해주세요.</span>'; });
-  _rvFilter=''; renderReview();
+  _rvFilter=new Set(); renderReview();
 }
-function rvPick(st){ _rvFilter=_rvFilter===st?'':st; renderReview(); }
+function rvPick(st){ if(_rvFilter.has(st)) _rvFilter.delete(st); else _rvFilter.add(st); renderReview(); } // 여러 상태 같이 보기
 function rvRows(){
   const uid=document.getElementById('rv-member').value, m=(allMembersData||{})[uid]; if(!m) return {m:null,rows:[],k:''};
   const k=document.getElementById('rv-season').value, sd=((m.seasons||{})[k])||{people:{}};
@@ -4980,8 +4981,8 @@ function renderReview(){
   const open=_rvNotes.filter(x=>x.seasonKey===k&&!x.resolved).length;
   document.getElementById('rv-summary').innerHTML=`<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
     <b>${pmEsc(m.name||'')}</b><span style="font-size:12px;color:var(--text2)">대상 ${all.length}명 · 예상매출 ${won(exp)} · 미해결 코멘트 ${open}건</span>
-    <div style="display:flex;gap:5px;flex-wrap:wrap">${SS_STATUS.map(v=>{const on=_rvFilter===v.k;return `<button type="button" onclick="rvPick('${v.k}')" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`;}).join('')}</div></div>`;
-  let rows=_rvFilter?all.filter(r=>r.v.status===_rvFilter):all.filter(r=>!['과정끝','환불'].includes(r.v.status));
+    <div style="display:flex;gap:5px;flex-wrap:wrap">${_rvFilter.size?`<button type="button" onclick="_rvFilter=new Set();renderReview()" style="cursor:pointer;font-size:12px;border:1px solid #adb5bd;background:#fff;border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">선택 해제</button>`:''}${SS_STATUS.map(v=>{const on=_rvFilter.has(v.k);return `<button type="button" onclick="rvPick('${v.k}')" title="눌러서 ${v.k} 같이 보기 (여러 개 선택 가능)" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`;}).join('')}</div></div>`;
+  let rows=_rvFilter.size?all.filter(r=>_rvFilter.has(r.v.status)):all.filter(r=>!['과정끝','환불'].includes(r.v.status));
   const q=(document.getElementById('rv-search').value||'').trim(); if(q) rows=rows.filter(r=>(r.last.name||'').includes(q));
   rows.sort((a,b)=>a.payKey.localeCompare(b.payKey));
   const em=document.getElementById('rv-empty');
@@ -5542,9 +5543,9 @@ function renderProspects(){
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
       ${(()=>{ const fv=document.getElementById('pm-filter')?.value||'';
-        const chip=(k,label,c,dashed)=>{ const on=fv==='st:'+k;
-          return `<button type="button" onclick="pmPickStage('${k}')" title="${label}만 보기 (다시 누르면 해제)" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px ${dashed&&!on?'dashed':'solid'} ${on?c:c+'55'};background:${on?c:c+'10'};color:${on?'#fff':c};border-radius:99px;padding:3px 10px;font-weight:700">${label} ${k==='미분류'?(st['']||0):(st[k]||0)}</button>`; };
-        return `<button type="button" onclick="pmShowAll()" title="필터 풀고 전체 보기" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px solid ${!fv?'var(--navy)':'#adb5bd'};background:${!fv?'var(--navy)':'#fff'};color:${!fv?'#fff':'var(--text)'};border-radius:99px;padding:3px 12px;font-weight:700">전체 ${month.length}</button>`+PSTAGES.map(v=>chip(v.k,v.k,v.c)).join('')+(st['']||fv==='st:미분류'?chip('미분류','미분류','#868e96',true):''); })()}
+        const chip=(k,label,c,dashed)=>{ const on=fv==='st:'+k||(fv==='multi'&&(window._pmSt||new Set()).has(k));
+          return `<button type="button" onclick="pmPickStage('${k}')" title="눌러서 ${label} 같이 보기 (여러 개 선택 가능, 다시 누르면 해제)" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px ${dashed&&!on?'dashed':'solid'} ${on?c:c+'55'};background:${on?c:c+'10'};color:${on?'#fff':c};border-radius:99px;padding:3px 10px;font-weight:700">${label} ${k==='미분류'?(st['']||0):(st[k]||0)}</button>`; };
+        return `<button type="button" onclick="pmShowAll()" title="필터 풀고 전체 보기" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px solid ${!fv?'var(--navy)':'#adb5bd'};background:${!fv?'var(--navy)':'#fff'};color:${!fv?'#fff':'var(--text)'};border-radius:99px;padding:3px 12px;font-weight:700">전체 ${month.length}</button>`+PSTAGES.map(v=>chip(v.k,v.k,v.c)).join('')+(st['']||fv==='st:미분류'||(window._pmSt||new Set()).has('미분류')?chip('미분류','미분류','#868e96',true):''); })()}
       <button type="button" onclick="${openN?"pmPickStage('open')":''}" title="${openN?'미처리만 보기 (다시 누르면 해제)':''}" style="margin-left:auto;font-family:inherit;border:${(document.getElementById('pm-filter')?.value||'')==='open'?'2px solid #d9480f':'0'};cursor:${openN?'pointer':'default'};font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;${month.length&&!openN?'background:#e7f6ea;color:#2f9e44':'background:#fff4e6;color:#d9480f'}">
         ${!month.length?'이 달 유입 없음':!openN?'✓ 모두 처리 완료':`⚠️ 미처리 ${openN}명 (상담중·미분류)`}</button>
       <span style="font-size:11px;color:var(--text2);width:100%">플랜안내 ${done('plan')} · 결제안내 ${done('pay')} · 자료배포 ${done('mat')} · 학습자 등록 ${month.filter(x=>x.learnerId).length}</span>
@@ -5559,6 +5560,7 @@ function renderProspects(){
   if(f==='nolearner') list=list.filter(x=>!x.learnerId);
   if(f==='open') list=list.filter(x=>!PSTAGE_DONE.includes(x.stage));
   if(f.startsWith('st:')){ const sk=f.slice(3); list=list.filter(x=>(x.stage||'')===(sk==='미분류'?'':sk)); }
+  if(f==='multi'){ const ss=window._pmSt||new Set(); list=list.filter(x=>ss.has(x.stage||'미분류')); }
   if(f==='stale') list=list.filter(x=>!PSTAGE_DONE.includes(x.stage)&&pmDaysSince(x.lastContact||x.date)>=7);
   list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||'').localeCompare(a.createdAt||''));
   const tb=document.getElementById('pm-tbody'), em=document.getElementById('pm-empty');
@@ -5601,12 +5603,19 @@ function renderProspects(){
   }).join('');
 }
 function pmShowAll(){
+  window._pmSt=new Set();
   document.getElementById('pm-filter').value=''; const q=document.getElementById('pm-search'); if(q) q.value='';
   renderProspects();
 }
 function pmPickStage(k){
-  const sel=document.getElementById('pm-filter'), v=k==='open'?'open':'st:'+k;
-  sel.value=sel.value===v?'':v; renderProspects();
+  const sel=document.getElementById('pm-filter');
+  if(k==='open'){ window._pmSt=new Set(); sel.value=sel.value==='open'?'':'open'; renderProspects(); return; }
+  // 진행상태 버튼: 여러 개 같이 보기
+  const ss=sel.value==='multi'?new Set(window._pmSt||[]):sel.value.startsWith('st:')?new Set([sel.value.slice(3)]):new Set();
+  if(ss.has(k)) ss.delete(k); else ss.add(k);
+  window._pmSt=ss;
+  const op=document.getElementById('pm-filter-multi'); if(op) op.textContent=[...ss].join('·')||'선택한 상태';
+  sel.value=ss.size?'multi':''; renderProspects();
 }
 function pmToday(){ return new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
 function pmDaysSince(d){ if(!d) return 0; return Math.max(0,Math.round((new Date(pmToday()+'T00:00:00')-new Date(String(d).slice(0,10)+'T00:00:00'))/864e5)); }
