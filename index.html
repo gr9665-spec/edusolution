@@ -2241,7 +2241,8 @@ async function showApp(){
       document.getElementById('user-badge').after(logoutBtn);
     }
     startReviewNotes();
-    ['atab-review','atab-work','atab-pros'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=isReviewer()?'':'none'; });
+    ['atab-review','atab-pros'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=isReviewer()?'':'none'; });
+    { const el=document.getElementById('atab-work'); if(el) el.style.display=canSeeWork()?'':'none'; }
   }
 
   // 관리자 탭
@@ -4790,7 +4791,7 @@ function wlDelLog(id){ if(!confirm('이 발행 기록을 삭제할까요?')) ret
 
 // 팀장: 업무 현황
 async function openAdminWork(){
-  if(!isReviewer()) return;
+  if(!canSeeWork()) return;
   const d=document.getElementById('aw-date'); if(!d.value) d.value=pmToday();
   if(!Object.keys(allMembersData||{}).length) await loadAllMembersData();
   renderAdminWork();
@@ -4798,7 +4799,7 @@ async function openAdminWork(){
 function awMove(n){ const el=document.getElementById('aw-date'); if(n===0) el.value=pmToday(); else { const t=new Date((el.value||pmToday())+'T00:00:00'); t.setDate(t.getDate()+n); el.value=`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; } renderAdminWork(); }
 function renderAdminWork(){
   const ds=document.getElementById('aw-date').value||pmToday(), [ws,we]=weekRange(ds);
-  const ms=Object.values(allMembersData||{}).filter(m=>m.approved!==false&&!m.retired).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  const ms=Object.values(allMembersData||{}).filter(m=>m.approved!==false&&!m.retired&&workMemberVisible(m)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
   const th='padding:7px 8px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center;font-size:12px;white-space:nowrap';
   const td='padding:7px 8px;border-bottom:1px solid var(--border);text-align:center;font-size:12.5px';
   document.getElementById('aw-table').innerHTML=`<table style="width:100%;border-collapse:collapse;min-width:720px">
@@ -4869,6 +4870,14 @@ function renderAdminPros(){
 // reviewNotes/{id} = {toUid,toName,fromUid,fromName,seasonKey,studentKey,studentName,planId,text,createdAt,read,resolved,reply,repliedAt}
 const REVIEWER_EMAILS=['yelim753@naver.com']; // 성수기 점검·코멘트 가능한 사람 (김예림 팀장)
 function isReviewer(){ return !!(currentUser&&REVIEWER_EMAILS.includes(currentUser.email)); }
+// 업무 현황(업무일지)만 일부 팀원 것을 볼 수 있는 사람: 이메일 → 볼 수 있는 팀원 이름
+const WORK_VIEW_LIMITS={'gr9665@gmail.com':['허상욱','양다현','이찬혁']};
+function canSeeWork(){ return isReviewer()||!!(currentUser&&WORK_VIEW_LIMITS[currentUser.email]); }
+function workMemberVisible(m){
+  if(isReviewer()) return true;
+  const lim=(currentUser&&WORK_VIEW_LIMITS[currentUser.email])||[];
+  return lim.includes(String(m.name||'').replace(/\s+/g,''));
+}
 let _reviewNotes=[], _reviewUnsub=null, _rvNotes=[], _rvUnsub=null, _rvFilter=new Set();
 function fmtNoteTime(iso){ if(!iso) return ''; const d=new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 // 직원: 나에게 온 코멘트 실시간 수신
