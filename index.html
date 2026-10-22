@@ -1370,7 +1370,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option value="status">상태순</option>
         <option value="sales">예상매출순</option>
       </select>
-      <select id="ss-filter" onchange="renderSeason()" style="width:150px">
+      <select id="ss-filter" onchange="window._ssSt=new Set();renderSeason()" style="width:150px">
+        <option value="multi" id="ss-filter-multi" hidden>선택한 상태</option>
         <option value="active">과정끝·환불 제외</option>
         <option value="">전체 상태</option>
         <option value="todo">미연락만</option>
@@ -5223,8 +5224,8 @@ function renderSeason(){
       <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:22px;font-weight:800;color:var(--green)">${won(paid)}</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
         ${(()=>{ const f=document.getElementById('ss-filter').value; return `<button type="button" onclick="ssShowAll()" title="필터 풀고 전체 보기" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px solid ${f===''?'var(--navy)':'#adb5bd'};background:${f===''?'var(--navy)':'#fff'};color:${f===''?'#fff':'var(--text)'};border-radius:99px;padding:3px 12px;font-weight:700">전체 ${rows.length}</button>`; })()}
-        ${SS_STATUS.map(v=>{ const on=document.getElementById('ss-filter').value==='st:'+v.k;
-          return `<button type="button" onclick="ssPickStatus('${v.k}')" title="${v.k}만 보기 (다시 누르면 해제)" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`; }).join('')}
+        ${SS_STATUS.map(v=>{ const fv=document.getElementById('ss-filter').value, on=fv==='st:'+v.k||(fv==='multi'&&(window._ssSt||new Set()).has(v.k));
+          return `<button type="button" onclick="ssPickStatus('${v.k}')" title="눌러서 ${v.k} 같이 보기 (여러 개 선택 가능, 다시 누르면 해제)" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`; }).join('')}
       </div>
     </div>`;
   if(f==='active') rows=rows.filter(r=>!['과정끝','환불'].includes(r.v.status));
@@ -5234,6 +5235,7 @@ function renderSeason(){
   if(f==='done') rows=rows.filter(r=>r.v.status==='과정끝');
   if(f==='refund') rows=rows.filter(r=>r.v.status==='환불');
   if(f.startsWith('st:')) rows=rows.filter(r=>r.v.status===f.slice(3));
+  if(f==='multi'){ const st=window._ssSt||new Set(); rows=rows.filter(r=>st.has(r.v.status)); }
   if(q) rows=rows.filter(r=>(r.last.name||'').toLowerCase().includes(q)||(r.last.phone||'').includes(q));
   const order=Object.fromEntries(SS_STATUS.map((v,i)=>[v.k,i]));
   const srt=document.getElementById('ss-sort')?.value||'pay';
@@ -5344,12 +5346,18 @@ function ssSetPlan(K,pid){
   showToast(pid==='none'?'플랜 연결을 끊었어요':pid?'플랜을 연결했어요':'자동 연결로 되돌렸어요');
 }
 function ssShowAll(){
+  window._ssSt=new Set();
   document.getElementById('ss-filter').value=''; const q=document.getElementById('ss-search'); if(q) q.value='';
   renderSeason();
 }
+// 상태 버튼: 여러 개 눌러서 같이 보기 (예: 미연락+연락완료+등록예정)
 function ssPickStatus(k){
   const sel=document.getElementById('ss-filter');
-  sel.value=sel.value==='st:'+k?'active':'st:'+k;
+  let st=sel.value==='multi'?new Set(window._ssSt||[]):sel.value.startsWith('st:')?new Set([sel.value.slice(3)]):new Set();
+  if(st.has(k)) st.delete(k); else st.add(k);
+  window._ssSt=st;
+  const op=document.getElementById('ss-filter-multi'); if(op) op.textContent=[...st].join('·')||'선택한 상태';
+  sel.value=st.size?'multi':'active';
   renderSeason();
 }
 // 결제월 버튼 묶기: 이번 반기(와 이후)는 월별, 바로 전 반기가 속한 해는 상반기/하반기, 그보다 예전은 연도별
