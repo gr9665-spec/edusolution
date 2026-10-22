@@ -5274,6 +5274,7 @@ function renderSeason(){
           ${r.plan?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy)" onclick="openPrintPreview('${r.plan.id}')" title="플랜표 미리보기 (${pmEsc(r.plan.clientName||'')})"><i class="ti ti-clipboard-list"></i> 플랜</button>
             <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px" onclick="ssOpenPlanTab('${r.plan.id}')" title="플랜표 탭에서 열어 수정"><i class="ti ti-pencil"></i></button>`:''}
           <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:${r.manualPlan?'var(--green)':'var(--text3)'}" onclick="ssPickPlan('${K}')" title="${r.plan?(r.manualPlan?'직접 연결한 플랜 — 바꾸기':'자동 연결된 플랜 — 바꾸기'):'플랜 직접 연결'}"><i class="ti ti-link"></i>${r.plan?'':' 연결'}</button>
+          ${r.plan?'':`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy);font-weight:700" onclick="ssNewPlan('${K}')" title="이름·연락처를 채운 새 플랜표를 만들고 바로 이 학생과 연결"><i class="ti ti-plus"></i> 새 플랜</button>`}
           ${window._ssShowExcl?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--green)" onclick="ssSetExcl('${K}',false)" title="이번 시즌 대상에 다시 넣기"><i class="ti ti-arrow-back-up"></i> 넣기</button>`
             :`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:var(--text3)" onclick="ssSetExcl('${K}',true)" title="이번 시즌 대상에서 빼기 (다음 시즌 대상 등)"><i class="ti ti-eye-off"></i></button>`}
         </div></td>
@@ -5296,6 +5297,19 @@ function ssOpenPlanTab(pid){
   const tabEl=[...document.querySelectorAll('.tab')].find(t=>(t.getAttribute('onclick')||'').includes("'plan'"));
   switchTab('plan',tabEl);
   setTimeout(()=>selectPlan(pid),60);
+}
+// 성수기에서 플랜 없는 학생 → 이름·연락처 채운 새 플랜표 만들고 연결한 뒤 플랜표 탭으로
+function ssNewPlan(K){
+  const key=decodeURIComponent(K), k=document.getElementById('ss-season').value, sd=seasonData(k);
+  const row=seasonAllRows(k,learners,plans,sd).find(r=>r.key===key); if(!row) return;
+  const l=row.last, p=blankPlan();
+  p.clientName=l.name||''; p.phone=l.phone||'';
+  if(!row.extra){ p.linkedLearner=l.name||''; p.linkedPhone=l.phone||''; }
+  plans[p.id]=p;
+  (sd.people[key]=sd.people[key]||{}).planId=p.id;
+  LS.set('hk_plans',plans); save();
+  showToast(`${p.clientName} 님 새 플랜표를 만들었어요`);
+  ssOpenPlanTab(p.id);
 }
 function ssPickPlan(K){
   const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
