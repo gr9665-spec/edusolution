@@ -8127,9 +8127,12 @@ function buildSemLimitWarning(p){
     const key=parseSemKey(sem.name);
     if(!key) return;
     const k=`${key.year}-${key.term}`;
-    if(!semStats[k]) semStats[k]={year:key.year,term:key.term,name:sem.name,credits:0,courses:0};
+    if(!semStats[k]) semStats[k]={year:key.year,term:key.term,name:sem.name,credits:0,courses:0,seen:new Set()};
     const rows=[...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])];
     rows.forEach(r=>{
+      // 같은 학기 안에서 같은 과목을 다시 들은 경우(재수강): 두 번째부터는 최대이수 계산에서 제외
+      const subj=String(r.subject||'').trim();
+      if(subj){ if(semStats[k].seen.has(subj)) return; semStats[k].seen.add(subj); }
       if(r.credit||r.subject){
         semStats[k].credits+=parseInt(r.credit)||0;
         semStats[k].courses+=1;
