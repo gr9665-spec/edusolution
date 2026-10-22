@@ -5304,6 +5304,7 @@ function ssNewPlan(K){
   const row=seasonAllRows(k,learners,plans,sd).find(r=>r.key===key); if(!row) return;
   const l=row.last, p=blankPlan();
   p.clientName=l.name||''; p.phone=l.phone||'';
+  p.status='결제완료'; p.counselDate=''; // 이미 결제했던 학생이라 결제완료, 상담일은 비움
   if(!row.extra){ p.linkedLearner=l.name||''; p.linkedPhone=l.phone||''; }
   plans[p.id]=p;
   (sd.people[key]=sd.people[key]||{}).planId=p.id;
