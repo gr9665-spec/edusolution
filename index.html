@@ -1607,7 +1607,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
 <div class="modal" style="max-width:860px;width:860px;max-height:95vh;display:flex;flex-direction:column">
   <div class="modal-head" style="flex-shrink:0">
     <h2><i class="ti ti-printer"></i> 플랜표 미리보기</h2>
-    <button class="btn btn-icon" onclick="closeModal('modal-plan-print')"><i class="ti ti-x"></i></button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="btn btn-sm btn-primary" id="plan-print-edit" onclick="editFromPrintPreview()" title="플랜표 탭에서 이 플랜을 열어 수정"><i class="ti ti-pencil"></i> 플랜표에서 수정</button>
+      <button class="btn btn-icon" onclick="closeModal('modal-plan-print')"><i class="ti ti-x"></i></button>
+    </div>
   </div>
   <div style="background:#fff;border:1px solid var(--border);border-radius:var(--r);flex:1;overflow:auto;margin-bottom:12px">
     <div id="plan-print-content" style="padding:20px;min-width:700px"></div>
@@ -5073,7 +5076,9 @@ function renderReview(){
 }
 function rvPreview(uid,pid){
   const p=(((allMembersData||{})[uid]||{}).plans||{})[pid]; if(!p) return;
-  window._printPlanObj=p; renderPlanPrintContent(); openModal('modal-plan-print');
+  window._printPlanObj=p; renderPlanPrintContent();
+  const eb=document.getElementById('plan-print-edit'); if(eb) eb.style.display='none'; // 다른 직원 플랜은 수정 버튼 없음
+  openModal('modal-plan-print');
 }
 function rvComment(K){
   const key=decodeURIComponent(K); const {m,rows,k,uid}=rvRows();
@@ -8966,7 +8971,15 @@ function openPrintPreview(pid){
   const p=plans[pid||curPid]; if(!p) return;
   _curPrintPid=pid||curPid;
   renderPlanPrintContent();
+  // 내 플랜일 때만 '플랜표에서 수정' (팀장 점검에서 다른 직원 플랜을 볼 땐 숨김), 이미 플랜표 탭에서 그 플랜을 보는 중이면 숨김
+  const eb=document.getElementById('plan-print-edit');
+  if(eb){ const onPlanTab=document.getElementById('panel-plan')?.classList.contains('active')&&curPid===_curPrintPid; eb.style.display=!window._printPlanObj&&plans[_curPrintPid]&&!onPlanTab?'':'none'; }
   openModal('modal-plan-print');
+}
+function editFromPrintPreview(){
+  const pid=_curPrintPid; if(!pid||!plans[pid]) return;
+  closeModal('modal-plan-print');
+  ssOpenPlanTab(pid);
 }
 // 플랜표 미리보기 양식 — 'table'(기존 표) / 'card'(간단 카드형), 직원 브라우저별로 기억
 function getPlanPrintStyle(){
