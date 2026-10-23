@@ -1680,12 +1680,12 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <input type="text" id="rv-search" placeholder="이름 검색" style="width:120px" oninput="renderReview()">
       <button class="btn btn-sm" onclick="loadAllMembersData().then(()=>{rvFillMembers();renderReview();})"><i class="ti ti-refresh"></i> 새로고침</button>
     </div>
-    <div class="card" style="padding:10px 14px;margin-bottom:10px" id="rv-summary"></div>
+    <div class="card" style="padding:10px 14px;margin-bottom:10px"><div id="rv-summary"></div><div id="rv-totals"></div></div>
     <div class="card" style="padding:0;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1040px">
         <thead><tr style="background:var(--bg2)">
           <th style="padding:8px 6px;text-align:left;width:130px">이름</th><th style="padding:8px 6px;text-align:left;width:160px">최근 결제</th>
-          <th style="padding:8px 6px;text-align:center;width:80px">다음학기</th><th style="padding:8px 6px;text-align:right;width:90px">예상매출</th>
+          <th class="rv-fh" data-f="credits" onclick="rvToggleFilled('credits')" style="padding:8px 6px;text-align:center;width:80px;cursor:pointer">다음학기</th><th class="rv-fh" data-f="sales" onclick="rvToggleFilled('sales')" style="padding:8px 6px;text-align:right;width:90px;cursor:pointer">예상매출</th>
           <th style="padding:8px 6px;text-align:center;width:84px">상태</th><th style="padding:8px 6px;text-align:center;width:90px">카톡</th>
           <th style="padding:8px 6px;text-align:center;width:110px">등록예정</th><th style="padding:8px 6px;text-align:left">비고</th>
           <th style="padding:8px 6px;text-align:center;width:150px">점검</th>
@@ -5051,7 +5051,24 @@ function renderReview(){
     <div style="display:flex;gap:5px;flex-wrap:wrap">${_rvFilter.size?`<button type="button" onclick="_rvFilter=new Set();renderReview()" style="cursor:pointer;font-size:12px;border:1px solid #adb5bd;background:#fff;border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">선택 해제</button>`:''}${SS_STATUS.map(v=>{const on=_rvFilter.has(v.k);return `<button type="button" onclick="rvPick('${v.k}')" title="눌러서 ${v.k} 같이 보기 (여러 개 선택 가능)" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`;}).join('')}</div></div>`;
   let rows=_rvFilter.size?all.filter(r=>_rvFilter.has(r.v.status)):all.filter(r=>!['과정끝','환불'].includes(r.v.status));
   const q=(document.getElementById('rv-search').value||'').trim(); if(q) rows=rows.filter(r=>(r.last.name||'').includes(q));
+  // 칸 제목(다음학기·예상매출) 누르면 값이 있는 학생만 (둘 다 누르면 하나라도 있는 학생)
+  const fl=window._rvFilled||new Set();
+  document.querySelectorAll('th.rv-fh').forEach(th=>{ const on=fl.has(th.dataset.f);
+    th.title=on?'다시 누르면 전체 보기':'누르면 값이 있는 학생만 보기';
+    th.style.background=on?'#fff3bf':''; th.style.color=on?'#e67700':''; th.style.textDecoration=on?'underline':''; });
+  if(fl.size) rows=rows.filter(r=>(fl.has('credits')&&(r.v.credits||0)>0)||(fl.has('sales')&&(r.v.sales||0)>0));
   rows.sort((a,b)=>a.payKey.localeCompare(b.payKey));
+  // 지금 보이는 목록 합계
+  const sumCr=rows.reduce((a,r)=>a+(parseInt(r.v.credits)||0),0);
+  const sumExp=rows.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+(r.v.sales||0),0);
+  const sumPaid=rows.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+(r.v.sales||0),0);
+  const tot=document.getElementById('rv-totals');
+  if(tot) tot.innerHTML=`<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">
+    <div><div style="font-size:11px;color:var(--text2)">보이는 학생</div><div style="font-size:20px;font-weight:800">${rows.length}<span style="font-size:12px;font-weight:600">명</span></div></div>
+    <div><div style="font-size:11px;color:var(--text2)">다음학기 학점 합계</div><div style="font-size:20px;font-weight:800">${sumCr.toLocaleString()}<span style="font-size:12px;font-weight:600">학점</span></div></div>
+    <div><div style="font-size:11px;color:var(--text2)">예상매출 합계</div><div style="font-size:20px;font-weight:800;color:var(--navy)">${won(sumExp)}</div></div>
+    <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:20px;font-weight:800;color:var(--green)">${won(sumPaid)}</div></div>
+    <div style="font-size:11px;color:var(--text3)">위 상태 버튼·칸 제목·검색으로 고른 목록 기준 (과정끝·환불·신청오류는 예상매출에서 빠짐)</div></div>`;
   const em=document.getElementById('rv-empty');
   if(!rows.length){ tb.innerHTML=''; em.style.display='block'; return; }
   em.style.display='none';
@@ -5074,6 +5091,11 @@ function renderReview(){
         <button class="btn btn-sm" style="font-size:11px;${nOpen?'color:#fff;background:#e03131;border-color:#e03131':''}" onclick="rvComment('${ek(r.key)}')"><i class="ti ti-message"></i> ${ns.length?ns.length:'코멘트'}</button>
       </td></tr>`;
   }).join('');
+}
+function rvToggleFilled(k){
+  const s=window._rvFilled=window._rvFilled||new Set();
+  if(s.has(k)) s.delete(k); else s.add(k);
+  renderReview();
 }
 function rvPreview(uid,pid){
   const p=(((allMembersData||{})[uid]||{}).plans||{})[pid]; if(!p) return;
