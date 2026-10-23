@@ -2244,7 +2244,8 @@ async function showApp(){
       document.getElementById('user-badge').after(logoutBtn);
     }
     startReviewNotes();
-    ['atab-review','atab-pros'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=isReviewer()?'':'none'; });
+    ['atab-pros'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=isReviewer()?'':'none'; });
+    { const el=document.getElementById('atab-review'); if(el) el.style.display=canSeeWork()?'':'none'; } // 성수기 점검: 팀장 + 일부 팀원만 보는 사람(WORK_VIEW_LIMITS)
     { const el=document.getElementById('atab-work'); if(el) el.style.display=canSeeWork()?'':'none'; }
   }
 
@@ -4927,7 +4928,7 @@ function renderAdminPros(){
 // reviewNotes/{id} = {toUid,toName,fromUid,fromName,seasonKey,studentKey,studentName,planId,text,createdAt,read,resolved,reply,repliedAt}
 const REVIEWER_EMAILS=['yelim753@naver.com']; // 성수기 점검·코멘트 가능한 사람 (김예림 팀장)
 function isReviewer(){ return !!(currentUser&&REVIEWER_EMAILS.includes(currentUser.email)); }
-// 업무 현황(업무일지)만 일부 팀원 것을 볼 수 있는 사람: 이메일 → 볼 수 있는 팀원 이름
+// 업무 현황(업무일지)·성수기 점검을 일부 팀원 것만 볼 수 있는 사람: 이메일 → 볼 수 있는 팀원 이름
 const WORK_VIEW_LIMITS={'gr9665@gmail.com':['허상욱','양다현','이찬혁']};
 function canSeeWork(){ return isReviewer()||!!(currentUser&&WORK_VIEW_LIMITS[currentUser.email]); }
 function workMemberVisible(m){
@@ -5006,13 +5007,13 @@ document.addEventListener('click',e=>{
 
 // 팀장: 성수기 점검 탭
 async function openReviewTab(){
-  if(!isReviewer()){ document.getElementById('admin-tab-review').innerHTML='<div class="empty">팀장님만 볼 수 있어요</div>'; return; }
+  if(!canSeeWork()){ document.getElementById('admin-tab-review').innerHTML='<div class="empty">팀장님만 볼 수 있어요</div>'; return; }
   if(!Object.keys(allMembersData||{}).length) await loadAllMembersData();
   rvFillMembers(); rvChangeMember();
 }
 function rvFillMembers(){
   const sel=document.getElementById('rv-member'), prev=sel.value;
-  const ms=Object.values(allMembersData||{}).filter(m=>m.approved!==false).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  const ms=Object.values(allMembersData||{}).filter(m=>m.approved!==false&&workMemberVisible(m)).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
   sel.innerHTML=ms.map(m=>`<option value="${m.uid}" ${m.uid===prev?'selected':''}>${pmEsc(m.name||m.email||'-')}${m.rank?' · '+pmEsc(m.rank):''}</option>`).join('');
 }
 function rvChangeMember(){
