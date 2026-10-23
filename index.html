@@ -356,7 +356,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
         <input type="text" id="blog-search" placeholder="검색..." style="flex:1;min-width:60px;font-size:11px;padding:3px 7px" oninput="renderBlogKeywords()">
         <select id="blog-filter-blog" onchange="renderBlogKeywords()" style="font-size:11px;padding:3px 6px;flex:1;min-width:60px">
-          <option value="">전체</option><option>양세마리</option><option>뭉치</option><option>세제</option><option>반대머리</option><option>교육의미</option><option>또치</option><option>두드림</option>
+          <option value="">전체</option><option>양세마리</option><option>뭉치</option><option>세제</option><option>반대머리</option><option>교육의미</option><option>또치</option><option>두드림</option><option>개인블로그</option>
         </select>
         <select id="blog-filter-month" onchange="renderBlogKeywords()" style="font-size:11px;padding:3px 6px;flex:1;min-width:60px">
           <option value="">전체월</option>
@@ -384,7 +384,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>날짜</label><input type="date" id="blog-date"></div>
     <div class="fg"><label>블로그</label>
       <select id="blog-name" style="font-size:13px" onchange="blogNameEtcToggle()">
-        <option value="">선택</option><option>양세마리</option><option>뭉치</option><option>세제</option><option>반대머리</option><option>교육의미</option><option>또치</option><option>두드림</option><option value="__etc">기타 (직접 입력)</option>
+        <option value="">선택</option><option>양세마리</option><option>뭉치</option><option>세제</option><option>반대머리</option><option>교육의미</option><option>또치</option><option>두드림</option><option>개인블로그</option><option value="__etc">기타 (직접 입력)</option>
       </select>
       <input type="text" id="blog-name-etc" placeholder="블로그 이름 직접 입력" style="display:none;margin-top:6px;font-size:13px">
     </div>
@@ -2612,7 +2612,7 @@ function saveBlogData(){
   if(currentUser&&fbDb) fbDb.collection('userData').doc(currentUser.uid).set({blogKeywords},{merge:true});
 }
 
-const BLOG_NAMES=['양세마리','뭉치','세제','반대머리','교육의미','또치','두드림'];
+const BLOG_NAMES=['양세마리','뭉치','세제','반대머리','교육의미','또치','두드림','개인블로그'];
 function blogNameEtcToggle(){
   const etc=document.getElementById('blog-name').value==='__etc', inp=document.getElementById('blog-name-etc');
   inp.style.display=etc?'':'none'; if(etc) setTimeout(()=>inp.focus(),0);
