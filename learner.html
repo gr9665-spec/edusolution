@@ -350,7 +350,7 @@ function derive(r){
   if(!r.hasPlan){steps[2].status=current||finished.length?'doing':'todo';}
 
   const goals=[];
-  if(r.degree||target) goals.push({icon:'학',title:'학위취득',
+  if(r.degree||target) goals.push({icon:r.goalKind==='cert'?'응':'학',title:r.goalKind==='cert'?'응시자격':'학위취득',
     desc:[r.major,r.degree].filter(Boolean).join(' ')+(target?` · 목표 ${target}학점`:''),
     status:reached?'학점 충족':'진행 중',color:'teal'});
   (certs||[]).forEach(c=>{

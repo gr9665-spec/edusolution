@@ -3038,7 +3038,8 @@ function buildPortalData(l){
   if(p){
     const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
     const t=planTotals(p);
-    out.degree=p.degree==='기타'?(p.degreeCustom||''):(p.degree||'');
+    out.degree=degLabel(p);
+    out.goalKind=dr.cert?'cert':''; // 기사·산업기사 응시자격 목표면 학습자 페이지에서 '응시자격'으로 표시
     out.major=p.major==='기타'?(p.majorCustom||''):(p.major||'');
     out.target=dr.total||dr.major||0;
     out.owned=t.ownAll;
@@ -4112,7 +4113,7 @@ function linkLearnerToPlan(idx){
   _planLinkAllOpts=[{value:'',text:'-- 연결 안 함 --',selected:false},
     ...planList.map(p=>({
       value:p.id,
-      text:`${p.clientName||'(미입력)'} — ${p.degree==='기타'?(p.degreeCustom||''):p.degree} ${p.major==='기타'?(p.majorCustom||''):p.major} (${p.counselDate||''}) ${(p.status||'가망')==='결제완료'?'✓':''}`,
+      text:`${p.clientName||'(미입력)'} — ${degLabel(p)} ${p.major==='기타'?(p.majorCustom||''):p.major} (${p.counselDate||''}) ${(p.status||'가망')==='결제완료'?'✓':''}`,
       selected:!!(existing&&p.id===existing.id)
     }))
   ];
@@ -5474,7 +5475,7 @@ function ssPlanList(K){
   const el=document.getElementById('ss-plan-list');
   if(!list.length){ el.innerHTML='<div class="empty" style="padding:20px">찾는 플랜표가 없어요</div>'; return; }
   el.innerHTML=list.slice(0,60).map(p=>{
-    const deg=(p.degree==='기타'?(p.degreeCustom||'기타'):p.degree)||'';
+    const deg=(degLabel(p)||(p.degree==='기타'?'기타':''));
     const maj=p.major==='기타'?(p.majorCustom||''):(p.major||'');
     const on=p.id===cur, same=ph&&normPhone(p.phone)===ph;
     return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border);${on?'background:#e7f6ea':''}">
@@ -7363,8 +7364,17 @@ const DEG_REQ = {
   '전문학사':       {total:80,  req:45,  elec:0,  gen:15, lib:15, major:45,  note:'전공45 · 교양15 · 총80학점'},
   '타전공 전문학사':{total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:36,  note:'전공36학점 (복수전공)'},
   '타전공 학사':    {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:48,  note:'전공48학점 (복수전공)'},
+  '기사 106학점':    {total:106, req:0,   elec:0,  gen:0,  lib:0,  major:0,   note:'기사 응시자격 총106학점', cert:true},
+  '산업기사 41학점': {total:41,  req:0,   elec:0,  gen:0,  lib:0,  major:0,   note:'산업기사 응시자격 총41학점', cert:true},
   '기타':           {total:0,   req:0,   elec:0,  gen:0,  lib:0,  major:0,   note:''},
 };
+// 목표 표시 이름: 기타는 직접 입력, 기사·산업기사는 적어둔 자격증명(예: 건축설비기사)을 앞에
+function degLabel(p){
+  const d=p&&p.degree||'', c=String(p&&p.degreeCustom||'').trim();
+  if(d==='기타') return c;
+  if((DEG_REQ[d]||{}).cert) return c?`${c} (${d})`:d;
+  return d;
+}
 
 function blankPlan(){
   return {
@@ -7429,7 +7439,7 @@ function renderPlanList(){
         <div style="font-size:13px;font-weight:600;color:${cur?'#fff':'var(--text)'};;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.clientName||'(이름 미입력)'}</div>
         <span style="font-size:10px;background:${cur?'rgba(255,255,255,.15)':'var(--bg2)'};color:${cur?'#fff':statusColor};border-radius:99px;padding:1px 6px;flex-shrink:0;font-weight:600">${status}</span>
       </div>
-      <div style="font-size:11px;color:${cur?'rgba(255,255,255,.65)':'var(--text2)'};margin-top:2px">${p.major==='기타'?(p.majorCustom||''):p.major} · ${p.degree==='기타'?(p.degreeCustom||''):p.degree}</div>
+      <div style="font-size:11px;color:${cur?'rgba(255,255,255,.65)':'var(--text2)'};margin-top:2px">${p.major==='기타'?(p.majorCustom||''):p.major} · ${degLabel(p)}</div>
       <div style="font-size:10px;color:${cur?'rgba(255,255,255,.45)':'var(--text3)'};margin-top:1px">${p.counselDate||''}</div>
     </div>`;
   }).join('');
@@ -7909,7 +7919,7 @@ const PLAN_BLUE='#3a5a96', PLAN_LBLUE='#e6ecf5', PLAN_YELLOW='#fffbe6', PLAN_DYE
 function renderPlanEditor(p){
   const dr=DEG_REQ[p.degree]||DEG_REQ['학사'];
   const t=planTotals(p);
-  const majors=['경영','사회복지','보육·아동','심리','상담','청소년','한국어교원','평생교육사','기타'];
+  const majors=['경영','사회복지','보육·아동','심리','상담','청소년','한국어교원','평생교육사','컴퓨터공학','기타'];
 
   // ── 중복 과목명 계산 ──
   const _dupSubjects=getDupSubjects(p);
@@ -7968,8 +7978,8 @@ function renderPlanEditor(p){
           <select onchange="upP('degree',this.value);document.getElementById('degree-custom-wrap').style.display=this.value==='기타'?'block':'none';renderPlanEditor(plans[curPid])">
             ${Object.keys(DEG_REQ).map(d=>`<option ${p.degree===d?'selected':''}>${d}</option>`).join('')}
           </select>
-          <div id="degree-custom-wrap" style="margin-top:4px;display:${p.degree==='기타'?'block':'none'}">
-            <input type="text" value="${p.degreeCustom||''}" placeholder="목적 직접 입력 (예: 방송대 3학년 편입)" onchange="upP('degreeCustom',this.value)" style="font-size:12px;padding:5px 8px;width:100%">
+          <div id="degree-custom-wrap" style="margin-top:4px;display:${p.degree==='기타'||dr.cert?'block':'none'}">
+            <input type="text" value="${p.degreeCustom||''}" placeholder="${dr.cert?'목표 자격증 (예: 건축설비'+(p.degree.startsWith('산업')?'산업기사':'기사')+')':'목적 직접 입력 (예: 방송대 3학년 편입)'}" onchange="upP('degreeCustom',this.value)" style="font-size:12px;padding:5px 8px;width:100%">
           </div></div>
         <div class="fg"><label>전공</label>
           <select onchange="upP('major',this.value);document.getElementById('major-custom-wrap').style.display=this.value==='기타'?'block':'none'">
@@ -7986,7 +7996,7 @@ function renderPlanEditor(p){
           </select></div>
       </div>
       <div style="margin-top:8px;font-size:12px;color:var(--blue);background:var(--blue-bg);border-radius:var(--r);padding:7px 10px">
-        <i class="ti ti-info-circle"></i> ${p.degree==='기타'?(p.degreeCustom||''):(p.degree+' — '+dr.note)}
+        <i class="ti ti-info-circle"></i> ${p.degree==='기타'?(p.degreeCustom||''):(degLabel(p)+' — '+dr.note)}
       </div>
     </div>
 
@@ -8379,6 +8389,20 @@ function buildRequiredSubjectCheck(p,t){
 // ── 학위취득 가능여부 체커 (내부 전용) ────────────────────────────────
 function buildDegreeChecker(p,t,dr){
   if(p.degree==='기타') return '';
+  if(dr.cert){ // 기사·산업기사 응시자격: 총학점만 확인
+    const lack=Math.max(0,dr.total-t.grand), ok=lack===0;
+    return `<div class="card" style="padding:0;overflow:hidden;border:2px solid ${ok?'#81c784':'#ef9a9a'}">
+      <div style="background:#f5f5f5;padding:7px 14px;font-size:11px;font-weight:600;color:#666;border-bottom:1px solid #eee"><i class="ti ti-lock" style="font-size:11px"></i> 내부 확인용 — 학습자에게 전달하지 않습니다</div>
+      <div style="padding:12px 14px">
+        <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:10px">${degLabel(p)} 응시자격 기준 (${dr.note})</div>
+        <div style="padding:12px;text-align:center;font-size:13px;font-weight:700;background:${ok?'#e8f5e9':'#fff5f5'};border-radius:8px;border:1px solid ${ok?'#a5d6a7':'#ef9a9a'}">
+          응시자격 학점 충족 여부
+          <div style="font-size:22px;font-weight:800;color:${ok?'#2e6e10':'#c0392b'};margin-top:4px">${ok?'충족! ✅':'부족'}</div>
+          <div style="font-size:11px;color:${ok?'#2e6e10':'#c0392b'};margin-top:4px">${t.grand} / ${dr.total}학점${ok?'':` · ${lack}학점 부족`}</div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:8px">※ 관련 전공으로 학습자등록했는지(정보처리·빅데이터분석기사는 전공 무관), 신규 이수 학점 조건은 따로 확인해 주세요.</div>
+      </div></div>`;
+  }
   const totalMajor=t.totReq+t.totElec;
   const needMajor=dr.major!=null ? dr.major : dr.req+(dr.elec||0);
   const isTaJeon=dr.total===0; // 타전공: 전공학점만 체크
@@ -8402,7 +8426,7 @@ function buildDegreeChecker(p,t,dr){
       <i class="ti ti-lock" style="font-size:11px"></i> 내부 확인용 — 학습자에게 전달하지 않습니다
     </div>
     <div style="padding:12px 14px">
-      <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:10px">${p.degree==='기타'?(p.degreeCustom||''):(p.degree+' 학위취득 기준 ('+dr.note+')')}</div>
+      <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:10px">${p.degree==='기타'?(p.degreeCustom||''):(dr.cert?degLabel(p)+' 응시자격 기준 ('+dr.note+')':p.degree+' 학위취득 기준 ('+dr.note+')')}</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
         ${items.map(item=>`
           <div style="background:${item.lack===0?'#e8f5e9':'#fff5f5'};border-radius:8px;padding:10px;text-align:center;border:1px solid ${item.lack===0?'#a5d6a7':'#ef9a9a'}">
@@ -8604,10 +8628,11 @@ function generateKakaoMsg(goal){
   const memoLines=memo.split('\n');
   const missing=[];
   // 목표 학위가 '기타'면 입력칸(degreeCustom)의 목표로 표시 (예: 건축설비기사 → 106학점 플랜)
-  const isEtc=degree==='기타';
+  const isCertGoal=!!(DEG_REQ[degree]||{}).cert; // 목표 '기사 106학점'·'산업기사 41학점'
+  const isEtc=degree==='기타'||isCertGoal;
   const custom=String(p.degreeCustom||'').trim();
   const targetName=custom.replace(/\s*응시\s*자격.*$/,'').trim();
-  const etcLabel=/산업기사/.test(custom)?'41학점':/기사/.test(custom)?'106학점':`${planTotals(p).grand}학점`;
+  const etcLabel=isCertGoal?`${DEG_REQ[degree].total}학점`:/산업기사/.test(custom)?'41학점':/기사/.test(custom)?'106학점':`${planTotals(p).grand}학점`;
   const headLabel=isEtc?etcLabel:`${major} ${degree}`.trim();
 
   // ── 학기 일자 ──
@@ -9067,7 +9092,7 @@ function buildPlanCardHtml(p){
   const needMajor = dr.major!=null ? dr.major : dr.req+(dr.elec||0);
   const totMajor = t.totReq + t.totElec;
   const CATS=[['req','전공필수','pcv-req'],['elec','전공선택','pcv-sel'],['gen','일반','pcv-free'],['lib','교양','pcv-lib']];
-  const degName=`${p.major==='기타'?(p.majorCustom||''):p.major} ${p.degree==='기타'?(p.degreeCustom||''):p.degree}`.trim();
+  const degName=`${p.major==='기타'?(p.majorCustom||''):p.major} ${degLabel(p)}`.trim();
 
   // 한 분류의 과목들 → 과목명 목록 + "개강 후 확정" 개수 + 학점합 + 학점 없는 안내문
   const group=arr=>{
@@ -9133,6 +9158,9 @@ function buildPlanCardHtml(p){
     hero=`<div class="pcv-big${ok?'':' pcv-short'}">${totMajor}<small>/${needMajor} 전공학점</small></div><span class="pcv-pill${ok?'':' pcv-short'}">${ok?'✓ 전공학점 충족':(needMajor-totMajor)+'학점 부족'}</span>`;
   }else if(isEtcDegree){
     hero=`<div class="pcv-big">${t.grand}<small>학점</small></div>`;
+  }else if(dr.cert){
+    const ok=t.grand>=dr.total;
+    hero=`<div class="pcv-big${ok?'':' pcv-short'}">${t.grand}<small>/${dr.total}학점</small></div><span class="pcv-pill${ok?'':' pcv-short'}">${ok?'✓ 응시자격 학점 충족':(dr.total-t.grand)+'학점 부족'}</span>`;
   }else{
     const ok=t.grand>=dr.total;
     hero=`<div class="pcv-big${ok?'':' pcv-short'}">${t.grand}<small>/${dr.total}학점</small></div><span class="pcv-pill${ok?'':' pcv-short'}">${ok?'✓ 졸업요건 충족':(dr.total-t.grand)+'학점 부족'}</span>`;
@@ -9372,7 +9400,7 @@ function buildPlanPrintHtml(p){
         <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''}</div>
       </div>
       <div style="text-align:right;font-size:12px;opacity:.85">
-        <div style="font-weight:700">${p.major==='기타'?(p.majorCustom||''):p.major} ${p.degree==='기타'?(p.degreeCustom||''):p.degree}</div>
+        <div style="font-weight:700">${p.major==='기타'?(p.majorCustom||''):p.major} ${degLabel(p)}</div>
         <div style="font-size:11px;opacity:.8">${p.degree==='기타'?'':dr.note}</div>
       </div>
     </div>
@@ -9593,7 +9621,7 @@ function openMobilePlanPage(){
   <!-- 헤더 -->
   <div style="background:${BL};color:#fff;border-radius:12px;padding:16px;margin-bottom:14px">
     <div style="font-size:20px;font-weight:700">${p.clientName||'플랜표'}</div>
-    <div style="font-size:12px;opacity:.75;margin-top:4px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree==='기타'?(p.degreeCustom||''):p.degree}</div>
+    <div style="font-size:12px;opacity:.75;margin-top:4px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${degLabel(p)}</div>
     <div style="font-size:11px;opacity:.65;margin-top:2px">${p.degree==='기타'?'':dr.note}</div>
   </div>
 
@@ -9728,7 +9756,7 @@ function renderMobilePlan(pid){
     <!-- 헤더 -->
     <div style="background:${BL};color:#fff;border-radius:10px;padding:14px 16px;margin-bottom:14px">
       <div style="font-size:18px;font-weight:700">${p.clientName||'플랜표'}</div>
-      <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${p.degree==='기타'?(p.degreeCustom||''):p.degree}</div>
+      <div style="font-size:11px;opacity:.75;margin-top:3px">상담일 ${p.counselDate||''} &nbsp;·&nbsp; ${majorName} ${degLabel(p)}</div>
       <div style="font-size:11px;opacity:.7;margin-top:2px">${p.degree==='기타'?'':dr.note}</div>
     </div>
 
