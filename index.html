@@ -5296,7 +5296,8 @@ function renderSeason(){
           ${r.plan?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy)" onclick="openPrintPreview('${r.plan.id}')" title="플랜표 미리보기 (${pmEsc(r.plan.clientName||'')})"><i class="ti ti-clipboard-list"></i> 플랜</button>
             <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px" onclick="ssOpenPlanTab('${r.plan.id}')" title="플랜표 탭에서 열어 수정"><i class="ti ti-pencil"></i></button>`:''}
           <button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:${r.manualPlan?'var(--green)':'var(--text3)'}" onclick="ssPickPlan('${K}')" title="${r.plan?(r.manualPlan?'직접 연결한 플랜 — 바꾸기':'자동 연결된 플랜 — 바꾸기'):'플랜 직접 연결'}"><i class="ti ti-link"></i>${r.plan?'':' 연결'}</button>
-          ${r.plan?'':`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy);font-weight:700" onclick="ssNewPlan('${K}')" title="이름·연락처를 채운 새 플랜표를 만들고 바로 이 학생과 연결"><i class="ti ti-plus"></i> 새 플랜</button>`}
+          ${r.plan?'':`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--navy);font-weight:700" onclick="ssNewPlan('${K}')" title="이름·연락처를 채운 새 플랜표를 만들고 바로 이 학생과 연결"><i class="ti ti-plus"></i> 새 플랜</button>
+            <label class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:#2b8a3e;font-weight:700;cursor:pointer;margin:0" title="엑셀 플랜(.xlsx)을 가져와서 이 학생 플랜으로 연결"><i class="ti ti-file-spreadsheet"></i> 엑셀<input type="file" accept=".xlsx,.xls" style="display:none" onchange="ssImportPlan('${K}',this)"></label>`}
           ${window._ssShowExcl?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--green)" onclick="ssSetExcl('${K}',false)" title="이번 시즌 대상에 다시 넣기"><i class="ti ti-arrow-back-up"></i> 넣기</button>`
             :`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:var(--text3)" onclick="ssSetExcl('${K}',true)" title="이번 시즌 대상에서 빼기 (다음 시즌 대상 등)"><i class="ti ti-eye-off"></i></button>`}
         </div></td>
@@ -5322,17 +5323,26 @@ function ssOpenPlanTab(pid){
 }
 // 성수기에서 플랜 없는 학생 → 이름·연락처 채운 새 플랜표 만들고 연결한 뒤 플랜표 탭으로
 function ssNewPlan(K){
+  if(ssAttachPlan(K,blankPlan())) showToast('새 플랜표를 만들었어요');
+}
+// 성수기 '엑셀' 버튼: 엑셀 플랜 가져오기를 이 학생 플랜으로
+function ssImportPlan(K,input){
+  window._ssXlsxTarget=K;
+  importPlanFromXlsx(input);
+}
+// 플랜(새로 만든 것/엑셀에서 가져온 것)을 성수기 학생에게 붙이기: 이름·연락처 채우고 결제완료·상담일 비움, 연결 후 플랜표 탭으로
+function ssAttachPlan(K,p){
   const key=decodeURIComponent(K), k=document.getElementById('ss-season').value, sd=seasonData(k);
-  const row=seasonAllRows(k,learners,plans,sd).find(r=>r.key===key); if(!row) return;
-  const l=row.last, p=blankPlan();
-  p.clientName=l.name||''; p.phone=l.phone||'';
+  const row=seasonAllRows(k,learners,plans,sd).find(r=>r.key===key); if(!row) return false;
+  const l=row.last;
+  p.clientName=l.name||p.clientName||''; p.phone=l.phone||p.phone||'';
   p.status='결제완료'; p.counselDate=''; // 이미 결제했던 학생이라 결제완료, 상담일은 비움
   if(!row.extra){ p.linkedLearner=l.name||''; p.linkedPhone=l.phone||''; }
   plans[p.id]=p;
   (sd.people[key]=sd.people[key]||{}).planId=p.id;
   LS.set('hk_plans',plans); save();
-  showToast(`${p.clientName} 님 새 플랜표를 만들었어요`);
   ssOpenPlanTab(p.id);
+  return true;
 }
 function ssPickPlan(K){
   const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
@@ -7564,14 +7574,20 @@ function importPlanFromXlsx(input){
           owned:{req:ownReq,elec:ownElec,gen:ownGen,lib:ownLib,specials:[]},
           semesters, specials, memo, note2:'',
         };
+        // 성수기에서 가져오기를 누른 경우: 그 학생 이름·연락처로 채우고 연결 (결제완료·상담일 비움)
+        const ssT=window._ssXlsxTarget; window._ssXlsxTarget=null;
+        if(ssT&&ssAttachPlan(ssT,plan)){
+          alert(`✓ "${plan.clientName}" 플랜 가져오기 완료! (성수기 학생과 연결)\n보유학점 ${ownReq.length+ownElec.length+ownGen.length+ownLib.length}개, 학기 ${semesters.length}개, 자격증/독학사 ${specials.length}개`);
+          return;
+        }
         plans[newId]=plan;
         LS.set('hk_plans',plans); saveToFirebase();
         curPid=newId; renderPlanList(); renderPlanEditor(plan);
         alert(`✓ "${plan.clientName}" 플랜 가져오기 완료!\n보유학점 ${ownReq.length+ownElec.length+ownGen.length+ownLib.length}개, 학기 ${semesters.length}개, 자격증/독학사 ${specials.length}개`);
-      }catch(err){alert('파일 읽기 실패: '+err.message+'\n'+err.stack.split('\n')[1]);}
+      }catch(err){window._ssXlsxTarget=null;alert('파일 읽기 실패: '+err.message+'\n'+err.stack.split('\n')[1]);}
     };
     reader.readAsArrayBuffer(file);
-  }).catch(()=>alert('라이브러리 로드 실패'));
+  }).catch(()=>{window._ssXlsxTarget=null;alert('라이브러리 로드 실패');});
 }
 
 function exportPlan(pid){
