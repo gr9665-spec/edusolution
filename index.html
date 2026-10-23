@@ -1608,6 +1608,11 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="modal-head" style="flex-shrink:0">
     <h2><i class="ti ti-printer"></i> 플랜표 미리보기</h2>
     <div style="display:flex;gap:6px;align-items:center">
+      <div id="plan-print-nav" style="display:none;align-items:center;gap:4px">
+        <button class="btn btn-sm" onclick="rvPreviewStep(-1)" title="이전 학습자 플랜"><i class="ti ti-chevron-left"></i></button>
+        <span id="plan-print-nav-label" style="font-size:12px;color:var(--text2);min-width:90px;text-align:center"></span>
+        <button class="btn btn-sm" onclick="rvPreviewStep(1)" title="다음 학습자 플랜"><i class="ti ti-chevron-right"></i></button>
+      </div>
       <button class="btn btn-sm btn-primary" id="plan-print-edit" onclick="editFromPrintPreview()" title="플랜표 탭에서 이 플랜을 열어 수정"><i class="ti ti-pencil"></i> 플랜표에서 수정</button>
       <button class="btn btn-icon" onclick="closeModal('modal-plan-print')"><i class="ti ti-x"></i></button>
     </div>
@@ -5080,6 +5085,7 @@ function renderReview(){
     <div><div style="font-size:11px;color:var(--text2)">예상매출 합계</div><div style="font-size:20px;font-weight:800;color:var(--navy)">${won(sumExp)}</div></div>
     <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:20px;font-weight:800;color:var(--green)">${won(sumPaid)}</div></div>
     <div style="font-size:11px;color:var(--text3)">위 상태 버튼·칸 제목·검색으로 고른 목록 기준 (과정끝·환불·신청오류는 예상매출에서 빠짐)</div></div>`;
+  window._rvPlanSeq=rows.filter(r=>r.plan).map(r=>({pid:r.plan.id,name:r.last.name||''}));
   const em=document.getElementById('rv-empty');
   if(!rows.length){ tb.innerHTML=''; em.style.display='block'; return; }
   em.style.display='none';
@@ -5117,7 +5123,19 @@ function rvPreview(uid,pid){
   const p=(((allMembersData||{})[uid]||{}).plans||{})[pid]; if(!p) return;
   window._printPlanObj=p; renderPlanPrintContent();
   const eb=document.getElementById('plan-print-edit'); if(eb) eb.style.display='none'; // 다른 직원 플랜은 수정 버튼 없음
+  // 점검 목록 순서대로 이전/다음 학습자 플랜 넘겨보기
+  const seq=window._rvPlanSeq||[], i=seq.findIndex(x=>x.pid===pid);
+  window._rvPlanIdx=i; window._rvPlanUid=uid;
+  const nav=document.getElementById('plan-print-nav');
+  if(nav){ nav.style.display=i>=0&&seq.length>1?'flex':'none';
+    const lb=document.getElementById('plan-print-nav-label'); if(lb&&i>=0) lb.textContent=`${i+1}/${seq.length} · ${seq[i].name}`; }
   openModal('modal-plan-print');
+}
+function rvPreviewStep(d){
+  const seq=window._rvPlanSeq||[]; if(!seq.length) return;
+  const i=((window._rvPlanIdx||0)+d+seq.length)%seq.length;
+  rvPreview(window._rvPlanUid,seq[i].pid);
+  const box=document.querySelector('#modal-plan-print .modal > div:nth-child(2)'); if(box) box.scrollTop=0;
 }
 function rvComment(K){
   const key=decodeURIComponent(K); const {m,rows,k,uid}=rvRows();
@@ -9010,6 +9028,7 @@ function openPrintPreview(pid){
   const p=plans[pid||curPid]; if(!p) return;
   _curPrintPid=pid||curPid;
   renderPlanPrintContent();
+  { const nav=document.getElementById('plan-print-nav'); if(nav) nav.style.display='none'; }
   // 내 플랜일 때만 '플랜표에서 수정' (팀장 점검에서 다른 직원 플랜을 볼 땐 숨김), 이미 플랜표 탭에서 그 플랜을 보는 중이면 숨김
   const eb=document.getElementById('plan-print-edit');
   if(eb){ const onPlanTab=document.getElementById('panel-plan')?.classList.contains('active')&&curPid===_curPrintPid; eb.style.display=!window._printPlanObj&&plans[_curPrintPid]&&!onPlanTab?'':'none'; }
