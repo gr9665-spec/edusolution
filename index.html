@@ -2840,12 +2840,22 @@ async function runSaveToFirebase(){
       autoLinkPlans(); autoLinkProspects(); syncProspectPlans(); autoPaidPlans();
       const newLastUpdated=new Date().toISOString();
       _myWrites.add(newLastUpdated);
-      await docRef.set({
+      // mergeFields: 아래 항목은 통째로 덮어씀 (merge:true는 칸을 지운 게 서버에 반영되지 않아 새로고침하면 되살아났음)
+      //            나머지 문서 항목(승인·퇴사 정보 등)은 그대로 둠
+      const _payload={
         learners, schedules, mktActivities, mktGoals, prospects, userTemplates, seasons, contentLogs, dailyNotes,
         rewardTable, todos, plans,
         memos, memoCategories, blogKeywords,
         lastUpdated: newLastUpdated
-      }, {merge:true});
+      };
+      Object.keys(_payload).forEach(k=>{ if(_payload[k]===undefined) delete _payload[k]; });
+      // 안전장치: 서버엔 있는데 이 화면에선 비어 있는 묶음(아직 못 불러온 경우 등)은 이번 저장에서 건드리지 않음
+      const _sv=snap&&snap.exists?snap.data():{};
+      ['plans','seasons','dailyNotes','userTemplates','rewardTable'].forEach(k=>{
+        const loc=_payload[k], srv=_sv[k];
+        if(loc&&typeof loc==='object'&&!Object.keys(loc).length&&srv&&typeof srv==='object'&&Object.keys(srv).length) delete _payload[k];
+      });
+      await docRef.set(_payload, {mergeFields:Object.keys(_payload)});
       _loadedLastUpdated=newLastUpdated;
       syncLearnerPortals();
     } catch(e){ console.warn('Firebase 저장 실패:', e); }
