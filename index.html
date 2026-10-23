@@ -3915,52 +3915,72 @@ function addImgPreview(file){
 }
 function renderImgPreviews(){
   const list=document.getElementById('img-preview-list'); if(!list) return;
-  list.innerHTML=_pendingImgs.map(img=>`
-    <div style="position:relative;display:inline-block">
-      <img src="${img.downloadUrl||img.localUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer"
-        onclick="window.open('${img.downloadUrl||img.localUrl}','_blank')">
+  list.innerHTML=_pendingImgs.map(img=>{ const src=img.downloadUrl||img.localUrl;
+    return `<div style="position:relative;display:inline-block">
+      ${src?`<img src="${src}" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:pointer" onclick="viewImg('${img.id}')">`
+        :`<div style="width:80px;height:80px;border-radius:6px;border:1px solid var(--border);display:grid;place-items:center;font-size:11px;color:var(--text3)">불러오는 중</div>`}
       <button onclick="removeImg('${img.id}')" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;font-size:11px;line-height:1;padding:0">×</button>
-    </div>`).join('');
+    </div>`; }).join('');
+}
+// 크게 보기 (data: 주소는 새 탭으로 바로 못 열어서 빈 창에 그려서 보여줌)
+function viewImg(id){
+  const img=_pendingImgs.find(i=>i.id===id); const src=img&&(img.downloadUrl||img.localUrl); if(!src) return;
+  const w=window.open('','_blank'); if(!w) return;
+  w.document.write(`<title>입금확인 이미지</title><body style="margin:0;background:#222;display:grid;place-items:center;min-height:100vh"><img src="${src}" style="max-width:100%;max-height:100vh"></body>`);
+  w.document.close();
 }
 function removeImg(id){
   const img=_pendingImgs.find(i=>i.id===id);
-  if(img&&img.storagePath&&fbStorage){
-    fbStorage.ref(img.storagePath).delete().catch(()=>{});
-  }
+  const p=String(img&&img.storagePath||'');
+  if(p.startsWith('fs:')&&fbDb) fbDb.collection('receiptImages').doc(p.slice(3)).delete().catch(()=>{});
+  else if(p&&p!=='base64'&&fbStorage) fbStorage.ref(p).delete().catch(()=>{});
   _pendingImgs=_pendingImgs.filter(i=>i.id!==id);
   renderImgPreviews();
 }
-
-async function uploadPendingImgs(learnerName){
-  if(!currentUser) return;
-  const status=document.getElementById('img-upload-status');
-  let uploaded=0;
+// 데이터베이스(receiptImages)에 저장된 이미지 불러오기
+async function loadFsImgs(){
+  if(!fbDb) return;
   for(const img of _pendingImgs){
-    if(img.storagePath) continue; // 이미 업로드됨
-    if(!img.file) continue; // 파일 없으면 스킵
+    const p=String(img.storagePath||''); if(!p.startsWith('fs:')||img.downloadUrl) continue;
+    try{ const d=await fbDb.collection('receiptImages').doc(p.slice(3)).get(); if(d.exists) img.downloadUrl=d.data().data||''; }catch(e){ console.warn('이미지 불러오기 실패',e); }
+  }
+  renderImgPreviews();
+}
+// 이미지를 줄여서 JPEG로 (데이터베이스 문서 한 개 1MB 제한 → 약 700KB 이하로)
+function compressImg(file,maxSide=1600){
+  return new Promise((res,rej)=>{
+    const im=new Image(), u=URL.createObjectURL(file);
+    im.onload=()=>{
+      let w=im.naturalWidth, h=im.naturalHeight; const sc=Math.min(1,maxSide/Math.max(w,h)); w=Math.round(w*sc); h=Math.round(h*sc);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      const cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,w,h); cx.drawImage(im,0,0,w,h);
+      URL.revokeObjectURL(u);
+      let q=0.8, out=cv.toDataURL('image/jpeg',q);
+      while(out.length>700000&&q>0.35){ q-=0.1; out=cv.toDataURL('image/jpeg',q); }
+      if(out.length>700000&&maxSide>800) return compressImg(file,Math.round(maxSide*0.7)).then(res,rej);
+      res(out);
+    };
+    im.onerror=()=>{ URL.revokeObjectURL(u); rej(new Error('이미지를 읽을 수 없어요')); };
+    im.src=u;
+  });
+}
+async function uploadPendingImgs(learnerName){
+  if(!currentUser||!fbDb) return;
+  const status=document.getElementById('img-upload-status');
+  const todo=_pendingImgs.filter(i=>!i.storagePath&&i.file);
+  const failed=[];
+  for(let n=0;n<todo.length;n++){
+    const img=todo[n];
     try{
-      if(status) status.textContent=`이미지 업로드 중... (${++uploaded}/${_pendingImgs.filter(i=>!i.storagePath&&i.file).length})`;
-      if(fbStorage){
-        // Firebase Storage 사용
-        const path=`receipts/${currentUser.uid}/${Date.now()}_${img.id}`;
-        const ref=fbStorage.ref(path);
-        await ref.put(img.file);
-        img.downloadUrl=await ref.getDownloadURL();
-        img.storagePath=path;
-      } else {
-        // Storage 없으면 Base64로 Firestore에 저장
-        const dataUrl=await new Promise((res,rej)=>{
-          const r=new FileReader();
-          r.onload=e=>res(e.target.result);
-          r.onerror=rej;
-          r.readAsDataURL(img.file);
-        });
-        img.downloadUrl=dataUrl;
-        img.storagePath='base64';
-      }
-    }catch(e){ console.warn('이미지 업로드 실패:', e); }
+      if(status) status.textContent=`이미지 저장 중... (${n+1}/${todo.length})`;
+      const data=await compressImg(img.file);
+      const docId=`${currentUser.uid}_${img.id}`;
+      await fbDb.collection('receiptImages').doc(docId).set({ownerUid:currentUser.uid,learnerName:learnerName||'',data,createdAt:new Date().toISOString()});
+      img.downloadUrl=data; img.storagePath='fs:'+docId;
+    }catch(e){ console.warn('이미지 저장 실패:', e); failed.push(e&&e.code||e&&e.message||'오류'); }
   }
   if(status) status.textContent='';
+  if(failed.length) alert(`입금확인 이미지 ${failed.length}장을 저장하지 못했어요.\n(${failed[0]})\n\n학습자 정보는 저장됐어요. 잠시 후 수정에서 이미지를 다시 붙여넣어 주세요.`);
 }
 
 // 카테고리 목록 — Firebase 개인 저장
@@ -4272,7 +4292,8 @@ function openLearnerModal(idx){
     const reportAmtEl=document.getElementById('l-report-amt'); if(reportAmtEl) reportAmtEl.value=l.reportAmt||'';
     // 기존 이미지 로드
     if(l.images&&l.images.length){
-      _pendingImgs=l.images.map(img=>({id:img.id,file:null,localUrl:img.url,storagePath:img.path,downloadUrl:img.url}));
+      _pendingImgs=l.images.map(img=>({id:img.id,file:null,localUrl:img.url,storagePath:img.path,downloadUrl:img.url||(String(img.path||'').startsWith('fs:')?'':img.url)}));
+      loadFsImgs(); // 데이터베이스에 저장된 이미지는 불러와서 미리보기
     }
     toggleRewardInput(); autoCalcTotal();
   } else {
@@ -4324,7 +4345,8 @@ async function saveLearner(){
   };
   // 이미지 업로드 후 저장
   await uploadPendingImgs(name);
-  l.images=_pendingImgs.filter(i=>i.downloadUrl).map(i=>({id:i.id,url:i.downloadUrl,path:i.storagePath}));
+  // 데이터베이스 이미지(fs:)는 학습자 기록엔 위치만 남김 (이미지 자체를 넣으면 내 데이터 문서가 너무 커짐)
+  l.images=_pendingImgs.filter(i=>i.downloadUrl||String(i.storagePath||'').startsWith('fs:')).map(i=>{ const fs=String(i.storagePath||'').startsWith('fs:'); return {id:i.id,url:fs?'':i.downloadUrl,path:i.storagePath}; });
   if(editIdx>=0&&learners[editIdx]&&learners[editIdx].portalToken) l.portalToken=learners[editIdx].portalToken;
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
   if(editIdx<0&&_pendingProspectId){ const pr=prospects.find(x=>x.id===_pendingProspectId); if(pr){ pr.learnerId=l.id; pr.learnerName=l.name; if(!PSTAGE_DONE.includes(pr.stage)) pr.stage='결제'; } }
