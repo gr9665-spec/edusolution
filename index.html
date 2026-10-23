@@ -1680,7 +1680,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <input type="text" id="rv-search" placeholder="이름 검색" style="width:120px" oninput="renderReview()">
       <button class="btn btn-sm" onclick="loadAllMembersData().then(()=>{rvFillMembers();renderReview();})"><i class="ti ti-refresh"></i> 새로고침</button>
     </div>
-    <div class="card" style="padding:10px 14px;margin-bottom:10px"><div id="rv-summary"></div><div id="rv-totals"></div></div>
+    <div class="card" style="padding:10px 14px;margin-bottom:10px"><div id="rv-summary"></div><div id="rv-months" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:8px"></div><div id="rv-totals"></div></div>
     <div class="card" style="padding:0;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1040px">
         <thead><tr style="background:var(--bg2)">
@@ -5027,7 +5027,7 @@ function rvChangeMember(){
     _rvNotes=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')));
     renderReview();
   },err=>{ console.warn(err); document.getElementById('rv-summary').innerHTML='<span style="color:var(--red)">코멘트를 불러오지 못했어요 — Firebase 규칙(reviewNotes)을 확인해주세요.</span>'; });
-  _rvFilter=new Set(); renderReview();
+  _rvFilter=new Set(); window._rvMonths=new Set(); renderReview();
 }
 function rvPick(st){ if(_rvFilter.has(st)) _rvFilter.delete(st); else _rvFilter.add(st); renderReview(); } // 여러 상태 같이 보기
 function rvRows(){
@@ -5049,7 +5049,18 @@ function renderReview(){
   document.getElementById('rv-summary').innerHTML=`<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
     <b>${pmEsc(m.name||'')}</b><span style="font-size:12px;color:var(--text2)">대상 ${all.length}명 · 예상매출 ${won(exp)} · 미해결 코멘트 ${open}건</span>
     <div style="display:flex;gap:5px;flex-wrap:wrap">${_rvFilter.size?`<button type="button" onclick="_rvFilter=new Set();renderReview()" style="cursor:pointer;font-size:12px;border:1px solid #adb5bd;background:#fff;border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">선택 해제</button>`:''}${SS_STATUS.map(v=>{const on=_rvFilter.has(v.k);return `<button type="button" onclick="rvPick('${v.k}')" title="눌러서 ${v.k} 같이 보기 (여러 개 선택 가능)" style="cursor:pointer;font-size:12px;border:1px solid ${on?v.c:v.c+'44'};background:${on?v.c:v.c+'10'};color:${on?'#fff':v.c};border-radius:99px;padding:3px 10px;font-weight:700;font-family:inherit">${v.k} ${cnt[v.k]||0}</button>`;}).join('')}</div></div>`;
+  // 결제월 버튼: 누른 달(묶음) 결제자만 보기 (여러 개 가능, 보기 전용 — 직원 데이터는 안 바뀜)
+  const rm=window._rvMonths||new Set(), mcnt={};
+  all.forEach(r=>{ const mk=ssPayMonth(r); if(mk) mcnt[mk]=(mcnt[mk]||0)+1; });
+  const mBox=document.getElementById('rv-months');
+  if(mBox){
+    const chip=(on,label,js,title)=>`<button type="button" onclick="${js}" title="${title}" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px solid ${on?'var(--navy)':'#ced4da'};background:${on?'var(--navy)':'#fff'};color:${on?'#fff':'var(--text)'};border-radius:99px;padding:3px 11px;font-weight:700">${label}</button>`;
+    mBox.innerHTML=`<span style="font-size:12px;font-weight:700;color:var(--text2)">결제월</span>`+chip(!rm.size,'전체','window._rvMonths=new Set();renderReview()','모든 결제월')
+      +ssMonthGroups(Object.keys(mcnt)).map(g=>{ const on=g.months.every(x=>rm.has(x)); const n=g.months.reduce((a,x)=>a+mcnt[x],0);
+        return chip(on,`${g.label} ${n}`,`rvToggleMonth('${g.months.join(',')}')`,'눌러서 이 달 결제자 같이 보기 (다시 누르면 해제)'); }).join('');
+  }
   let rows=_rvFilter.size?all.filter(r=>_rvFilter.has(r.v.status)):all.filter(r=>!['과정끝','환불'].includes(r.v.status));
+  if(rm.size) rows=rows.filter(r=>rm.has(ssPayMonth(r)));
   const q=(document.getElementById('rv-search').value||'').trim(); if(q) rows=rows.filter(r=>(r.last.name||'').includes(q));
   // 칸 제목(다음학기·예상매출) 누르면 값이 있는 학생만 (둘 다 누르면 하나라도 있는 학생)
   const fl=window._rvFilled||new Set();
@@ -5091,6 +5102,11 @@ function renderReview(){
         <button class="btn btn-sm" style="font-size:11px;${nOpen?'color:#fff;background:#e03131;border-color:#e03131':''}" onclick="rvComment('${ek(r.key)}')"><i class="ti ti-message"></i> ${ns.length?ns.length:'코멘트'}</button>
       </td></tr>`;
   }).join('');
+}
+function rvToggleMonth(list){
+  const mks=String(list).split(',').filter(Boolean), s=window._rvMonths=window._rvMonths||new Set();
+  const allOn=mks.every(x=>s.has(x)); mks.forEach(x=>{ if(allOn) s.delete(x); else s.add(x); });
+  renderReview();
 }
 function rvToggleFilled(k){
   const s=window._rvFilled=window._rvFilled||new Set();
