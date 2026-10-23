@@ -7342,13 +7342,16 @@ function fixMissingScheduleDates(){
 renderDashboard();calcReward();
 
 // ── 중복 과목 헬퍼 (전역) ─────────────────────────────────────────────
+// 중복 과목 확인 대상: 이수계획(학기) + 보유학점(보유 과목·보유 자격증/독학사)
+function planDupRows(p){
+  const out=[], add=g=>{ if(g) out.push(...(g.req||[]),...(g.elec||[]),...(g.gen||[]),...(g.lib||[])); };
+  (p.semesters||[]).forEach(add);
+  if(p.owned){ add(p.owned); (p.owned.specials||[]).forEach(add); }
+  return out;
+}
 function getDupSubjects(p){
   const freq={};
-  (p.semesters||[]).forEach(sem=>{
-    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
-      if(r&&r.subject){ const s=r.subject.trim(); freq[s]=(freq[s]||0)+1; }
-    });
-  });
+  planDupRows(p).forEach(r=>{ if(r&&r.subject){ const s=r.subject.trim(); if(s) freq[s]=(freq[s]||0)+1; } });
   return new Set(Object.keys(freq).filter(s=>freq[s]>1));
 }
 function ds(subject,dupSet){
@@ -8346,13 +8349,7 @@ function buildSemLimitWarning(p){
   });
 
   // 중복 과목 경고 (_dupSubjects는 renderPlanEditor 스코프 밖이므로 여기서 재계산)
-  const _dupCheck={};
-  (p.semesters||[]).forEach(sem=>{
-    [...(sem.req||[]),...(sem.elec||[]),...(sem.gen||[]),...(sem.lib||[])].forEach(r=>{
-      if(r&&r.subject) _dupCheck[r.subject.trim()]=(_dupCheck[r.subject.trim()]||0)+1;
-    });
-  });
-  const _dups=Object.keys(_dupCheck).filter(s=>_dupCheck[s]>1);
+  const _dups=[...getDupSubjects(p)]; // 이수계획 + 보유학점 같이 확인
   if(_dups.length) warnings.push({level:'error',msg:`⚠️ 중복 과목 ${_dups.length}개: ${_dups.join(', ')}`});
 
   if(!warnings.length) return '';
