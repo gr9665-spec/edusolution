@@ -7694,27 +7694,35 @@ function selectPlan(id){
     if(icon) icon.className='ti ti-list';
   }
 }
+// ── 플랜 버전: 버전마다 완전히 따로 보관 ──
+// 예전엔 전환할 때 버전 데이터를 그대로 이어 붙여서(얕은 복사) 화면 플랜과 버전 저장본이 같은 묶음을 함께 쓰고,
+// 저장본에 없는 칸(비어 있던 자격증·독학사, 직접입력 학위명 등)은 이전 버전 값이 그대로 남아 다른 버전에 섞였음
+const PLAN_VER_FIELDS={semesters:[], specials:[], owned:{req:[],elec:[],gen:[],lib:[],specials:[]}, memo:'', degree:'학사', degreeCustom:'', major:'', majorCustom:''};
+function planVerSnap(p){
+  const o={}; Object.keys(PLAN_VER_FIELDS).forEach(k=>{ o[k]=p[k]===undefined?PLAN_VER_FIELDS[k]:p[k]; });
+  return JSON.parse(JSON.stringify(o));
+}
+function planVerApply(p,data){
+  const d=JSON.parse(JSON.stringify(data||{}));
+  Object.keys(PLAN_VER_FIELDS).forEach(k=>{ p[k]=d[k]!==undefined?d[k]:JSON.parse(JSON.stringify(PLAN_VER_FIELDS[k])); });
+  if(!p.owned.specials) p.owned.specials=[];
+}
 function addPlanVersion(){
   const p=plans[curPid]; if(!p) return;
   if(!p.versions){
     // 1안 생성 시 현재 데이터를 즉시 스냅샷 (data:null 방지)
-    p.versions=[{label:'1안', data:JSON.parse(JSON.stringify({
-      semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo,
-      degree:p.degree, degreeCustom:p.degreeCustom, major:p.major, majorCustom:p.majorCustom
-    }))}];
+    p.versions=[{label:'1안', data:planVerSnap(p)}];
     p.curVersion=0;
   }
   // 현재 플랜 데이터를 현재 버전에 저장
   saveCurVersionData(p);
   const label=prompt('버전 이름을 입력하세요 (예: 2안, B플랜, 빠른졸업안)','');
   if(!label) return;
-  // 현재 플랜을 복사해서 새 버전 생성
-  const newVer={label:label.trim(), data:JSON.parse(JSON.stringify({
-    semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo,
-    degree:p.degree, degreeCustom:p.degreeCustom, major:p.major, majorCustom:p.majorCustom
-  }))};
-  p.versions.push(newVer);
+  // 현재 플랜을 복사해서 새 버전 생성 (화면 플랜도 새 복사본으로 바꿔서 이전 버전과 완전히 분리)
+  const snap=planVerSnap(p);
+  p.versions.push({label:label.trim(), data:snap});
   p.curVersion=(p.versions.length-1);
+  planVerApply(p,snap);
   LS.set('hk_plans',plans); saveToFirebase();
   renderPlanEditor(p);
 }
@@ -7723,11 +7731,9 @@ function switchPlanVersion(vi){
   if(!p.versions||p.versions.length<=1) return;
   // 현재 버전 저장
   saveCurVersionData(p);
-  // 선택 버전으로 전환
+  // 선택 버전으로 전환 (깊은 복사 + 저장본에 없는 칸은 빈 값으로)
   const ver=p.versions[vi];
-  if(ver.data){
-    Object.assign(p, ver.data);
-  }
+  if(ver&&ver.data) planVerApply(p, ver.data);
   p.curVersion=vi;
   LS.set('hk_plans',plans); saveToFirebase();
   renderPlanEditor(p);
@@ -7736,11 +7742,7 @@ function saveCurVersionData(p){
   if(!p.versions||p.versions.length<=1) return;
   const vi=p.curVersion||0;
   if(!p.versions[vi]) return;
-  p.versions[vi].data=JSON.parse(JSON.stringify({
-    semesters:p.semesters, specials:p.specials, owned:p.owned, memo:p.memo,
-    degree:p.degree, degreeCustom:p.degreeCustom, major:p.major, majorCustom:p.majorCustom
-  }));
-  // 버전 이름 변경 버튼
+  p.versions[vi].data=planVerSnap(p);
 }
 function renamePlanVersion(vi){
   const p=plans[curPid]; if(!p||!p.versions) return;
@@ -7761,8 +7763,8 @@ function deleteVersion(vi){
     p.curVersion=newCur;
     if(wasCurrent){
       const ver=p.versions[newCur];
-      if(ver&&ver.data) Object.assign(p, ver.data);
-    }
+      if(ver&&ver.data) planVerApply(p, ver.data);
+    } else saveCurVersionData(p);
     LS.set('hk_plans',plans); saveToFirebase();
     renderPlanEditor(p);
     showToast('버전이 삭제됐어요');
