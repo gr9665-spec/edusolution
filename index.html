@@ -5183,7 +5183,7 @@ const SS_STATUS=[
   {k:'미연락',c:'#c92a2a'},{k:'연락완료',c:'#e67700'},{k:'등록예정',c:'#1a5fa8'},{k:'결제완료',c:'#2f9e44'},
   {k:'잠정보류',c:'#7048e8'},{k:'특이사항',c:'#d6336c'},{k:'신청오류',c:'#868e96'},{k:'환불',c:'#495057'},{k:'과정끝',c:'#adb5bd'}
 ];
-const SS_NO_SALES=['과정끝','환불','신청오류'];
+const SS_NO_SALES=['과정끝','환불','신청오류','잠정보류'];
 function seasonOptions(){
   const now=new Date(Date.now()+9*3600e3), y=now.getUTCFullYear(), m=now.getUTCMonth()+1;
   const cur=m<=5?`${y}-05`:m<=11?`${y}-11`:`${y+1}-05`;
