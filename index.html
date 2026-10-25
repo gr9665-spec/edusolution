@@ -5366,9 +5366,9 @@ function renderSeason(){
   // 칸 제목(다음학기 학점·단가·예상매출·카톡·등록예정·비고)을 누르면 직접 적은 사람만 (여러 칸 고르면 하나라도 적은 사람)
   const fl=window._ssFilled||new Set();
   document.querySelectorAll('#panel-season th.ss-fh').forEach(th=>{ const on=fl.has(th.dataset.f);
-    th.style.cursor='pointer'; th.title=on?'다시 누르면 전체 보기':'누르면 이 칸을 직접 적은 학생만 보기';
+    th.style.cursor='pointer'; th.title=on?'다시 누르면 전체 보기':'누르면 이 칸이 채워진 학생만 보기 (플랜표 자동 계산 포함)';
     th.style.background=on?'#fff3bf':''; th.style.color=on?'#e67700':''; th.style.textDecoration=on?'underline':''; });
-  if(fl.size) rows=rows.filter(r=>[...fl].some(k=>ssFilled(r.v.d,k)));
+  if(fl.size) rows=rows.filter(r=>[...fl].some(k=>ssFilled(r.v.d,k)||ssAutoFilled(r.v,k)));
   if(q) rows=rows.filter(r=>(r.last.name||'').toLowerCase().includes(q)||(r.last.phone||'').includes(q));
   const order=Object.fromEntries(SS_STATUS.map((v,i)=>[v.k,i]));
   const srt=document.getElementById('ss-sort')?.value||'pay';
@@ -5522,6 +5522,13 @@ function ssFilled(d,k){
   const has=v=>v!==undefined&&v!==null&&String(v).trim()!=='';
   if(k==='reg') return has(d.regDate)||has(d.regTime);
   return has(d[k]);
+}
+// 플랜표로 자동 계산된 값도 적은 것으로 봄 (단가는 기본값이라 예상매출이 잡힌 사람만)
+function ssAutoFilled(v,k){
+  if(k==='credits') return v.credits>0;
+  if(k==='price') return v.price>0&&v.sales>0;
+  if(k==='sales') return v.sales>0;
+  return false;
 }
 function ssToggleFilled(k){
   const s=window._ssFilled=window._ssFilled||new Set();
