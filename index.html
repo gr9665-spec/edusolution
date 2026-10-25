@@ -1391,7 +1391,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <span style="font-size:12px;font-weight:700;color:var(--text2);margin-right:2px" title="누르면 그 달 결제자를 이번 시즌 대상에서 빼거나 다시 넣어요">결제월</span>
     <span id="ss-months" style="display:contents"></span>
   </div>
-  <div class="card" style="padding:12px 14px;margin-bottom:12px" id="ss-summary"></div>
+  <div class="card" style="padding:12px 14px;margin-bottom:12px"><div id="ss-summary"></div><div id="ss-totals"></div></div>
   <div class="card" style="padding:0;overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:1180px">
       <thead><tr style="background:var(--bg2)">
@@ -5377,6 +5377,21 @@ function renderSeason(){
   else if(srt==='payDesc') rows.sort((a,b)=>byPay(b,a));
   else if(srt==='status') rows.sort((a,b)=>(order[a.v.status]-order[b.v.status])||byPay(a,b));
   else rows.sort((a,b)=>(b.v.sales-a.v.sales)||byPay(a,b));
+  // 지금 보이는 목록 합계 (위 요약은 필터 전 전체 대상 기준이라, 상태 버튼·칸 제목·검색으로 거르면 숫자가 달라짐)
+  { const tot=document.getElementById('ss-totals');
+    const filtered=f!=='active'||fl.size||q||!!window._ssShowExcl;
+    if(tot){
+      const vCr=rows.reduce((a,r)=>a+(parseInt(r.v.credits)||0),0);
+      const vExp=rows.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+(r.v.sales||0),0);
+      const vPaid=rows.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+(r.v.sales||0),0);
+      const wonF=n=>n>=10000?`${Math.round(n/10000).toLocaleString()}만원`:`${n.toLocaleString()}원`;
+      tot.innerHTML=`<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:12.5px">
+        <b style="color:${filtered?'#e67700':'var(--text2)'}">${filtered?'🔎 지금 보이는 목록':'아래 목록 합계'}</b>
+        <span>${rows.length}명</span><span>다음학기 ${vCr.toLocaleString()}학점</span>
+        <span>예상매출 <b style="color:var(--navy)">${wonF(vExp)}</b></span><span>결제완료 <b style="color:var(--green)">${wonF(vPaid)}</b></span>
+        <span style="color:var(--text3);font-size:11px">과정끝·환불·신청오류는 예상매출에서 빠져요</span></div>`;
+    }
+  }
   const tb=document.getElementById('ss-tbody'), em=document.getElementById('ss-empty');
   if(!rows.length){ tb.innerHTML=''; em.style.display='block'; return; }
   em.style.display='none';
