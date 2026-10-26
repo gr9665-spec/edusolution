@@ -7965,15 +7965,18 @@ function keepServerOnlyItems(sv){
     if(typeof showToast==='function') showToast(`⚠️ 다른 탭·기기에서 저장된 ${back.length}건(${back.slice(0,3).join(', ')}${back.length>3?' 등':''})이 지워지지 않게 다시 넣었어요`);
   }
 }
+let _bkBusy=false;
 function kstHourKey(ms){ const k=new Date((ms||Date.now())+9*3600e3).toISOString(); return k.slice(0,4)+k.slice(5,7)+k.slice(8,10)+k.slice(11,13); }
 function backupServerState(sv){
   try{
     const hk=kstHourKey(), uid=currentUser.uid;
-    if(localStorage.getItem('hk_bk_hour')===uid+hk) return;
-    localStorage.setItem('hk_bk_hour',uid+hk);
+    if(localStorage.getItem('hk_bk_hour')===uid+hk||_bkBusy) return;
+    _bkBusy=true;
     const L=(sv.learners||[]).map(l=>l.images?Object.assign({},l,{images:l.images.map(i=>({id:i.id,path:i.path||'',url:String(i.url||'').startsWith('data:')?'':(i.url||'')}))}):l);
     fbDb.collection('userBackups').doc(uid+'_'+hk).set({ownerUid:uid,at:new Date().toISOString(),serverLastUpdated:sv.lastUpdated||'',
-      plans:sv.plans||{},learners:L,prospects:sv.prospects||[],seasons:sv.seasons||{}}).catch(e=>console.warn('백업 실패',e));
+      plans:sv.plans||{},learners:L,prospects:sv.prospects||[],seasons:sv.seasons||{}})
+      .then(()=>{ try{ localStorage.setItem('hk_bk_hour',uid+hk); }catch(e){} }) // 성공했을 때만 '이번 시간 백업 끝' 표시
+      .catch(e=>console.warn('백업 실패',e)).finally(()=>{ _bkBusy=false; });
     // 7일 지난 백업은 하루 1번 정리
     if(localStorage.getItem('hk_bk_clean')!==uid+hk.slice(0,8)){
       localStorage.setItem('hk_bk_clean',uid+hk.slice(0,8));
