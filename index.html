@@ -3349,7 +3349,7 @@ function renderAdminMembers(){
   empty.style.display='none';
   const rankColor={신입:'#6c757d',경력:'#5a6268',주임:'#1a5fa8',대리:'#2e6e10',부팀장:'#854F0B',팀장:'#9b1515'};
   tbody.innerHTML=members.map(m=>{
-    const learnerCount=(m.learners||[]).length;
+    const learnerCount=(m.learners||[]).filter(learnerPaid).length;
     const rc=rankColor[m.rank]||'#666';
     const isPending=m.approved===false;
     return `<tr style="${isPending?'background:#fff8e1;':''}">
@@ -3553,6 +3553,7 @@ function renderAdminStats(){
   let totalLearners=0,totalSales=0,totalReward=0;
   const cards=Object.values(allMembersData).map(m=>{
     const ml=(m.learners||[]).filter(l=>{
+      if(!learnerPaid(l)) return false; // 결제금액이 있는 학습자만 셈
       const yr=yearFilter?String(l.year||'')===yearFilter:true;
       const mo=monthFilter?String(l.month||'')===monthFilter:true;
       return yr&&mo;
@@ -3748,6 +3749,8 @@ function rewardLabel(l){
   return '';
 }
 
+// 결제한 학습자: 결제금액(또는 신고금액)이 적힌 기록
+function learnerPaid(l){ return (parseInt(l.total)||0)>0||(parseInt(l.reportAmt)||0)>0; }
 function calcExportTotal(l){
   const code=l.code||'', course=l.course||'', total=parseInt(l.total)||0;
   const isHalf=l.half||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문');
