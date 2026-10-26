@@ -8344,9 +8344,9 @@ function buildPlanTableUI(p,t){
       <div style="padding:7px;text-align:center">${t.totLib}</div>
     </div>
     ${(()=>{ const dq=DEG_REQ[p.degree]||DEG_REQ['학사'], box=`padding:10px;text-align:center;font-size:15px;font-weight:700;background:${PLAN_DYELLOW};border-top:1px solid #ddd`;
-      // 타전공은 전공학점(36/48) 기준, 기타는 목표가 없어 합계만
-      if(!dq.total&&dq.major>0){ const m=t.totReq+t.totElec;
-        return `<div style="${box}">전공학점 &nbsp; <span style="font-size:18px;color:${m>=dq.major?'var(--green)':PLAN_RED}">${m}</span><span style="font-size:13px;color:#999"> / ${dq.major}</span><span style="font-size:12px;color:#888;font-weight:600"> &nbsp;(총 ${t.grand}학점)</span></div>`; }
+      // 타전공은 36/48 기준, 기타는 목표가 없어 합계만
+      if(!dq.total&&dq.major>0){
+        return `<div style="${box}">총학점 &nbsp; <span style="font-size:18px;color:${t.grand>=dq.major?'var(--green)':PLAN_RED}">${t.grand}</span><span style="font-size:13px;color:#999"> / ${dq.major}</span></div>`; }
       if(!dq.total) return `<div style="${box}">총학점 &nbsp; <span style="font-size:18px">${t.grand}</span></div>`;
       return `<div style="${box}">총학점 &nbsp; <span style="font-size:18px;color:${t.grand>=dq.total?'var(--green)':PLAN_RED}">${t.grand}</span><span style="font-size:13px;color:#999"> / ${dq.total}</span></div>`; })()}
     ${buildSemLimitWarning(p)}
