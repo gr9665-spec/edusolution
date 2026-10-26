@@ -219,6 +219,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <input type="checkbox" id="login-keep" checked style="width:16px;height:16px;margin:0;cursor:pointer"> 자동 로그인 <span style="font-size:11px;color:var(--text3)">(이 기기에서 로그인 유지)</span></label>
     <div id="login-error"></div>
     <button type="submit" class="login-btn">로그인</button>
+    <button type="button" onclick="doPwReset()" style="background:none;border:none;color:var(--text2);font-size:12px;cursor:pointer;margin-top:8px;text-decoration:underline;font-family:inherit">비밀번호를 잊으셨나요? 비밀번호 찾기</button>
     </form>
     <hr class="login-divider">
     <button class="login-btn secondary" onclick="showRegister()">처음 사용하시나요? 계정 만들기</button>
@@ -2165,9 +2166,21 @@ function doLogin(){
     .then(()=>fbAuth.signInWithEmailAndPassword(email,pw))
     .then(()=>{ try{ navigator.storage&&navigator.storage.persist&&navigator.storage.persist(); }catch(e){} })
     .catch(e=>{
-      errEl.textContent=e.code==='auth/wrong-password'||e.code==='auth/user-not-found'
-        ?'이메일 또는 비밀번호가 틀렸어요':'로그인 실패: '+e.message;
+      errEl.textContent=['auth/wrong-password','auth/user-not-found','auth/invalid-credential','auth/invalid-login-credentials'].includes(e.code)
+        ?'이메일 또는 비밀번호가 틀렸어요 — 아래 "비밀번호 찾기"로 다시 정할 수 있어요':'로그인 실패: '+e.message;
     });
+}
+// 비밀번호 찾기: 입력한 이메일로 재설정 메일 보내기
+function doPwReset(){
+  const errEl=document.getElementById('login-error');
+  const email=document.getElementById('login-email').value.trim();
+  if(!email){ errEl.textContent='위 이메일 칸에 가입한 이메일을 먼저 적어주세요'; return; }
+  if(!fbAuth){ errEl.textContent='잠시 후 다시 시도해주세요'; return; }
+  if(!confirm(email+' 로 비밀번호 재설정 메일을 보낼까요?')) return;
+  fbAuth.languageCode='ko';
+  fbAuth.sendPasswordResetEmail(email)
+    .then(()=>{ errEl.style.color='var(--green)'; errEl.textContent='재설정 메일을 보냈어요. 메일함(안 보이면 스팸함)에서 링크를 눌러 새 비밀번호를 정해주세요.'; setTimeout(()=>errEl.style.color='',15000); })
+    .catch(e=>{ errEl.textContent=e.code==='auth/invalid-email'?'이메일 형식을 확인해주세요':e.code==='auth/user-not-found'?'가입되지 않은 이메일이에요':'메일 보내기 실패: '+e.message; });
 }
 
 function showRegister(){
