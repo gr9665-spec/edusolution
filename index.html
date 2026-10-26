@@ -5305,7 +5305,7 @@ function seasonData(k){ if(!seasons[k]) seasons[k]={people:{}}; if(!seasons[k].p
 function seasonRowView(r,sd){
   const d=sd.people[r.key]||{};
   const status=d.status||(r.planDone?'과정끝':(r.extra&&r.extra.status)||'미연락');
-  const credits=d.credits!==undefined&&d.credits!==''?(parseInt(d.credits)||0):(r.autoCredits??null);
+  const credits=d.credits!==undefined&&d.credits!==''?(parseInt(d.credits)||0):(d.noAuto?null:(r.autoCredits??null));
   // 단가·예상매출: 기본은 자동(최근 단가, 학점×단가), 직접 입력하면 그 값 우선
   const has=f=>d[f]!==undefined&&d[f]!=='';
   const defPrice=parseInt(r.last.unitprice)||0;
@@ -5412,7 +5412,7 @@ function renderSeason(){
             :`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:var(--text3)" onclick="ssSetExcl('${K}',true)" title="이번 시즌 대상에서 빼기 (다음 시즌 대상 등)"><i class="ti ti-eye-off"></i></button>`}
         </div></td>
       <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${l.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회 결제`:''}</div></td>
-      <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${r.autoCredits??'-'}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':r.noTerm?'플랜표에 이번 시즌 학기가 없어요 — 필요하면 직접 입력':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':r.nextName?pmEsc(r.nextName):r.noTerm?`플랜에 ${seasonTargetTerm(document.getElementById('ss-season').value)}학기 없음`:r.plan?'':'플랜 없음'}</div></td>
+      <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${d.noAuto?'-':(r.autoCredits??'-')}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':r.noTerm?'플랜표에 이번 시즌 학기가 없어요 — 필요하면 직접 입력':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':d.noAuto?`<a href="javascript:void 0" onclick="ssSetNoAuto('${K}',false)" style="color:var(--blue)" title="플랜표 자동 계산 다시 쓰기">자동 되돌리기</a>`:r.autoCredits?`${pmEsc(r.nextName||'')} <a href="javascript:void 0" onclick="ssSetNoAuto('${K}',true)" style="color:#c92a2a;text-decoration:none" title="자동 계산된 학점·예상매출 지우기">✕</a>`:r.nextName?pmEsc(r.nextName):r.noTerm?`플랜에 ${seasonTargetTerm(document.getElementById('ss-season').value)}학기 없음`:r.plan?'':'플랜 없음'}</div></td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" step="500" value="${priceManual?d.price:''}" placeholder="${defPrice||'-'}" title="기본: 최근 결제 단가 ${defPrice?defPrice.toLocaleString()+'원':'없음'} — 비우면 기본값" onchange="setSeasonField('${K}','price',this.value)" style="width:76px;font-size:12px;padding:3px 5px;text-align:right"><div style="font-size:10px;color:var(--text3)">${priceManual?'직접입력':'최근 단가'}</div></td>
       <td style="padding:6px;text-align:right"><input type="number" min="0" step="1000" value="${salesManual?d.sales:''}" placeholder="${autoSales?autoSales:'-'}" title="기본: 학점 × 단가 ${autoSales?'= '+autoSales.toLocaleString()+'원':''} — 비우면 자동 계산" onchange="setSeasonField('${K}','sales',this.value)" style="width:92px;font-size:12px;padding:3px 5px;text-align:right;font-weight:700;${SS_NO_SALES.includes(status)?'color:var(--text3);text-decoration:line-through':''}"><div style="font-size:10px;color:var(--text3)">${salesManual?'직접입력':sales?sales.toLocaleString()+'원':'자동 계산'}</div></td>
       <td style="padding:6px;text-align:center"><select onchange="setSeasonField('${K}','status',this.value)" style="font-size:12px;padding:3px 4px;border-radius:99px;border:1px solid ${c}66;background:${c}12;color:${c};font-weight:700;width:100px">
@@ -5581,6 +5581,13 @@ function ssSetExcl(K,ex){
   const monthHidden=row&&(sd.hideMonths||[]).includes(ssPayMonth(row));
   // 월 설정과 같으면 개별 설정 지움
   if(ex===!!monthHidden) delete d.excl; else d.excl=ex;
+  save(); renderSeason();
+}
+// 플랜표로 자동 계산된 학점·예상매출을 이 학생만 끄기/다시 켜기
+function ssSetNoAuto(K,on){
+  const key=decodeURIComponent(K), sd=seasonData(document.getElementById('ss-season').value);
+  const d=sd.people[key]=sd.people[key]||{};
+  if(on) d.noAuto=true; else delete d.noAuto;
   save(); renderSeason();
 }
 function setSeasonField(K,field,val){
@@ -8344,9 +8351,9 @@ function buildPlanTableUI(p,t){
       <div style="padding:7px;text-align:center">${t.totLib}</div>
     </div>
     ${(()=>{ const dq=DEG_REQ[p.degree]||DEG_REQ['학사'], box=`padding:10px;text-align:center;font-size:15px;font-weight:700;background:${PLAN_DYELLOW};border-top:1px solid #ddd`;
-      // 타전공은 36/48 기준, 기타는 목표가 없어 합계만
-      if(!dq.total&&dq.major>0){
-        return `<div style="${box}">총학점 &nbsp; <span style="font-size:18px;color:${t.grand>=dq.major?'var(--green)':PLAN_RED}">${t.grand}</span><span style="font-size:13px;color:#999"> / ${dq.major}</span></div>`; }
+      // 타전공은 전공학점(전필+전선)만 36/48 기준, 기타는 목표가 없어 합계만
+      if(!dq.total&&dq.major>0){ const m=t.totReq+t.totElec;
+        return `<div style="${box}">전공학점 &nbsp; <span style="font-size:18px;color:${m>=dq.major?'var(--green)':PLAN_RED}">${m}</span><span style="font-size:13px;color:#999"> / ${dq.major}</span></div>`; }
       if(!dq.total) return `<div style="${box}">총학점 &nbsp; <span style="font-size:18px">${t.grand}</span></div>`;
       return `<div style="${box}">총학점 &nbsp; <span style="font-size:18px;color:${t.grand>=dq.total?'var(--green)':PLAN_RED}">${t.grand}</span><span style="font-size:13px;color:#999"> / ${dq.total}</span></div>`; })()}
     ${buildSemLimitWarning(p)}
