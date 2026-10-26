@@ -1529,6 +1529,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   </div>
   <div class="plan-layout" style="display:grid;grid-template-columns:210px 1fr;gap:14px;min-height:500px">
     <div id="plan-list-sidebar">
+      <div id="plan-unsynced-bar"></div>
       <button class="btn btn-primary" style="width:100%;margin-bottom:10px;font-size:13px" onclick="newPlan()">
         <i class="ti ti-plus"></i> 새 플랜 작성
       </button>
@@ -2343,7 +2344,9 @@ async function loadUserData(){
       else { const lc=LS.get('hk_memo_cats'); if(lc) memoCategories=lc; }
       if(d.blogKeywords) blogKeywords=d.blogKeywords;
       else { const lb=LS.get('hk_blog'); if(lb) blogKeywords=lb; }
-      if(d.plans)  plans=d.plans;
+      if(d.plans){ stashUnsyncedPlans(plans,d.plans); plans=d.plans; }
+      try{ localStorage.setItem('hk_owner_uid',currentUser.uid); }catch(e){}
+      setTimeout(renderUnsyncedBanner,800);
       _loadedLastUpdated = d.lastUpdated || null;
       const _hadImgData=(learners||[]).some(l=>(l.images||[]).some(i=>'_src' in i));
       if(_hadImgData){ stripLearnerImgData(); setTimeout(()=>saveToFirebase(),1200); }
@@ -2867,6 +2870,7 @@ async function runSaveToFirebase(){
         }
       }
       autoLinkPlans(); autoLinkProspects(); syncProspectPlans(); autoPaidPlans(); stripLearnerImgData();
+      if(snap&&snap.exists){ backupServerState(snap.data()); keepServerOnlyItems(snap.data()); }
       const newLastUpdated=new Date().toISOString();
       _myWrites.add(newLastUpdated);
       // mergeFields: 아래 항목은 통째로 덮어씀 (merge:true는 칸을 지운 게 서버에 반영되지 않아 새로고침하면 되살아났음)
@@ -4452,6 +4456,7 @@ function showDeleteModal(msg, cb){
 function deleteLearner(idx){
   const l=learners[idx];
   showDeleteModal(`<strong>${l.name}</strong> (${l.edu} · ${l.month}월)<br>학습자를 삭제할까요?`,()=>{
+    if(l&&l.id) _delLearnerIds.add(l.id);
     learners.splice(idx,1);save();renderLearners();renderDashboard();
   });
 }
@@ -4627,7 +4632,7 @@ function bulkDeleteLearners(){
     `<strong>${idxs.length}명</strong>을 삭제할까요?<br><span style="font-size:12px;color:var(--text2);margin-top:6px;display:block">${preview}</span>`,
     ()=>{
       // 내림차순으로 삭제해야 인덱스 안 밀림
-      idxs.sort((a,b)=>b-a).forEach(i=>learners.splice(i,1));
+      idxs.sort((a,b)=>b-a).forEach(i=>{ if(learners[i]&&learners[i].id) _delLearnerIds.add(learners[i].id); learners.splice(i,1); });
       save(); renderLearners(); renderDashboard();
     }
   );
@@ -7929,6 +7934,7 @@ function deleteCurPlan(){
   if(!curPid) return;
   showDeleteModal(`플랜 <strong>${plans[curPid].clientName||'(미입력)'}</strong>을 삭제할까요?`,()=>{
     const deletedPid=curPid;
+    _delPlanIds.add(deletedPid);
     delete plans[deletedPid]; curPid=null; LS.set('hk_plans',plans);
     if(currentUser&&fbDb){
       const upd={}; upd[`plans.${deletedPid}`]=firebase.firestore.FieldValue.delete();
@@ -7937,6 +7943,125 @@ function deleteCurPlan(){
     renderPlanList();
     document.getElementById('plan-body').innerHTML='<div class="empty" style="margin-top:80px"><i class="ti ti-clipboard-list" style="font-size:40px;display:block;margin-bottom:12px;opacity:.25"></i>플랜을 선택하거나 새로 작성해주세요</div>';
   });
+}
+// ── 데이터 지킴이 ──────────────────────────────────────────
+// 1) 직접 삭제한 것만 지워지게: 서버엔 있는데 이 화면에 없는 플랜·학습자는(다른 탭·기기에서 만든 것 등) 다시 넣고 알림
+// 2) 서버 백업: 저장 직전 서버 상태를 1시간에 1번 userBackups에 보관(7일)
+// 3) 저장 안 된 플랜: 새로고침 때 이 기기에만 있던 플랜 내용을 따로 보관 → 플랜표 탭에서 복구
+const _delPlanIds=new Set(), _delLearnerIds=new Set();
+function keepServerOnlyItems(sv){
+  const back=[];
+  Object.entries(sv.plans||{}).forEach(([id,p])=>{ if(!plans[id]&&!_delPlanIds.has(id)){ plans[id]=p; back.push(p.clientName||'(이름없음)'); } });
+  const ids=new Set((learners||[]).map(l=>l.id).filter(Boolean));
+  (sv.learners||[]).forEach(l=>{ if(l.id&&!ids.has(l.id)&&!_delLearnerIds.has(l.id)){ learners.push(l); back.push(l.name||'(이름없음)'); } });
+  if(back.length){
+    LS.set('hk_plans',plans); LS.set('hk_learners',learners);
+    if(typeof showToast==='function') showToast(`⚠️ 다른 탭·기기에서 저장된 ${back.length}건(${back.slice(0,3).join(', ')}${back.length>3?' 등':''})이 지워지지 않게 다시 넣었어요`);
+  }
+}
+function kstHourKey(ms){ const k=new Date((ms||Date.now())+9*3600e3).toISOString(); return k.slice(0,4)+k.slice(5,7)+k.slice(8,10)+k.slice(11,13); }
+function backupServerState(sv){
+  try{
+    const hk=kstHourKey(), uid=currentUser.uid;
+    if(localStorage.getItem('hk_bk_hour')===uid+hk) return;
+    localStorage.setItem('hk_bk_hour',uid+hk);
+    const L=(sv.learners||[]).map(l=>l.images?Object.assign({},l,{images:l.images.map(i=>({id:i.id,path:i.path||'',url:String(i.url||'').startsWith('data:')?'':(i.url||'')}))}):l);
+    fbDb.collection('userBackups').doc(uid+'_'+hk).set({ownerUid:uid,at:new Date().toISOString(),serverLastUpdated:sv.lastUpdated||'',
+      plans:sv.plans||{},learners:L,prospects:sv.prospects||[],seasons:sv.seasons||{}}).catch(e=>console.warn('백업 실패',e));
+    // 7일 지난 백업은 하루 1번 정리
+    if(localStorage.getItem('hk_bk_clean')!==uid+hk.slice(0,8)){
+      localStorage.setItem('hk_bk_clean',uid+hk.slice(0,8));
+      const cut=kstHourKey(Date.now()-7*864e5);
+      fbDb.collection('userBackups').where('ownerUid','==',uid).get().then(q=>q.forEach(doc=>{ if(doc.id.split('_').pop()<cut) doc.ref.delete().catch(()=>{}); })).catch(()=>{});
+    }
+  }catch(e){ console.warn('백업 실패',e); }
+}
+const PLAN_CMP_KEYS=['clientName','phone','degree','degreeCustom','major','majorCustom','owned','semesters','specials','memo','note2','versions','curVersion'];
+function planSig(p){ const o={}; PLAN_CMP_KEYS.forEach(k=>o[k]=p?p[k]:undefined); return JSON.stringify(o); }
+function stashUnsyncedPlans(localPlans,serverPlans){
+  try{
+    const owner=localStorage.getItem('hk_owner_uid'); if(owner&&owner!==currentUser.uid) return; // 다른 사람이 쓰던 기기
+    const diff={};
+    Object.entries(localPlans||{}).forEach(([id,lp])=>{ const sp=(serverPlans||{})[id]; if(lp&&(!sp||planSig(lp)!==planSig(sp))) diff[id]=lp; });
+    if(!Object.keys(diff).length) return;
+    const prev=LS.get('hk_plans_unsynced')||{plans:{}};
+    Object.assign(prev.plans,diff); prev.at=new Date().toISOString();
+    LS.set('hk_plans_unsynced',prev);
+  }catch(e){ console.warn(e); }
+}
+function renderUnsyncedBanner(){
+  const box=document.getElementById('plan-unsynced-bar'); if(!box) return;
+  const u=LS.get('hk_plans_unsynced'), n=u&&u.plans?Object.keys(u.plans).length:0;
+  box.innerHTML=(n?`<button class="btn btn-sm" style="width:100%;margin-bottom:6px;font-size:12px;background:#fff4e6;border-color:#f08c00;color:#d9480f;font-weight:700" onclick="openPlanRecover()"><i class="ti ti-alert-triangle"></i> 저장 안 된 플랜 ${n}개 확인</button>`:'')
+    +`<button class="btn btn-sm" style="width:100%;margin-bottom:6px;font-size:12px" onclick="openPlanRecover(true)"><i class="ti ti-history"></i> 플랜 백업에서 되살리기</button>`;
+}
+function planBrief(p){
+  if(!p) return '<span style="color:#c92a2a">없음(삭제됨)</span>';
+  const sems=p.semesters||[];
+  const c=sems.reduce((a,s)=>a+['req','elec','gen','lib'].reduce((b,k)=>b+(s[k]||[]).reduce((x,y)=>x+(parseInt(y.credit)||0),0),0),0);
+  return `학기 ${sems.length}개 · 이수계획 ${c}학점`;
+}
+async function openPlanRecover(fromServer){
+  let ov=document.getElementById('plan-recover-ov');
+  if(!ov){ ov=document.createElement('div'); ov.id='plan-recover-ov'; ov.className='overlay'; document.body.appendChild(ov); }
+  ov.innerHTML=`<div class="modal" style="max-width:660px;width:660px;max-height:90vh;overflow:auto"><div class="modal-head"><h2><i class="ti ti-history"></i> ${fromServer?'플랜 백업에서 되살리기':'저장 안 된 플랜'}</h2><button class="btn btn-icon" onclick="closeModal('plan-recover-ov')"><i class="ti ti-x"></i></button></div><div id="plan-recover-body" style="font-size:13px">불러오는 중...</div></div>`;
+  openModal('plan-recover-ov');
+  const body=document.getElementById('plan-recover-body');
+  if(!fromServer){
+    const u=LS.get('hk_plans_unsynced')||{plans:{}}; window._recSrc=u.plans;
+    body.innerHTML=`<p style="color:var(--text2);margin:0 0 10px">이 기기에서 수정했지만 서버 내용과 달랐던 플랜이에요 (${u.at?new Date(u.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):''} 보관). 되돌리면 지금 플랜이 이 기기에 남아 있던 내용으로 바뀌어요.</p>`+recoverRows(u.plans,'local')
+      +`<div style="text-align:right;margin-top:10px"><button class="btn btn-sm" onclick="if(confirm('보관된 플랜을 모두 버릴까요?')){localStorage.removeItem('hk_plans_unsynced');closeModal('plan-recover-ov');renderUnsyncedBanner();}">모두 버리기</button></div>`;
+    return;
+  }
+  try{
+    const q=await fbDb.collection('userBackups').where('ownerUid','==',currentUser.uid).get();
+    const docs=q.docs.sort((a,b)=>b.id.localeCompare(a.id));
+    if(!docs.length){ body.innerHTML='아직 백업이 없어요. (저장할 때 1시간에 1번씩 쌓여요)'; return; }
+    window._bkDocs={}; docs.forEach(d=>window._bkDocs[d.id]=d.data());
+    body.innerHTML=`<p style="color:var(--text2);margin:0 0 8px">시간을 고르면 그때와 지금 내용이 다른 플랜이 나와요.</p><select id="bk-sel" onchange="showBackupDiff(this.value)" style="width:100%;margin-bottom:10px">${docs.map(d=>{ const k=d.id.split('_').pop(); return `<option value="${d.id}">${k.slice(4,6)}/${k.slice(6,8)} ${k.slice(8,10)}시 백업</option>`; }).join('')}</select><div id="bk-diff"></div>`;
+    showBackupDiff(docs[0].id);
+  }catch(e){ body.innerHTML='백업을 불러오지 못했어요: '+pmEsc(e.code||e.message)+'<br><span style="font-size:12px;color:var(--text3)">(데이터베이스 규칙에 userBackups가 추가됐는지 확인해 주세요)</span>'; }
+}
+function showBackupDiff(id){
+  const bk=window._bkDocs[id]||{}; const src={};
+  Object.entries(bk.plans||{}).forEach(([pid,p])=>{ if(planSig(p)!==planSig(plans[pid])) src[pid]=p; });
+  window._recSrc=src;
+  document.getElementById('bk-diff').innerHTML=Object.keys(src).length?recoverRows(src,'server'):'<div style="color:var(--text3)">이 백업과 지금 플랜이 모두 같아요.</div>';
+}
+function recoverRows(src,kind){
+  const ids=Object.keys(src||{});
+  if(!ids.length) return '<div style="color:var(--text3)">없어요.</div>';
+  return `<table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="background:var(--bg2)"><th style="padding:6px;text-align:left">학습자</th><th style="padding:6px">${kind==='local'?'이 기기':'백업'}</th><th style="padding:6px">지금</th><th></th></tr>`
+    +ids.map(id=>{ const p=src[id]; return `<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px;font-weight:600">${pmEsc(p.clientName||'(이름없음)')}<div style="font-size:11px;color:var(--text3);font-weight:400">상담일 ${pmEsc(p.counselDate||'-')}</div></td><td style="padding:6px;text-align:center">${planBrief(p)}</td><td style="padding:6px;text-align:center">${planBrief(plans[id])}</td>
+      <td style="padding:6px;white-space:nowrap"><button class="btn btn-sm" onclick="previewRecover('${id}')">보기</button> <button class="btn btn-sm btn-primary" onclick="restorePlanFrom('${id}','${kind}')">되돌리기</button>${kind==='local'?` <button class="btn btn-sm" onclick="dropUnsynced('${id}')">버리기</button>`:''}</td></tr>`; }).join('')+'</table>';
+}
+// 되돌리기 전에 그 내용을 미리보기 (임시로 바꿔 끼워서 미리보기 화면만 띄움)
+function previewRecover(id){
+  const p=(window._recSrc||{})[id]; if(!p) return;
+  closeModal('plan-recover-ov'); // 미리보기 창이 목록 뒤에 가려지지 않게 (닫은 뒤 버튼으로 다시 열기)
+  window._printPlanObj=p; renderPlanPrintContent();
+  const eb=document.getElementById('plan-print-edit'); if(eb) eb.style.display='none';
+  const nav=document.getElementById('plan-print-nav'); if(nav) nav.style.display='none';
+  openModal('modal-plan-print');
+}
+function restorePlanFrom(id,kind){
+  const p=(window._recSrc||{})[id]; if(!p) return;
+  if(!confirm(`"${p.clientName||'(이름없음)'}" 플랜을 ${kind==='local'?'이 기기에 남아 있던':'백업'} 내용으로 되돌릴까요?\n(지금 내용도 백업에 남아 있어요)`)) return;
+  if(plans[id]){ const r=LS.get('hk_plans_replaced')||{}; r[id+'_'+Date.now()]=plans[id]; LS.set('hk_plans_replaced',r); }
+  plans[id]=JSON.parse(JSON.stringify(p)); plans[id].id=id;
+  _delPlanIds.delete(id);
+  if(kind==='local') dropUnsynced(id,true);
+  savePlan();
+  if(curPid===id) renderPlanEditor(plans[id]);
+  showToast('플랜을 되돌리고 저장했어요');
+  if(kind==='server'){ const sel=document.getElementById('bk-sel'); if(sel) showBackupDiff(sel.value); } else openPlanRecover();
+}
+function dropUnsynced(id,silent){
+  const u=LS.get('hk_plans_unsynced'); if(!u||!u.plans) return;
+  delete u.plans[id];
+  if(Object.keys(u.plans).length) LS.set('hk_plans_unsynced',u); else localStorage.removeItem('hk_plans_unsynced');
+  renderUnsyncedBanner();
+  if(!silent){ if(Object.keys(u.plans).length) openPlanRecover(); else closeModal('plan-recover-ov'); }
 }
 function savePlan(){
   LS.set('hk_plans',plans);
