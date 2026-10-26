@@ -2344,7 +2344,10 @@ async function loadUserData(){
       else { const lc=LS.get('hk_memo_cats'); if(lc) memoCategories=lc; }
       if(d.blogKeywords) blogKeywords=d.blogKeywords;
       else { const lb=LS.get('hk_blog'); if(lb) blogKeywords=lb; }
-      if(d.plans){ stashUnsyncedPlans(plans,d.plans); plans=d.plans; }
+      // 저장이 끝나지 않은 채 닫혔을 때(hk_unsaved 표시가 남아 있을 때)만 이 기기 플랜을 따로 보관
+      // (표시가 없으면 이 기기 기록은 그냥 옛날 사본이라 비교하지 않음)
+      if(d.plans){ if(localStorage.getItem('hk_unsaved')===currentUser.uid) stashUnsyncedPlans(plans,d.plans); plans=d.plans; LS.set('hk_plans',plans); }
+      { const u=LS.get('hk_plans_unsynced'); if(u&&!u.v2){ LS.set('hk_plans_unsynced_old',u); localStorage.removeItem('hk_plans_unsynced'); } } // 첫 버전이 옛 사본까지 잘못 담은 것 → 숨겨서 보관만
       try{ localStorage.setItem('hk_owner_uid',currentUser.uid); }catch(e){}
       setTimeout(renderUnsyncedBanner,800);
       _loadedLastUpdated = d.lastUpdated || null;
@@ -2846,9 +2849,10 @@ function savePlansStorage(){
 let _saveTimer = null;
 // 이 탭이 직접 저장한 lastUpdated 기록 — 내 저장을 '다른 탭 저장'으로 오인하지 않도록
 const _myWrites = new Set();
-let _saving=false, _saveAgain=false;
+let _saving=false, _saveAgain=false, _saveReq=0;
 function saveToFirebase(){
   if(!currentUser||!fbDb) return;
+  _saveReq++; try{ localStorage.setItem('hk_unsaved',currentUser.uid); }catch(e){} // 서버 저장이 끝나면 지움
   clearTimeout(_saveTimer);
   _saveTimer=setTimeout(runSaveToFirebase, 800);
 }
@@ -2857,6 +2861,7 @@ async function runSaveToFirebase(){
   // 저장은 한 번에 하나씩: 진행 중이면 끝난 뒤 한 번 더 저장
   if(_saving){ _saveAgain=true; return; }
   _saving=true;
+  const _reqAtStart=_saveReq;
   {
     const docRef=fbDb.collection('userData').doc(currentUser.uid);
     try{
@@ -2889,6 +2894,7 @@ async function runSaveToFirebase(){
         if(loc&&typeof loc==='object'&&!Object.keys(loc).length&&srv&&typeof srv==='object'&&Object.keys(srv).length) delete _payload[k];
       });
       await docRef.set(_payload, {mergeFields:Object.keys(_payload)});
+      if(_saveReq===_reqAtStart) try{ localStorage.removeItem('hk_unsaved'); }catch(e){} // 그 사이 새 수정이 없을 때만
       _loadedLastUpdated=newLastUpdated;
       syncLearnerPortals();
     } catch(e){
@@ -7985,7 +7991,7 @@ function stashUnsyncedPlans(localPlans,serverPlans){
     Object.entries(localPlans||{}).forEach(([id,lp])=>{ const sp=(serverPlans||{})[id]; if(lp&&(!sp||planSig(lp)!==planSig(sp))) diff[id]=lp; });
     if(!Object.keys(diff).length) return;
     const prev=LS.get('hk_plans_unsynced')||{plans:{}};
-    Object.assign(prev.plans,diff); prev.at=new Date().toISOString();
+    Object.assign(prev.plans,diff); prev.at=new Date().toISOString(); prev.v2=true;
     LS.set('hk_plans_unsynced',prev);
   }catch(e){ console.warn(e); }
 }
