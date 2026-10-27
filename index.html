@@ -8072,6 +8072,12 @@ function dropUnsynced(id,silent){
   renderUnsyncedBanner();
   if(!silent){ if(Object.keys(u.plans).length) openPlanRecover(); else closeModal('plan-recover-ov'); }
 }
+// 이미지 저장·인쇄 때 '이번 학기'를 빨간 테두리로 강조 (여러 학기 가능)
+function toggleSemHighlight(si){
+  const sem=plans[curPid]&&plans[curPid].semesters[si]; if(!sem) return;
+  if(sem.highlight) delete sem.highlight; else sem.highlight=true;
+  LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(plans[curPid]);
+}
 function savePlan(){
   LS.set('hk_plans',plans);
   saveToFirebase();
@@ -8397,8 +8403,8 @@ function buildPlanTableUI(p,t){
   p.semesters.forEach((sem,si)=>{
     const maxR=Math.max(1,(sem.req||[]).length,(sem.elec||[]).length,(sem.gen||[]).length,(sem.lib||[]).length);
     const semTot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
-    body+=`<tr style="background:var(--bg2)">
-      <td colspan="9" style="padding:8px 10px;border:1px solid #ccc">
+    body+=`<tr style="background:${sem.highlight?'#fff5f5':'var(--bg2)'}">
+      <td colspan="9" style="padding:8px 10px;border:1px solid #ccc;${sem.highlight?'border-left:4px solid #e03131':''}">
         <div class="sem-info-form" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
           <input id="sem-name-${si}" type="text" value="${sem.name||''}" placeholder="학기명"
             style="width:100px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
@@ -8416,7 +8422,9 @@ function buildPlanTableUI(p,t){
             style="width:115px;padding:4px 7px;font-size:12px;border:1px solid #bbb;border-radius:4px"
             onkeydown="semInfoEnter(event,${si},'date')"
             onchange="plans[curPid].semesters[${si}].date=this.value;LS.set('hk_plans',plans);saveToFirebase()">
-          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:auto;font-size:11px;font-weight:600;color:${sem.completed?'#2e7d32':'var(--text2)'}"><input type="checkbox" ${sem.completed?'checked':''} style="accent-color:#2e7d32;width:14px;height:14px" onchange="plans[curPid].semesters[${si}].completed=this.checked;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])"> 이수완료</label>
+          <button type="button" onclick="toggleSemHighlight(${si})" title="이미지 저장·인쇄할 때 이 학기를 빨간 테두리로 강조 (학습자에게 '이번 학기' 표시)"
+            style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;cursor:pointer;font-family:inherit;border:1.5px solid #e03131;${sem.highlight?'background:#e03131;color:#fff':'background:#fff;color:#e03131'}">${sem.highlight?'● 강조 중':'○ 이번 학기 강조'}</button>
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600;color:${sem.completed?'#2e7d32':'var(--text2)'}"><input type="checkbox" ${sem.completed?'checked':''} style="accent-color:#2e7d32;width:14px;height:14px" onchange="plans[curPid].semesters[${si}].completed=this.checked;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])"> 이수완료</label>
           <button class="btn btn-sm" style="padding:3px 8px;font-size:10px;color:var(--red)" onclick="deleteSem(${si})"><i class="ti ti-trash"></i></button>
         </div>
       </td>
@@ -9424,7 +9432,7 @@ function buildPlanCardHtml(p){
     const r=catRows(sem);
     const tot=sumC(sem.req)+sumC(sem.elec)+sumC(sem.gen)+sumC(sem.lib);
     const meta=[sem.edu||'교육원 추후 안내',sem.date||''].filter(Boolean).join(' · ');
-    blocks+=`<div class="pcv-blk${sem.completed?' pcv-done':''}"><div class="pcv-blk-h"><h2>${circled[i]||(i+1)+'.'} ${sem.name||''}${sem.completed?' <span class="pcv-okt">✓ 이수완료</span>':''}<span class="pcv-meta">${meta}</span></h2><span class="pcv-sum">${tot}<small>학점</small></span></div>${r.h}${noteHtml(r.notes)}</div>`;
+    blocks+=`<div class="pcv-blk${sem.completed?' pcv-done':''}${sem.highlight?' pcv-hl':''}"><div class="pcv-blk-h"><h2>${circled[i]||(i+1)+'.'} ${sem.name||''}${sem.completed?' <span class="pcv-okt">✓ 이수완료</span>':''}<span class="pcv-meta">${meta}</span></h2><span class="pcv-sum">${tot}<small>학점</small></span></div>${r.h}${noteHtml(r.notes)}</div>`;
   });
   if((p.specials||[]).length){
     const sp=specialRows(p.specials);
@@ -9455,6 +9463,7 @@ function buildPlanCardHtml(p){
     .pcv-hero+.pcv-bar{margin-top:8px}
     .pcv-todo{background:${PLAN_BLUE};color:#fff;border-radius:14px;padding:14px 20px;margin-bottom:12px;font-size:18px;font-weight:800;text-align:center}
     .pcv-blk{padding:14px 20px;border-bottom:1px solid #e5e7eb}
+    .pcv-blk.pcv-hl{border:3px solid #e03131;border-radius:8px;margin:6px 8px}
     .pcv-blk:last-child{border-bottom:0}
     .pcv-have{background:#f6f7f9}
     .pcv-done{opacity:.55}
@@ -9574,12 +9583,13 @@ function buildPlanPrintHtml(p){
     const doneBg=done?'background:#f1f8f1':'';
     const doneOp=done?'opacity:.5':'';
     // 학기구분 행 — 가운데 정렬
-    planRows+=`<tr style="background:#eeeee8"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
+    const hl=sem.highlight?' hlr':'';
+    planRows+=`<tr class="${hl?'hlr hlt':''}" style="background:#eeeee8"><td colspan="9" style="padding:6px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;text-align:center">
       ${done?'<span style="color:#2e7d32;font-weight:700">✓ 이수 &nbsp;|&nbsp; </span>':''}교육원: ${sem.edu||''} &nbsp;|&nbsp; 기수: ${sem.kisu||''} &nbsp;|&nbsp; 일자: ${sem.date||''}
     </td></tr>`;
     for(let i=0;i<maxR;i++){
       const rq=sem.req&&sem.req[i],el=sem.elec&&sem.elec[i],gn=sem.gen&&sem.gen[i],lb=sem.lib&&sem.lib[i];
-      planRows+=`<tr style="${done?'background:#f2f2f2':''}">
+      planRows+=`<tr class="${hl}" style="${done?'background:#f2f2f2':''}">
         <td style="padding:4px;border:1px solid #ccc;text-align:center;font-size:11px;color:#888">${i===0?sem.name||'':''}</td>
         <td style="padding:4px;border:1px solid #ccc;text-align:center;color:${RD};font-weight:700;background:#fff">${rq&&rq.credit?rq.credit:''}</td>
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center;background:#fff">${ds(rq&&rq.subject,_dupSubjects)}</td>
@@ -9591,7 +9601,7 @@ function buildPlanPrintHtml(p){
         <td style="padding:4px 5px;border:1px solid #ccc;text-align:center">${ds(lb&&lb.subject,_dupSubjects)}</td>
       </tr>`;
     }
-    planRows+=`<tr style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
+    planRows+=`<tr class="${hl?'hlr hlb':''}" style="background:#e8e8e2"><td colspan="2" style="padding:5px 8px;font-size:11px;border:1px solid #ccc;font-weight:700;color:${done?'#2e7d32':'inherit'}">${done?'✓ 이수':'취득학점'}</td>
       <td colspan="7" style="padding:5px 8px;font-weight:700;border:1px solid #ccc;color:${done?'#bbb':'inherit'}">${semTot}학점</td></tr>`;
   });
 
@@ -9669,6 +9679,7 @@ function buildPlanPrintHtml(p){
     </table>` : ''}
 
     <!-- 이수계획 -->
+    <style>tr.hlr>td:first-child{border-left:3px solid #e03131!important}tr.hlr>td:last-child{border-right:3px solid #e03131!important}tr.hlt>td{border-top:3px solid #e03131!important}tr.hlb>td{border-bottom:3px solid #e03131!important}</style>
     <div style="text-align:center;font-weight:700;font-size:13px;background:${BL};color:#fff;padding:7px;letter-spacing:.15em;margin-top:14px;border-radius:3px 3px 0 0">▶ 이 수 계 획 ◀</div>
     <table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed">
       ${colgroup}
