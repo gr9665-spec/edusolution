@@ -2893,6 +2893,9 @@ async function runSaveToFirebase(){
         const loc=_payload[k], srv=_sv[k];
         if(loc&&typeof loc==='object'&&!Object.keys(loc).length&&srv&&typeof srv==='object'&&Object.keys(srv).length) delete _payload[k];
       });
+      // 데이터가 1MB(저장 한도)에 가까워지면 미리 알림 — 넘으면 저장이 거부됨
+      try{ const kb=Math.round(new Blob([JSON.stringify(_payload)]).size/1024);
+        if(kb>900&&!window._sizeWarned){ window._sizeWarned=true; showToast(`⚠️ 내 데이터가 ${kb}KB예요. 1,000KB를 넘으면 저장이 안 돼요 — 팀장님께 알려주세요`); } }catch(e){}
       await docRef.set(_payload, {mergeFields:Object.keys(_payload)});
       if(_saveReq===_reqAtStart) try{ localStorage.removeItem('hk_unsaved'); }catch(e){} // 그 사이 새 수정이 없을 때만
       _loadedLastUpdated=newLastUpdated;
@@ -4430,6 +4433,8 @@ async function saveLearner(){
   // 데이터베이스 이미지(fs:)는 학습자 기록엔 위치만 남김 (이미지 자체를 넣으면 내 데이터 문서가 너무 커짐)
   l.images=_pendingImgs.filter(i=>i.downloadUrl||String(i.storagePath||'').startsWith('fs:')).map(i=>{ const fs=String(i.storagePath||'').startsWith('fs:'); return {id:i.id,url:fs?'':i.downloadUrl,path:i.storagePath}; });
   if(editIdx>=0&&learners[editIdx]&&learners[editIdx].portalToken) l.portalToken=learners[editIdx].portalToken;
+  // 수정하면서 ID를 바꾼 경우: 예전 ID 기록이 '사라진 기록'으로 오인돼 다시 생기지 않게 직접 바꾼 것으로 표시
+  if(editIdx>=0&&learners[editIdx]&&learners[editIdx].id&&learners[editIdx].id!==l.id&&!learners.some((x,i)=>i!==editIdx&&x.id===learners[editIdx].id)) _delLearnerIds.add(learners[editIdx].id);
   if(editIdx>=0)learners[editIdx]=l;else learners.unshift(l);
   if(editIdx<0&&_pendingProspectId){ const pr=prospects.find(x=>x.id===_pendingProspectId); if(pr){ pr.learnerId=l.id; pr.learnerName=l.name; if(!PSTAGE_DONE.includes(pr.stage)) pr.stage='결제'; } }
   _pendingProspectId=null;
@@ -5265,6 +5270,11 @@ function learnerPayKey(l){
   return `${l.year||0}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 function payKeyLabel(k){ const [y,m,d]=k.split('-').map(Number); return y?`${String(y).slice(2)}.${m}${d?'.'+d:''}`:'-'; }
+// 비고 합치기: ' / '로 나눈 문구 단위로 중복 제거 (여러 번 합쳐도 같은 문구가 쌓이지 않게)
+function ssMergeNotes(...notes){
+  const parts=[]; notes.filter(Boolean).forEach(n=>String(n).split(' / ').forEach(x=>{ x=x.trim(); if(x&&!parts.includes(x)) parts.push(x); }));
+  return parts.join(' / ');
+}
 // 학습자 → 사람 단위로 묶고, 다음학기 학점 추정 (데이터만 받아서 계산: 관리자 팀 집계에도 사용)
 function seasonPeople(L,P,seasonKey,sd){
   const plansArr=Object.values(P||{});
@@ -5284,11 +5294,13 @@ function seasonPeople(L,P,seasonKey,sd){
     const key=withPhone.length?(withPhone[0].name||'')+'|'+(withPhone[0].phone||''):raw[0];
     const others=raw.filter(k=>k!==key&&people[k]);
     if(others.length&&sd&&sd.people){
-      const notes=[...new Set([...others.map(k=>people[k].note),(people[key]||{}).note].filter(Boolean))];
+      const note=ssMergeNotes(...others.map(k=>people[k].note),(people[key]||{}).note);
       sd.people[key]=Object.assign({},...others.map(k=>people[k]),people[key]||{});
-      if(notes.length>1) sd.people[key].note=notes.join(' / ');
+      if(note) sd.people[key].note=note;
       others.forEach(k=>delete sd.people[k]);
     }
+    // 예전에 같은 메모가 여러 번 붙은 비고 정리 (같은 문구만 하나로, 다른 내용은 그대로)
+    if(sd&&sd.people&&sd.people[key]&&sd.people[key].note){ const n=ssMergeNotes(sd.people[key].note); if(n!==sd.people[key].note) sd.people[key].note=n; }
     groups.set(key,recs);
   });
   const term=seasonTargetTerm(seasonKey);
