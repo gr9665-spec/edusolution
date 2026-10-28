@@ -484,6 +484,11 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <h2><i class="ti ti-history" style="font-size:16px;vertical-align:-2px"></i> 지난 일정 (최근 30일)</h2>
     <button class="btn btn-icon" onclick="closeModal('modal-past-schedule')"><i class="ti ti-x"></i></button>
   </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:var(--bg2);border-radius:var(--r);font-size:12px;align-items:center">
+    <span style="color:var(--text2);flex:1;min-width:180px">한 달 넘게 지난 일정은 화면에 안 보이고 저장 공간만 차지해요. 정리하면 서버 보관함으로 옮겨져서 언제든 되돌릴 수 있어요.</span>
+    <button class="btn btn-sm" onclick="archiveOldSchedules()"><i class="ti ti-archive"></i> 한 달 지난 일정 정리</button>
+    <button class="btn btn-sm" onclick="openScheduleArchives()"><i class="ti ti-restore"></i> 보관한 일정 되돌리기</button>
+  </div>
   <div id="past-schedule" style="max-height:60vh;overflow-y:auto"><div class="empty"><i class="ti ti-calendar"></i>지난 일정이 없어요</div></div>
 </div>
 </div>
@@ -6508,6 +6513,59 @@ function renderPastSchedule(todayStr, now){
     ? renderScheduleGroupHtml(byDate, todayStr, now, true)
     : '<div class="empty"><i class="ti ti-calendar"></i>지난 일정이 없어요</div>';
 }
+// ── 한 달 지난 일정 보관 (지우지 않고 userBackups/{uid}_arch… 로 옮김 → 되돌리기 가능) ──
+function oldScheduleCutoff(){ return new Date(Date.now()+9*3600e3-30*864e5).toISOString().slice(0,10); }
+async function archiveOldSchedules(){
+  if(!currentUser||!fbDb){ alert('로그인 후 사용할 수 있어요'); return; }
+  const cut=oldScheduleCutoff();
+  // 시작일과 마감일(있으면) 모두 한 달 넘게 지난 일정만
+  const old=schedules.filter(x=>x.date&&x.date<cut&&(!x.endDate||x.endDate<cut));
+  if(!old.length){ alert(`${cut} 이전에 끝난 일정이 없어요`); return; }
+  const kb=Math.round(new Blob([JSON.stringify(old)]).size/1024);
+  if(!confirm(`${cut} 이전에 끝난 일정 ${old.length}건(약 ${kb}KB)을 보관함으로 옮길까요?\n\n· 지워지는 게 아니라 서버 보관함에 그대로 남아요\n· '보관한 일정 되돌리기'로 언제든 다시 넣을 수 있어요`)) return;
+  // 1) 먼저 보관함에 저장 (한 문서 1MB 한도 → 나눠서). 실패하면 아무것도 지우지 않음
+  const k=new Date(Date.now()+9*3600e3).toISOString().replace(/\D/g,'').slice(0,12);
+  const chunks=[]; let cur=[], size=0;
+  old.forEach(x=>{ const n=JSON.stringify(x).length; if(size+n>700000&&cur.length){ chunks.push(cur); cur=[]; size=0; } cur.push(x); size+=n; });
+  if(cur.length) chunks.push(cur);
+  try{
+    for(let i=0;i<chunks.length;i++){
+      const ref=fbDb.collection('userBackups').doc(`${currentUser.uid}_arch${k}${chunks.length>1?'p'+(i+1):''}`);
+      await ref.set({ownerUid:currentUser.uid,kind:'schedules',at:new Date().toISOString(),cutoff:cut,count:chunks[i].length,schedules:chunks[i]});
+      const chk=await ref.get({source:'server'});
+      if(!chk.exists||(chk.data().schedules||[]).length!==chunks[i].length) throw new Error('보관 확인 실패');
+    }
+  }catch(e){ alert('보관함 저장에 실패해서 아무것도 정리하지 않았어요.\n('+(e.code||e.message)+')'); return; }
+  // 2) 보관이 확인된 뒤에만 목록에서 뺌
+  const oldSet=new Set(old); // 같은 일정 객체만 뺌 (id가 겹치는 일정이 있어도 다른 건 안 건드림)
+  schedules=schedules.filter(x=>!oldSet.has(x)); save(); renderSchedule(); renderDashboard();
+  alert(`✓ 일정 ${old.length}건을 보관함으로 옮겼어요.`);
+}
+async function openScheduleArchives(){
+  if(!currentUser||!fbDb) return;
+  let ov=document.getElementById('sched-arch-ov');
+  if(!ov){ ov=document.createElement('div'); ov.id='sched-arch-ov'; ov.className='overlay'; document.body.appendChild(ov); }
+  ov.innerHTML=`<div class="modal" style="max-width:520px"><div class="modal-head"><h2><i class="ti ti-restore"></i> 보관한 일정 되돌리기</h2><button class="btn btn-icon" onclick="closeModal('sched-arch-ov')"><i class="ti ti-x"></i></button></div><div id="sched-arch-body" style="font-size:13px">불러오는 중...</div></div>`;
+  openModal('sched-arch-ov');
+  const body=document.getElementById('sched-arch-body');
+  try{
+    const q=await fbDb.collection('userBackups').where('ownerUid','==',currentUser.uid).get();
+    const docs=q.docs.filter(d=>d.data().kind==='schedules').sort((a,b)=>b.id.localeCompare(a.id));
+    if(!docs.length){ body.innerHTML='보관한 일정이 없어요.'; return; }
+    body.innerHTML=docs.map(d=>{ const x=d.data(); return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="flex:1">${pmEsc(new Date(x.at).toLocaleString('ko-KR'))} 보관<div style="font-size:11px;color:var(--text3)">${pmEsc(x.cutoff||'')} 이전 일정 ${x.count}건</div></div><button class="btn btn-sm btn-primary" onclick="restoreScheduleArchive('${d.id}')">되돌리기</button></div>`; }).join('');
+  }catch(e){ body.innerHTML='불러오지 못했어요: '+pmEsc(e.code||e.message); }
+}
+async function restoreScheduleArchive(id){
+  try{
+    const d=await fbDb.collection('userBackups').doc(id).get(); if(!d.exists) return;
+    const items=d.data().schedules||[];
+    const have=new Set(schedules.map(x=>JSON.stringify([x.id,x.learnerName,x.type,x.date])));
+    const add=items.filter(x=>!have.has(JSON.stringify([x.id,x.learnerName,x.type,x.date])));
+    if(!confirm(`보관된 일정 ${items.length}건 중 지금 없는 ${add.length}건을 다시 넣을까요?`)) return;
+    schedules=schedules.concat(add); save(); renderSchedule(); renderDashboard();
+    alert(`✓ 일정 ${add.length}건을 되돌렸어요. (보관함 기록은 그대로 남아 있어요)`);
+  }catch(e){ alert('되돌리지 못했어요: '+(e.code||e.message)); }
+}
 function togglePastSchedule(){
   renderPastSchedule();
   openModal('modal-past-schedule');
@@ -7993,7 +8051,7 @@ function backupServerState(sv){
     if(localStorage.getItem('hk_bk_clean')!==uid+hk.slice(0,8)){
       localStorage.setItem('hk_bk_clean',uid+hk.slice(0,8));
       const cut=kstHourKey(Date.now()-7*864e5);
-      fbDb.collection('userBackups').where('ownerUid','==',uid).get().then(q=>q.forEach(doc=>{ if(doc.id.split('_').pop()<cut) doc.ref.delete().catch(()=>{}); })).catch(()=>{});
+      fbDb.collection('userBackups').where('ownerUid','==',uid).get().then(q=>q.forEach(doc=>{ const k=doc.id.split('_').pop(); if(/^\d{10}$/.test(k)&&k<cut) doc.ref.delete().catch(()=>{}); })).catch(()=>{});
     }
   }catch(e){ console.warn('백업 실패',e); }
 }
