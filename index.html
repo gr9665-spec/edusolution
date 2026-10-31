@@ -6189,6 +6189,14 @@ function openScheduleModal(){
   const edEl=document.getElementById('s-end-date'); if(edEl) edEl.value='';
   openModal('modal-schedule');
 }
+// 마감일이 시작일보다 빠르면(연도 실수) 알려주기 — 1년 뒤로 고칠지 묻고, 아니면 저장 취소
+function checkEndBeforeStart(date,endDate,label){
+  if(!date||!endDate||endDate>=date) return endDate;
+  const ny=String((parseInt(endDate.slice(0,4))||0)+1)+endDate.slice(4);
+  if(ny>=date&&confirm(`${label?label+': ':''}마감일(${endDate})이 시작일(${date})보다 빨라요.\n마감일을 ${ny}로 고칠까요?\n(취소하면 저장하지 않아요)`)) return ny;
+  if(ny<date) alert(`${label?label+': ':''}마감일(${endDate})이 시작일(${date})보다 빨라요. 날짜를 확인해 주세요.`);
+  return null;
+}
 function saveSchedule(){
   const idx=document.getElementById('s-learner').value;
   const date=document.getElementById('s-date').value;
@@ -6196,7 +6204,8 @@ function saveSchedule(){
   const learner=learners[parseInt(idx)];
   if(!learner){alert('학습자를 찾을 수 없어요');return;}
   const sTime=(document.getElementById('s-time')?.value||'').trim();
-  const sEndDate=(document.getElementById('s-end-date')?.value||'').trim();
+  let sEndDate=(document.getElementById('s-end-date')?.value||'').trim();
+  if(sEndDate){ const ok=checkEndBeforeStart(date,sEndDate); if(ok===null) return; sEndDate=ok; }
   schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:document.getElementById('s-type').value,date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
@@ -7192,19 +7201,21 @@ function applyCopyKisu(){
   const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
   const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
 
-  // 마감 제외한 시작 일정만
-  const startItems=[...new Map(items
-    .filter(s=>!s.type.includes('마감'))
-    .map(s=>[s.type+'|'+s.date, s])).values()]
-    .sort((a,b)=>a.date.localeCompare(b.date));
+  // 마감 제외한 시작 일정만 — 같은 유형+날짜가 여러 명이면 마감일·마감시간이 적힌 기록을 우선
+  const info=s=>(s.endDate?2:0)+(s.time?1:0);
+  const byKey=new Map();
+  items.filter(s=>!s.type.includes('마감')).forEach(s=>{ const k=s.type+'|'+s.date, o=byKey.get(k); if(!o||info(s)>info(o)) byKey.set(k,s); });
+  const startItems=[...byKey.values()].sort((a,b)=>a.date.localeCompare(b.date));
 
   if(!startItems.length){ alert('복사할 일정이 없어요'); return; }
 
   // 마감일 매핑 — 같은 유형 마감 중 시작일 이후 가장 가까운 것으로 매칭
   bulkRows = startItems.length;
   renderBulkRows(startItems.map(s=>{
-    let endDate='';
-    if(HAS_END_TYPES.includes(s.type)){
+    // 시작 일정에 적힌 마감일·마감시간을 그대로 가져옴 (예전엔 마감시간을 안 가져와 빈칸이 됐음)
+    let endDate=s.endDate||'';
+    const time=s.time||'';
+    if(!endDate&&HAS_END_TYPES.includes(s.type)){
       const endItems=items.filter(x=>x.type===s.type+'마감'&&x.date>=s.date);
       if(endItems.length){
         // 시작일 이후 마감 중 가장 가까운 것
@@ -7219,7 +7230,7 @@ function applyCopyKisu(){
         }
       }
     }
-    return {type:s.type, date:s.date, endDate, note:s.note};
+    return {type:s.type, date:s.date, endDate, time, label:s.label||'', note:s.note};
   }));
 
   updateBulkPreview();
@@ -7370,6 +7381,7 @@ function saveBulkSchedule(){
     origNote: r.querySelector('.bulk-note')?.value||''
   })).filter(s=>s.date);
   if(!scheduleItems.length){ alert('시작일을 하나 이상 입력해주세요'); return; }
+  for(const s of scheduleItems){ if(s.endDate){ const ok=checkEndBeforeStart(s.date,s.endDate,s.type); if(ok===null) return; s.endDate=ok; } }
 
   let count = 0;
   checked.forEach(chk=>{
@@ -7434,8 +7446,10 @@ function fixMissingEndDates(){
       const endParsed=endPart.trim();
       const [em,ed]=(endParsed.includes('/')?(endParsed.split('/')):([null,null]));
       if(em&&ed){
-        const yr=new Date().getFullYear();
-        const endDate=`${yr}-${String(em).padStart(2,'0')}-${String(ed).padStart(2,'0')}`;
+        // 연도는 시작일 기준 (예전엔 '올해'로 넣어서 12/17~1/13 같은 학기가 마감일이 시작일보다 앞으로 들어갔음)
+        const sy=parseInt(String(s.date||'').slice(0,4))||new Date().getFullYear();
+        let endDate=`${sy}-${String(em).padStart(2,'0')}-${String(ed).padStart(2,'0')}`;
+        if(s.date&&endDate<s.date) endDate=`${sy+1}-${String(em).padStart(2,'0')}-${String(ed).padStart(2,'0')}`;
         s.endDate=endDate;
         if(timePart) s.time=timePart;
         fixed++;
@@ -7449,12 +7463,22 @@ function fixMissingEndDates(){
     const noteKey=(s.note||'').split('|')[0].trim(); // 기수 부분만
     if(!noteKey) return;
     const sibling=schedules.find(x=>
-      x!==s && x.endDate && x.type===s.type &&
+      x!==s && x.endDate && x.type===s.type && x.date===s.date &&
       (x.note||'').split('|')[0].trim()===noteKey
     );
     if(sibling){ s.endDate=sibling.endDate; if(sibling.time) s.time=sibling.time; fixed++; }
   });
-  if(fixed>0){ save(); console.log(`[보정] endDate 없는 일정 ${fixed}건을 같은 기수/타입 다른 학생에서 복구`); }
+  // 3차: 마감일 연도가 1년 앞으로 잘못 들어간 일정 바로잡기 (예: 2025-12-17 ~ 2025-01-13 → 2026-01-13)
+  //      1년 더해서 시작일 이후 120일 안에 들어올 때만 고침, 짝이 되는 'OO마감' 일정 날짜도 같이
+  schedules.forEach(s=>{
+    if(!s.date||!s.endDate||s.endDate>=s.date) return;
+    const ny=String((parseInt(s.endDate.slice(0,4))||0)+1)+s.endDate.slice(4);
+    const span=(new Date(ny)-new Date(s.date))/864e5;
+    if(!(span>=0&&span<=120)) return;
+    schedules.forEach(x=>{ if(x!==s&&x.learnerName===s.learnerName&&x.type===s.type+'마감'&&x.date===s.endDate&&(x.note||'')===(s.note||'')) x.date=ny; });
+    s.endDate=ny; fixed++;
+  });
+  if(fixed>0){ save(); console.log(`[보정] 마감일 ${fixed}건 복구`); }
   return fixed;
 }
 function fixMissingScheduleDates(){
