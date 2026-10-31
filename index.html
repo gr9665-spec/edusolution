@@ -133,6 +133,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   /* 기수 칸 줄바꿈 방지 */
   td{word-break:keep-all}
 }
+.ss-clr{display:none}
 /* ══ 모바일 최적화 (폰 화면에서만 적용 — PC 화면은 그대로) ══ */
 @media(max-width:600px){
   /* 아이폰: 입력칸 누를 때 화면 확대되는 문제 방지(16px 미만이면 확대됨) */
@@ -175,6 +176,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   #ss-tbody td.ss-reg::before{flex-basis:100%;margin-bottom:0}
   #ss-tbody td.ss-reg input[type=date]{flex:1 1 150px;width:auto !important}
   #ss-tbody td.ss-reg input[type=text]{flex:0 0 90px;width:90px !important}
+  #ss-tbody .ss-clr{display:inline-block !important;margin-top:6px;padding:6px 12px;font-size:13px;border:1px solid #ffc9c9;background:#fff5f5;color:#c92a2a;border-radius:99px;font-family:inherit;cursor:pointer}
+  #ss-tbody td.ss-reg .ss-clr{margin-top:0}
 }
 </style>
 
@@ -5482,8 +5485,8 @@ function renderSeason(){
       <td style="padding:6px;text-align:right"><input type="number" min="0" step="1000" value="${salesManual?d.sales:''}" placeholder="${autoSales?autoSales:'-'}" title="기본: 학점 × 단가 ${autoSales?'= '+autoSales.toLocaleString()+'원':''} — 비우면 자동 계산" onchange="setSeasonField('${K}','sales',this.value)" style="width:92px;font-size:12px;padding:3px 5px;text-align:right;font-weight:700;${SS_NO_SALES.includes(status)?'color:var(--text3);text-decoration:line-through':''}"><div style="font-size:10px;color:var(--text3)">${salesManual?'직접입력':sales?sales.toLocaleString()+'원':'자동 계산'}</div></td>
       <td style="padding:6px;text-align:center"><select onchange="setSeasonField('${K}','status',this.value)" style="font-size:12px;padding:3px 4px;border-radius:99px;border:1px solid ${c}66;background:${c}12;color:${c};font-weight:700;width:100px">
         ${SS_STATUS.map(v=>`<option ${status===v.k?'selected':''}>${v.k}</option>`).join('')}</select>${autoStatus&&status==='과정끝'?'<div style="font-size:10px;color:var(--text3)">플랜 완료로 자동</div>':''}</td>
-      <td style="padding:6px;text-align:center"><input type="date" value="${d.kakao||''}" onchange="setSeasonField('${K}','kakao',this.value)" style="font-size:12px;padding:3px 4px;width:120px"></td>
-      <td class="ss-reg" style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px"></td>
+      <td style="padding:6px;text-align:center"><input type="date" value="${d.kakao||''}" onchange="setSeasonField('${K}','kakao',this.value)" style="font-size:12px;padding:3px 4px;width:120px">${d.kakao?`<button type="button" class="ss-clr" onclick="setSeasonField('${K}','kakao','')" title="날짜 지우기">✕ 지우기</button>`:''}</td>
+      <td class="ss-reg" style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px">${d.regDate||d.regTime?`<button type="button" class="ss-clr" onclick="ssClearReg('${K}')" title="등록예정일·시간 지우기">✕ 지우기</button>`:''}</td>
       <td style="padding:6px"><input type="text" value="${pmEsc(d.note||'')}" placeholder="${r.extra&&r.extra.mayNote?'5월: '+pmEsc(r.extra.mayNote):'예: 자격증 대체 여부'}" title="${r.extra&&(r.extra.mayNote||r.extra.mayLeft)?pmEsc(`5월 기록 — 비고: ${r.extra.mayNote||'-'} / 26-2 남은학점: ${r.extra.mayLeft||'-'}`):''}" onchange="setSeasonField('${K}','note',this.value)" style="font-size:12px;padding:3px 6px;width:100%;min-width:140px"></td>
       <td style="padding:6px;text-align:center">${paidL?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ 등록됨</span>'
         :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
@@ -5654,6 +5657,11 @@ function ssSetNoAuto(K,on){
   const d=sd.people[key]=sd.people[key]||{};
   if(on) d.noAuto=true; else delete d.noAuto;
   save(); renderSeason();
+}
+// 폰: 날짜칸은 지우기가 어려워서 따로 지우기 버튼 (등록예정일·시간 함께)
+function ssClearReg(K){
+  const sd=seasonData(document.getElementById('ss-season').value), d=sd.people[decodeURIComponent(K)];
+  if(!d) return; d.regDate=''; d.regTime=''; save(); renderSeason();
 }
 function setSeasonField(K,field,val){
   const key=decodeURIComponent(K), k=document.getElementById('ss-season').value;
