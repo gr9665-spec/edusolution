@@ -178,6 +178,8 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   #ss-tbody td.ss-reg input[type=text]{flex:0 0 90px;width:90px !important}
   #ss-tbody .ss-clr{display:inline-block !important;margin-top:6px;padding:6px 12px;font-size:13px;border:1px solid #ffc9c9;background:#fff5f5;color:#c92a2a;border-radius:99px;font-family:inherit;cursor:pointer}
   #ss-tbody td.ss-reg .ss-clr{margin-top:0}
+  #ss-tbody td.ss-reg .ss-rn{flex-basis:100%;margin-top:0 !important}
+  #ss-tbody td.ss-reg .ss-rn button{font-size:13px !important;padding:7px 14px !important}
 }
 </style>
 
@@ -1399,6 +1401,9 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
           <option value="st:미연락">미연락</option><option value="st:연락완료">연락완료</option><option value="st:등록예정">등록예정</option>
           <option value="st:결제완료">결제완료</option><option value="st:잠정보류">잠정보류</option><option value="st:특이사항">특이사항</option>
           <option value="st:신청오류">신청오류</option><option value="st:환불">환불</option><option value="st:과정끝">과정끝</option>
+        </optgroup>
+        <optgroup label="등록안내">
+          <option value="rn:1">등록안내 완료</option><option value="rn:0">등록예정 중 안내 전</option>
         </optgroup>
       </select>
     </div>
@@ -5431,6 +5436,8 @@ function renderSeason(){
   if(f==='refund') rows=rows.filter(r=>r.v.status==='환불');
   if(f.startsWith('st:')) rows=rows.filter(r=>r.v.status===f.slice(3));
   if(f==='multi'){ const st=window._ssSt||new Set(); rows=rows.filter(r=>st.has(r.v.status)); }
+  if(f==='rn:1') rows=rows.filter(r=>ssRegNoticed(r.v.d||{}));
+  if(f==='rn:0') rows=rows.filter(r=>r.v.status==='등록예정'&&!ssRegNoticed(r.v.d||{}));
   // 칸 제목(다음학기 학점·단가·예상매출·카톡·등록예정·비고)을 누르면 직접 적은 사람만 (여러 칸 고르면 하나라도 적은 사람)
   const fl=window._ssFilled||new Set();
   document.querySelectorAll('#panel-season th.ss-fh').forEach(th=>{ const on=fl.has(th.dataset.f);
@@ -5486,7 +5493,7 @@ function renderSeason(){
       <td style="padding:6px;text-align:center"><select onchange="setSeasonField('${K}','status',this.value)" style="font-size:12px;padding:3px 4px;border-radius:99px;border:1px solid ${c}66;background:${c}12;color:${c};font-weight:700;width:100px">
         ${SS_STATUS.map(v=>`<option ${status===v.k?'selected':''}>${v.k}</option>`).join('')}</select>${autoStatus&&status==='과정끝'?'<div style="font-size:10px;color:var(--text3)">플랜 완료로 자동</div>':''}</td>
       <td style="padding:6px;text-align:center"><input type="date" value="${d.kakao||''}" onchange="setSeasonField('${K}','kakao',this.value)" style="font-size:12px;padding:3px 4px;width:120px">${d.kakao?`<button type="button" class="ss-clr" onclick="setSeasonField('${K}','kakao','')" title="날짜 지우기">✕ 지우기</button>`:''}</td>
-      <td class="ss-reg" style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px">${d.regDate||d.regTime?`<button type="button" class="ss-clr" onclick="ssClearReg('${K}')" title="등록예정일·시간 지우기">✕ 지우기</button>`:''}</td>
+      <td class="ss-reg" style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px">${d.regDate||d.regTime?`<button type="button" class="ss-clr" onclick="ssClearReg('${K}')" title="등록예정일·시간 지우기">✕ 지우기</button>`:''}${(()=>{ const on=ssRegNoticed(d); return `<div class="ss-rn" style="margin-top:4px"><button type="button" onclick="ssToggleRegNotice('${K}')" title="${on?(d.regNoticeAt?d.regNoticeAt+' 안내 완료 · ':'비고에 예약완 기록 · ')+'다시 누르면 취소':'등록 안내(예약)를 마쳤으면 눌러서 표시'}" style="cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;border:1.5px solid #2f9e44;${on?'background:#2f9e44;color:#fff':'background:#fff;color:#2f9e44'}">${on?'✓ 등록안내 완료':'○ 등록안내'}</button></div>`; })()}</td>
       <td style="padding:6px"><input type="text" value="${pmEsc(d.note||'')}" placeholder="${r.extra&&r.extra.mayNote?'5월: '+pmEsc(r.extra.mayNote):'예: 자격증 대체 여부'}" title="${r.extra&&(r.extra.mayNote||r.extra.mayLeft)?pmEsc(`5월 기록 — 비고: ${r.extra.mayNote||'-'} / 26-2 남은학점: ${r.extra.mayLeft||'-'}`):''}" onchange="setSeasonField('${K}','note',this.value)" style="font-size:12px;padding:3px 6px;width:100%;min-width:140px"></td>
       <td style="padding:6px;text-align:center">${paidL?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ 등록됨</span>'
         :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
@@ -5656,6 +5663,15 @@ function ssSetNoAuto(K,on){
   const key=decodeURIComponent(K), sd=seasonData(document.getElementById('ss-season').value);
   const d=sd.people[key]=sd.people[key]||{};
   if(on) d.noAuto=true; else delete d.noAuto;
+  save(); renderSeason();
+}
+// 등록안내 완료 표시 — 직접 누른 값이 우선, 안 눌렀으면 비고의 '예약완' 기록도 완료로 봄 (기존 비고는 안 건드림)
+function ssRegNoticed(d){ return d.regNotice===undefined?/예약\s*완/.test(d.note||''):!!d.regNotice; }
+function ssToggleRegNotice(K){
+  const sd=seasonData(document.getElementById('ss-season').value), key=decodeURIComponent(K);
+  const d=sd.people[key]=sd.people[key]||{};
+  if(ssRegNoticed(d)){ d.regNotice=false; delete d.regNoticeAt; }
+  else { d.regNotice=true; d.regNoticeAt=new Date(Date.now()+9*3600e3).toISOString().slice(0,10); }
   save(); renderSeason();
 }
 // 폰: 날짜칸은 지우기가 어려워서 따로 지우기 버튼 (등록예정일·시간 함께)
