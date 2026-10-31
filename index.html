@@ -168,6 +168,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   /* 플랜표: 화면 밖으로 밀리지 않게, 넓은 표는 그 칸 안에서 옆으로 밀어보기 */
   .plan-layout > *{min-width:0}
   #plan-body .card:has(> table){overflow-x:auto !important;-webkit-overflow-scrolling:touch}
+  /* 성수기 카드: 날짜·숫자 입력칸이 좁아서 글자가 잘리고 누르기 어려운 문제 → 칸 너비만큼 넓게 */
+  #ss-tbody input,#ss-tbody select{min-height:40px;box-sizing:border-box}
+  #ss-tbody input[type=date],#ss-tbody input[type=number],#ss-tbody select{width:100% !important;max-width:100%}
+  #ss-tbody td.ss-reg{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  #ss-tbody td.ss-reg::before{flex-basis:100%;margin-bottom:0}
+  #ss-tbody td.ss-reg input[type=date]{flex:1 1 150px;width:auto !important}
+  #ss-tbody td.ss-reg input[type=text]{flex:0 0 90px;width:90px !important}
 }
 </style>
 
@@ -5476,7 +5483,7 @@ function renderSeason(){
       <td style="padding:6px;text-align:center"><select onchange="setSeasonField('${K}','status',this.value)" style="font-size:12px;padding:3px 4px;border-radius:99px;border:1px solid ${c}66;background:${c}12;color:${c};font-weight:700;width:100px">
         ${SS_STATUS.map(v=>`<option ${status===v.k?'selected':''}>${v.k}</option>`).join('')}</select>${autoStatus&&status==='과정끝'?'<div style="font-size:10px;color:var(--text3)">플랜 완료로 자동</div>':''}</td>
       <td style="padding:6px;text-align:center"><input type="date" value="${d.kakao||''}" onchange="setSeasonField('${K}','kakao',this.value)" style="font-size:12px;padding:3px 4px;width:120px"></td>
-      <td style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px"></td>
+      <td class="ss-reg" style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px"></td>
       <td style="padding:6px"><input type="text" value="${pmEsc(d.note||'')}" placeholder="${r.extra&&r.extra.mayNote?'5월: '+pmEsc(r.extra.mayNote):'예: 자격증 대체 여부'}" title="${r.extra&&(r.extra.mayNote||r.extra.mayLeft)?pmEsc(`5월 기록 — 비고: ${r.extra.mayNote||'-'} / 26-2 남은학점: ${r.extra.mayLeft||'-'}`):''}" onchange="setSeasonField('${K}','note',this.value)" style="font-size:12px;padding:3px 6px;width:100%;min-width:140px"></td>
       <td style="padding:6px;text-align:center">${paidL?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ 등록됨</span>'
         :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
