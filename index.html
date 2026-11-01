@@ -442,6 +442,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div style="display:flex;gap:8px;align-items:center">
       <span id="learner-sel-count" style="font-size:12px;color:var(--text2);display:none"></span>
       <button id="btn-bulk-delete" class="btn btn-sm" style="color:var(--red);display:none" onclick="bulkDeleteLearners()"><i class="ti ti-trash"></i>선택 삭제</button>
+      <button class="btn btn-sm" onclick="exportLearnerPhones()" title="문자 사이트 업로드용 — 전체 학습자 이름·번호 엑셀 (번호 중복 제거)"><i class="ti ti-file-spreadsheet"></i>번호 내보내기</button>
       <button class="btn btn-primary" onclick="openLearnerModal()"><i class="ti ti-plus"></i>학습자 추가</button>
     </div>
   </div>
@@ -4703,6 +4704,31 @@ function getYearsFromData(){
   years.add(thisYear);
   return [...years].sort((a,b)=>b-a);
 }
+// 문자 사이트 업로드용: 전체 학습자 이름·휴대폰 번호 엑셀 (같은 번호는 1번만 — 최근 등록 이름으로)
+function exportLearnerPhones(){
+  const seen=new Map(); let bad=0, noPhone=0;
+  // learners는 최근 추가가 앞쪽 → 처음 나온 이름을 씀
+  learners.forEach(l=>{
+    const raw=String(l.phone||'').trim(); if(!raw){ noPhone++; return; }
+    let n=raw.replace(/\D/g,''); if(n.startsWith('82')&&n.length>=11) n='0'+n.slice(2);
+    if(!/^01\d{8,9}$/.test(n)){ bad++; return; }
+    if(seen.has(n)) return;
+    seen.set(n,(l.name||'').trim());
+  });
+  if(!seen.size){ alert('내보낼 휴대폰 번호가 없어요'); return; }
+  const fmt=n=>n.length===11?`${n.slice(0,3)}-${n.slice(3,7)}-${n.slice(7)}`:`${n.slice(0,3)}-${n.slice(3,6)}-${n.slice(6)}`;
+  const rows=[['이름','휴대폰번호'],...[...seen].map(([n,name])=>[name,fmt(n)])];
+  const go=()=>{
+    const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=[{wch:12},{wch:16}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'학습자번호');
+    XLSX.writeFile(wb,`학습자번호_${new Date(Date.now()+9*3600e3).toISOString().slice(0,10)}.xlsx`);
+    const dup=learners.length-noPhone-bad-seen.size;
+    showToast(`✓ ${seen.size}명 내보냄${dup>0?` · 중복 번호 ${dup}건 제외`:''}${noPhone?` · 번호 없음 ${noPhone}명`:''}${bad?` · 형식 이상 ${bad}건 제외`:''}`);
+  };
+  if(window.XLSX){ go(); return; }
+  const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  sc.onload=go; sc.onerror=()=>alert('엑셀 도구를 불러오지 못했어요. 인터넷 연결을 확인해주세요.'); document.head.appendChild(sc);
+}
 function populateYearSelects(){
   const years = getYearsFromData();
   // 한국 시간 기준
@@ -4715,13 +4741,15 @@ function populateYearSelects(){
     const prev = el.value;
     const allOpt = id==='filter-year'?'<option value="">전체년도</option>':'';
     el.innerHTML = allOpt + years.map(y=>`<option value="${y}">${y}년</option>`).join('');
+    if(id==='filter-year'&&!el.dataset.init){ el.value=''; el.dataset.init='1'; return; } // 학습자 관리는 처음에 전체년도
     if(prev && [...el.options].some(o=>o.value===prev)) el.value=prev;
+    else if(id==='filter-year'&&prev==='') el.value='';
     else el.value=String(thisYear);
   });
-  // 학습자 관리 월 필터 — 처음 로드 시 이번 달로 설정
+  // 학습자 관리 월 필터 — 검색하기 편하게 처음엔 전체월
   const filterMonth=document.getElementById('filter-month');
   if(filterMonth&&!filterMonth.dataset.init){
-    filterMonth.value=String(thisMon);
+    filterMonth.value='';
     filterMonth.dataset.init='1';
   }
   // 매출/내보내기 월 셀렉트를 현재 월로 자동 설정 (처음 로드 시만)
