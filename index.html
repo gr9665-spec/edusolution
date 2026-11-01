@@ -1917,7 +1917,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <div class="fg2">
     <div class="fg"><label>학생명 *</label><select id="s-learner"><option value="">학습자 선택</option></select></div>
     <div class="fg"><label>일정 유형</label>
-      <select id="s-type">
+      <select id="s-type" onchange="document.getElementById('s-label-wrap').style.display=this.value==='기타'?'':'none'">
         <option>개강일</option>
         <option>쪽지시험</option><option>쪽지시험마감</option>
         <option>토론</option><option>토론마감</option>
@@ -1927,6 +1927,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option>기타</option>
       </select>
     </div>
+    <div class="fg" id="s-label-wrap" style="display:none;grid-column:1/-1"><label>기타 일정 내용 *</label><input type="text" id="s-label" placeholder="예: 실습 오리엔테이션, 서류 제출"></div>
     <div class="fg"><label>시작일 *</label><input type="date" id="s-date"></div>
     <div class="fg" style="display:flex;gap:6px;align-items:flex-end">
       <div style="flex:1"><label>마감일 <span style="font-size:10px;color:var(--text2)">(선택)</span></label><input type="date" id="s-end-date" style="width:100%"></div>
@@ -3080,7 +3081,7 @@ function buildPortalData(l){
   const sched=schedules
     .filter(s=>(s.learnerId?ids.has(s.learnerId):s.learnerName===l.name)&&s.date>=from&&s.date<=to)
     .map(s=>{
-      const m=PORTAL_SCHED[s.type]||[s.label||s.type||'일정','기타 일정','etc'];
+      const m=PORTAL_SCHED[s.type]||[(s.label?s.label+(s.type==='기타마감'?' 마감':''):'')||s.type||'일정','기타 일정','etc'];
       const g=group.find(x=>x.id===s.learnerId);
       let sub=m[1];
       if(s.endDate&&s.endDate!==s.date) sub+=` · ~${+s.endDate.slice(5,7)}.${+s.endDate.slice(8,10)}`;
@@ -3826,7 +3827,7 @@ function openEndDateModal(id){
   const s=schedules.find(x=>x.id===id);
   if(!s) return;
   document.getElementById('modal-end-date-info').innerHTML=
-    `<strong>${s.learnerName}</strong> · ${s.type}<br><span style="color:var(--text2)">${s.note||''}</span>`;
+    `<strong>${s.learnerName}</strong> · ${schedTypeLabel(s)}<br><span style="color:var(--text2)">${s.note||''}</span>`;
   document.getElementById('end-date-input').value=s.endDate||'';
   document.getElementById('end-time-input').value=s.time||'';
   openModal('modal-end-date');
@@ -4283,7 +4284,7 @@ function applyLearnerCopyKisu(){
 }
 
 function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTime,presetLabel){
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const wrap=document.getElementById('learner-sched-rows');
   const rowId='sr'+Date.now()+Math.floor(Math.random()*1000);
@@ -4318,7 +4319,7 @@ function addLearnerSchedRow(presetType,presetDate,presetNote,presetEnd,presetTim
 }
 
 function onLearnerSchedTypeChange(rowId){
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const row=document.getElementById(rowId);
   if(!row) return;
@@ -4753,7 +4754,7 @@ function renderDashboard(){
   const typeColor={
     '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
     '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
-    '중간고사':'#c0392b','중간고사마감':'#9b1515','기말고사':'#c0392b','기말고사마감':'#9b1515','기타':'#555'
+    '중간고사':'#c0392b','중간고사마감':'#9b1515','기말고사':'#c0392b','기말고사마감':'#9b1515','기타':'#555','기타마감':'#555'
   };
   const TYPE_ORDER_DASH={'개강일':0,'쪽지시험':1,'쪽지시험 1차':1,'쪽지시험 2차':1,'과제':2,'과제 1차':2,'과제 2차':2,'토론':3,'토론 1차':3,'토론 2차':3,'중간고사':4,'중간고사 1차':4,'기말고사':5,'기말고사 1차':5,'기말고사 2차':5,'기타':6};
   const typeOrderDash=(t)=>{
@@ -4767,7 +4768,7 @@ function renderDashboard(){
       <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[s.type]||'#999'}">
         <div style="flex:1;min-width:0">
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
-          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
           ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
           ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>(x.learnerId&&x.learnerId===s.learnerId)||(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&s.note.includes(x.kisu));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
@@ -6218,6 +6219,8 @@ function openScheduleModal(){
   document.getElementById('s-date').value='';document.getElementById('s-note').value='';
   const stEl=document.getElementById('s-time'); if(stEl) stEl.value='';
   const edEl=document.getElementById('s-end-date'); if(edEl) edEl.value='';
+  const lbEl=document.getElementById('s-label'); if(lbEl) lbEl.value='';
+  document.getElementById('s-label-wrap').style.display=document.getElementById('s-type').value==='기타'?'':'none';
   openModal('modal-schedule');
 }
 // 마감일이 시작일보다 빠르면(연도 실수) 알려주기 — 1년 뒤로 고칠지 묻고, 아니면 저장 취소
@@ -6228,16 +6231,26 @@ function checkEndBeforeStart(date,endDate,label){
   if(ny<date) alert(`${label?label+': ':''}마감일(${endDate})이 시작일(${date})보다 빨라요. 날짜를 확인해 주세요.`);
   return null;
 }
+// 일정 이름 표시: '기타'는 무슨 일정인지 같이 보여줌 (저장값은 안 바꾸고 화면에만)
+function schedTypeLabel(s){
+  if(!s||!String(s.type||'').startsWith('기타')) return s?s.type:'';
+  const end=s.type==='기타마감'?' 마감':'';
+  let what=(s.label||'').trim();
+  if(!what&&s.note&&!s.note.includes('|')) what=s.note.trim().slice(0,30);
+  return what?`기타(${pmEsc(what)})${end}`:s.type;
+}
 function saveSchedule(){
   const idx=document.getElementById('s-learner').value;
   const date=document.getElementById('s-date').value;
   if(idx===''||!date){alert('학습자와 날짜를 선택해주세요');return;}
+  const sType=document.getElementById('s-type').value, sLabel=(document.getElementById('s-label')?.value||'').trim();
+  if(sType==='기타'&&!sLabel){ alert('기타 일정 내용을 적어주세요 (대시보드에 어떤 일정인지 보여요)'); return; }
   const learner=learners[parseInt(idx)];
   if(!learner){alert('학습자를 찾을 수 없어요');return;}
   const sTime=(document.getElementById('s-time')?.value||'').trim();
   let sEndDate=(document.getElementById('s-end-date')?.value||'').trim();
   if(sEndDate){ const ok=checkEndBeforeStart(date,sEndDate); if(ok===null) return; sEndDate=ok; }
-  schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:document.getElementById('s-type').value,date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
+  schedules.push({id:Date.now()+'',learnerName:learner.name,learnerId:learner.id||'',type:sType,label:sType==='기타'?sLabel:'',date,endDate:sEndDate||'',time:sTime||'',sent:document.getElementById('s-sent').value,note:document.getElementById('s-note').value});
   save();closeModal('modal-schedule');renderSchedule();renderDashboard();
 }
 function importScheduleFile(input){
@@ -6502,7 +6515,7 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
           <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${SCHED_TYPE_COLOR[s.type]||'#999'};${isPast?'opacity:.65':''}">
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
-              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${s.type}</span>
+              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
               ${(!s.endDate&&!s.time&&s.type!=='개강일'&&s.type!=='기타'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
               ${s.type==='개강일'?(()=>{const _learner=learners.find(x=>(x.learnerId&&x.learnerId===s.learnerId)||(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&s.note.includes(x.kisu));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
@@ -6655,6 +6668,9 @@ function renderSales(){
   const empty=document.getElementById('sales-empty');
   if(!filtered.length){tbody.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
+  // 결제일 기준 정렬: 최근 결제가 위, 결제일 빠른 학습자가 맨 아래 (화면 순서만 바꿈 — 저장된 학습자 목록 순서는 그대로)
+  const _ord=new Map(learners.map((l,i)=>[l,i]));
+  filtered.sort((a,b)=>learnerPayKey(b).localeCompare(learnerPayKey(a))||(_ord.get(b)-_ord.get(a)));
   tbody.innerHTML=filtered.map(l=>{
     const origIdx=learners.indexOf(l);
     return `<tr>
@@ -7302,7 +7318,7 @@ function selectAllBulk(checked){
 }
 
 function renderBulkRows(initVals=[]){
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const ALL_TYPES=['개강일','쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const container = document.getElementById('bulk-schedule-rows');
@@ -7351,7 +7367,7 @@ function renderBulkRows(initVals=[]){
 }
 
 function onBulkTypeChange(i){
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const HAS_TIME=['쪽지시험','중간고사','기말고사'];
   const row=document.getElementById(`brow-${i}`);
   if(!row) return;
@@ -7402,7 +7418,7 @@ function saveBulkSchedule(){
   const checked = [...document.querySelectorAll('.bulk-chk:checked')];
   if(!checked.length){ alert('학습자를 1명 이상 선택해주세요'); return; }
   const rows = [...document.querySelectorAll('.bulk-row')];
-  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
+  const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사','기타'];
   const scheduleItems = rows.map(r=>({
     type: r.querySelector('.bulk-type').value,
     date: r.querySelector('.bulk-date').value,
@@ -7412,6 +7428,7 @@ function saveBulkSchedule(){
     origNote: r.querySelector('.bulk-note')?.value||''
   })).filter(s=>s.date);
   if(!scheduleItems.length){ alert('시작일을 하나 이상 입력해주세요'); return; }
+  if(scheduleItems.some(s=>s.type==='기타'&&!s.label.trim())){ alert('기타 일정 내용을 적어주세요 (대시보드에 어떤 일정인지 보여요)'); return; }
   for(const s of scheduleItems){ if(s.endDate){ const ok=checkEndBeforeStart(s.date,s.endDate,s.type); if(ok===null) return; s.endDate=ok; } }
 
   let count = 0;
@@ -7435,7 +7452,7 @@ function saveBulkSchedule(){
         const endType=s.type+'마감';
         const dupEnd=s.endDate && schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate&&ex.note===note);
         if(s.endDate && !dupEnd){
-          schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,learnerId:learner.id||'',type:endType,date:s.endDate,sent:'false',note});
+          schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,learnerId:learner.id||'',type:endType,...(s.type==='기타'?{label:s.label||''}:{}),date:s.endDate,sent:'false',note});
           count++;
         }
       }
