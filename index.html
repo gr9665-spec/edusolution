@@ -3925,6 +3925,7 @@ function switchTab(name,el){
   const grp=TAB_GROUPS.find(g=>g.tabs.includes(name));
   if(grp){ _tabGroup=grp.k; _groupLast[grp.k]=name; try{ localStorage.setItem('hubLastTab',name); }catch(e){} }
   renderTabGroups();
+  hubNavRecord(name);
   if(name==='dashboard') renderDashboard();
   if(name==='learners') renderLearners();
   if(name==='schedule') renderSchedule();
@@ -3940,6 +3941,30 @@ function switchTab(name,el){
   if(name==='season') renderSeason();
   if(name==='worklog') renderWorklog();
 }
+// ── 브라우저 뒤로가기/앞으로가기: 허브 안의 탭끼리 이동 (주소는 그대로, 화면 상태만 기록)
+let _hubNavPop=false;
+function hubNavRecord(name){
+  if(_hubNavPop||!window.history||!history.pushState) return;
+  const cur=history.state&&history.state.hubTab;
+  if(cur===name) return;
+  try{ if(!cur) history.replaceState({hubTab:name},''); else history.pushState({hubTab:name},''); }catch(e){}
+}
+window.addEventListener('popstate',e=>{
+  // 팝업창이 열려 있으면 뒤로가기는 팝업만 닫고 지금 탭에 머묾
+  const open=[...document.querySelectorAll('.overlay.open')];
+  if(open.length){
+    open.forEach(o=>o.classList.remove('open'));
+    const cur=document.querySelector('.panel.active'), n=cur&&cur.id.replace('panel-','');
+    if(n){ try{ history.pushState({hubTab:n},''); }catch(_){} }
+    return;
+  }
+  const name=e.state&&e.state.hubTab;
+  if(!name||!document.getElementById('panel-'+name)) return;
+  _hubNavPop=true;
+  try{ switchTab(name,tabElOf(name)); }finally{ _hubNavPop=false; }
+});
+// 처음 들어온 화면도 기록 (첫 탭 이동 후 뒤로가기하면 대시보드로)
+try{ if(window.history&&history.replaceState&&!(history.state&&history.state.hubTab)) history.replaceState({hubTab:'dashboard'},''); }catch(e){}
 function openModal(id){document.getElementById(id).classList.add('open');}
 function closeModal(id){document.getElementById(id).classList.remove('open');}
 
