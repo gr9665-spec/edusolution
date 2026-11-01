@@ -5315,6 +5315,17 @@ function learnerPayKey(l){
   else { const dd=pd.match(/(\d{1,2})\s*일/)||pd.match(/^(\d{1,2})$/); if(dd) d=+dd[1]; }
   return `${l.year||0}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
+// 매출관리 정렬용: 입금일 칸에 적힌 월을 우선 (예: 정산월 10월인데 입금일 '9월10일'이면 9/10로)
+function salesPayKey(l){
+  const pd=String(l.paydate||'').trim();
+  if(/^\d{4}[-.\/]\d{1,2}[-.\/]\d{1,2}/.test(pd)) return learnerPayKey(l);
+  const md=pd.match(/(\d{1,2})\s*월\s*(\d{1,2})?/);
+  if(!md) return learnerPayKey(l);
+  const lm=parseInt(l.month)||0, pm=+md[1], d=md[2]?+md[2]:0;
+  let y=parseInt(l.year)||0;
+  if(lm&&pm-lm>6) y--; else if(lm&&lm-pm>6) y++;
+  return `${y}-${String(pm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
 function payKeyLabel(k){ const [y,m,d]=k.split('-').map(Number); return y?`${String(y).slice(2)}.${m}${d?'.'+d:''}`:'-'; }
 // 비고 합치기: ' / '로 나눈 문구 단위로 중복 제거 (여러 번 합쳐도 같은 문구가 쌓이지 않게)
 function ssMergeNotes(...notes){
@@ -6695,7 +6706,7 @@ function renderSales(){
   empty.style.display='none';
   // 결제일 기준 정렬: 최근 결제가 위, 결제일 빠른 학습자가 맨 아래 (화면 순서만 바꿈 — 저장된 학습자 목록 순서는 그대로)
   const _ord=new Map(learners.map((l,i)=>[l,i]));
-  filtered.sort((a,b)=>learnerPayKey(b).localeCompare(learnerPayKey(a))||(_ord.get(b)-_ord.get(a)));
+  filtered.sort((a,b)=>salesPayKey(b).localeCompare(salesPayKey(a))||(_ord.get(b)-_ord.get(a)));
   tbody.innerHTML=filtered.map(l=>{
     const origIdx=learners.indexOf(l);
     return `<tr>
