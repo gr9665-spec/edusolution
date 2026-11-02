@@ -242,12 +242,16 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <input class="login-input" type="password" id="reg-pw" placeholder="비밀번호 (6자 이상)">
       <select class="login-input" id="reg-rank" style="color:#333">
         <option value="">직급 선택</option>
+        <option value="인턴">인턴</option>
         <option value="신입">신입</option>
         <option value="경력">경력</option>
         <option value="주임">주임</option>
         <option value="대리">대리</option>
         <option value="부팀장">부팀장</option>
         <option value="팀장">팀장</option>
+        <option value="과장">과장</option>
+        <option value="차장">차장</option>
+        <option value="부장">부장</option>
       </select>
       <button class="login-btn" onclick="doRegister()">계정 만들기</button>
       <button class="login-btn secondary" onclick="hideRegister()">돌아가기</button>
@@ -541,7 +545,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="card-head"><h3><i class="ti ti-calculator"></i>수당 계산기</h3></div>
     <div class="fg2" style="margin-bottom:12px">
       <div class="fg"><label>교육원 구분코드</label>
-        <select id="calc-code" onchange="calcReward()">
+        <select id="calc-code" onchange="calcReward()" data-v2="1">
           <optgroup label="A그룹 (서사평/에듀업/글로벌/이젠에듀/영산대)">
             <option value="A20">A20</option><option value="A22.5">A22.5</option><option value="A25">A25</option><option value="A27.5">A27.5</option><option value="A30">A30</option><option value="A32.5">A32.5</option><option value="A35">A35</option><option value="A40">A40</option><option value="A50">A50</option><option value="A60">A60</option><option value="A70">A70</option>
           </optgroup>
@@ -561,8 +565,11 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
           </optgroup>
         </select>
       </div>
-      <div class="fg"><label>학점 수 (또는 결제금액)</label>
-        <input type="number" id="calc-credit" value="21" min="1" oninput="calcReward()">
+      <div class="fg"><label>학점 수</label>
+        <input type="number" id="calc-credit" value="21" min="0" oninput="calcReward()">
+      </div>
+      <div class="fg"><label>실제 결제금액 <span style="font-size:10px;font-weight:400;color:var(--text2)">(비우면 학점 × 코드 금액)</span></label>
+        <input type="number" id="calc-amount" placeholder="예: 630000" oninput="calcReward()">
       </div>
     </div>
     <div style="background:var(--bg2);border-radius:var(--r);padding:14px" id="calc-result">
@@ -1171,12 +1178,16 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <div class="fg" style="width:auto">
         <label style="font-size:11px;font-weight:600;color:var(--text2)">현재 직급</label>
         <select id="my-rank-select" style="width:120px;font-size:14px;font-weight:600">
+          <option value="인턴">인턴</option>
           <option value="신입">신입</option>
           <option value="경력">경력</option>
           <option value="주임">주임</option>
           <option value="대리">대리</option>
           <option value="부팀장">부팀장</option>
           <option value="팀장">팀장</option>
+          <option value="과장">과장</option>
+          <option value="차장">차장</option>
+          <option value="부장">부장</option>
         </select>
       </div>
       <div style="margin-top:14px">
@@ -1794,10 +1805,10 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>개강일</label><input type="date" id="l-start"></div>
     <div class="fg"><label>입금 년도/월</label>
       <div style="display:flex;gap:6px">
-        <select id="l-year" style="flex:1">
+        <select id="l-year" style="flex:1" onchange="applyDefaultReward()">
           <option value="2024">2024년</option><option value="2025">2025년</option><option value="2026" selected>2026년</option><option value="2027">2027년</option>
         </select>
-        <select id="l-month" style="flex:1">
+        <select id="l-month" style="flex:1" onchange="applyDefaultReward()">
           <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
           <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
           <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
@@ -1829,7 +1840,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>학점 *</label><input type="number" id="l-credit" placeholder="21" min="1" oninput="autoCalcTotal()"></div>
     <div class="fg"><label>학점당 금액 *</label><input type="number" id="l-unitprice" placeholder="40000" oninput="autoCalcTotal()"></div>
     <div class="fg"><label>신규/기존</label><select id="l-type"><option>신규</option><option>기존</option></select></div>
-    <div class="fg"><label>과정 유형</label><select id="l-course" onchange="autoCalcTotal()"><option>이론</option><option>대면</option><option>보육실습</option><option>사회실습</option><option>평생실습</option></select></div>
+    <div class="fg"><label>과정 유형</label><select id="l-course" onchange="autoCalcTotal()"><option>이론</option><option>대면</option><option>보육실습</option><option>사회실습</option><option>평생실습</option><option>실습</option></select></div>
   </div>
   <!-- 수당 개별 설정 -->
   <div style="background:var(--blue-bg);border:1px solid #b5d4f4;border-radius:var(--r);padding:12px;margin-top:12px">
@@ -1840,7 +1851,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg">
         <label>수당 방식</label>
-        <select id="l-reward-type" onchange="toggleRewardInput()">
+        <select id="l-reward-type" onchange="window._rewardManual=true;toggleRewardInput()">
           <option value="per_credit">학점당 금액</option>
           <option value="rate_half">결제금액 × 0.5 × 비율 (뉴엠/영어IT/대면/문헌정보)</option>
           <option value="rate_full">결제금액 × 비율 (민간자격증/독학사)</option>
@@ -1849,7 +1860,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       </div>
       <div class="fg" id="reward-input-wrap">
         <label id="reward-input-label">학점당 수당 (원)</label>
-        <input type="number" id="l-reward-value" placeholder="18400" oninput="autoCalcTotal()">
+        <input type="number" id="l-reward-value" placeholder="18400" oninput="window._rewardManual=true;autoCalcTotal()">
       </div>
     </div>
     <div id="reward-preview" style="margin-top:8px;font-size:12px;color:var(--blue)"></div>
@@ -3410,7 +3421,7 @@ function renderAdminMembers(){
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
         <select style="font-size:12px;padding:3px 7px;border-radius:99px;border:1px solid ${rc}44;background:${rc}11;color:${rc};font-weight:600;cursor:pointer"
           onchange="updateMemberRank('${m.uid}',this.value)">
-          ${['신입','경력','주임','대리','부팀장','팀장'].map(r=>`<option value="${r}" ${m.rank===r?'selected':''}>${r}</option>`).join('')}
+          ${V2_RANKS.map(r=>`<option value="${r}" ${m.rank===r?'selected':''}>${r}</option>`).join('')}
         </select>
       </td>
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
@@ -3773,7 +3784,91 @@ function hasNonStartSchedule(l){
   // "이번 학기" 일정 중 개강일/마감 외(쪽지시험, 과제, 토론, 중간/기말고사, 기타 등)가 하나라도 있는지
   return findSchedulesForLearnerThisTerm(l).some(s=>s.type!=='개강일' && !s.type.includes('마감'));
 }
+// ══ 입금시트 신버전 (26년 11월 입금분부터) ══
+// 입금월이 2026-11 이후인 학습자만 새 기준. 그 전 기록은 예전 계산 그대로 (지난 달 숫자 안 바뀜)
+const V2_FROM=202611;
+function isV2(l){ const y=parseInt(l&&l.year)||new Date().getFullYear(), m=parseInt(l&&l.month)||0; return y*100+m>=V2_FROM; }
+const V2_RANKS=['인턴','신입','경력','주임','대리','부팀장','팀장','과장','차장','부장'];
+// 시트 AB18(B25) 직급별 기준값. 인턴은 시트 수식에 값이 없어서 신입 기준으로 계산
+const V2_B25={신입:8300,경력:8500,주임:8700,대리:8800,부팀장:8900,팀장:8900,과장:9100,차장:9300,부장:9300};
+const V2_A={'A20':4200,'A22.5':6200,'A25':7700,'A27.5':9200,'A30':11200,'A32.5':12400,'A35':13700,'A40':16700,'A50':21700,'A60':24800,'A70':28300};
+// B/C/D: 25 기준에서 더하고 빼는 값 (C25=B25+400, D25=C25+300)
+const V2_STEP={'17.5':-5500,'20':-3500,'22.5':-1500,'25':0,'27.5':1500,'30':3500,'32.5':4700,'35':6000,'40':9000,'50':14000,'60':17000,'70':20500};
+const V2_FIXED={'서대10':4000,'서대11':6000,'서대12':8000,'서대13':10000,'서대14':12000,'서대15':14000,'서대16':16000,'서대17':18000,'서대18':20000,'서대19':22000,'서대20':24000,'서대25':34000,'서대30':40000,
+  '젠대12':4000,'젠대13':6000,'젠대14':8000,'젠대15':11000,'젠대16':13000,'젠대17':15000,'젠대18':17000,'젠대19':20000,'젠대20':23000,'케원대15':6000};
+const V2_BASE_OFF={'에한25':-4800,'에한28':-300,'에한35':3700,'에한42':6200,'경기35':-1300,'경기40':2200,'경기50':5700,'경기33':2200};
+// [비율, 과목당 경계금액, 이상/미만, 최저] — 과목당 금액 = 결제금액 ÷ (학점÷3)
+const V2_RATE={'케원체':[.3,100000,'이상'],'케원미30':[.3,75000,'이상'],'케원미20':[.2,75000,'미만',60000],'아뱅17':[.17,150000,'이상'],'아뱅14':[.14,150000,'미만'],
+  '뉴엠':[.15],'영어IT':[.28],'이문':[.12],'숭전재':[.22],'서사에신학':[.07],'민간자격증':[.3],'마이민간자격증':[.28],'아뱅민간자격증':[.25],'독학사':[.22]};
+const V2_PRAC_FIXED={'서사에실습':15000,'이젠라인실습':25000};
+const V2_PRAC_AMT={'실습수도30':[35000,300000],'실습수도35':[60000,350000],'실습수도40':[90000,400000],'실습지방35':[35000,350000],'실습지방40':[70000,400000]};
+const V2_CODE_GROUPS=[
+  {t:'A그룹 — 글로벌·이젠에듀·서울사이버에듀·메가존아이티·라인컴퓨터·숭실컴퓨터',c:['A20','A22.5','A25','A27.5','A30','A32.5','A35','A40','A50','A60','A70']},
+  {t:'B그룹 — 사이에듀·마이에듀·케이스원격·올패스',c:['B20','B22.5','B25','B27.5','B30','B32.5','B35','B40','B50','B60','B70']},
+  {t:'C그룹 — 서원평·숭실원격(컴퓨터 제외)',c:['C17.5','C20','C22.5','C25','C27.5','C30','C32.5','C35','C40','C50','C60','C70']},
+  {t:'D그룹 — 올에듀·하나원격·라인원격(컴퓨터·전자·전기 제외)',c:['D17.5','D20','D22.5','D25','D27.5','D30','D32.5','D35','D40','D50','D60','D70']},
+  {t:'대면 — 서울원격(서대)·이젠에듀(젠대)·케이스원격(케원대)',c:['서대10','서대11','서대12','서대13','서대14','서대15','서대16','서대17','서대18','서대19','서대20','서대25','서대30','젠대12','젠대13','젠대14','젠대15','젠대16','젠대17','젠대18','젠대19','젠대20','케원대15']},
+  {t:'결제금액 비율',c:['케원체','케원미30','케원미20','아뱅17','아뱅14','뉴엠','영어IT','이문','숭전재','서사에신학','하나패키지']},
+  {t:'실습',c:['서사에실습','이젠라인실습','실습수도30','실습수도35','실습수도40','실습지방35','실습지방40']},
+  {t:'에듀업 한국어교원(기존 학습자만)·경기대',c:['에한25','에한28','에한35','에한42','경기35','경기40','경기50','경기33']},
+  {t:'민간자격증·독학사',c:['민간자격증','마이민간자격증','아뱅민간자격증','독학사']},
+];
+const V1_ONLY_CODES=['B17.5','아뱅40','아뱅50','숭전재50','기타'];
+const V2_CODE_DESC={'케원체':'케이스원격 체육학 · 과목당 10만원 이상 · 30%','케원미30':'케이스원격 미용학 · 과목당 7.5만원 이상 · 30%','케원미20':'케이스원격 미용학 · 과목당 6만~7.5만원 미만 · 20%',
+  '아뱅17':'아이티뱅크 · 과목당 15만원 이상 · 17%','아뱅14':'아이티뱅크 · 과목당 15만원 미만 · 14%','뉴엠':'뉴엠원격 / 뉴엠, 라인(전자·전기) · 15%','영어IT':'사이에듀·마이에듀 영어영문/IT · 28%',
+  '이문':'이젠에듀 문헌정보 · 12%','숭전재':'숭실 전기·재난 · 22%','서사에신학':'서울사이버에듀 신학 · 7%','하나패키지':'하나원격 패키지(36학점 이상) · 과목당 4.9만↑30% / 4.4만↑25% / 그 외 20% (과목당 3.9만원 미만 불가)',
+  '서사에실습':'서울사이버에듀 실습 · 15,000원 고정','이젠라인실습':'이젠에듀·라인원격 실습 · 25,000원 고정',
+  '실습수도30':'수도권 실습 30만원 · 35,000원','실습수도35':'수도권 실습 35만원 · 60,000원','실습수도40':'수도권 실습 40만원 · 90,000원','실습지방35':'지방 실습 35만원 · 35,000원','실습지방40':'지방 실습 40만원 · 70,000원',
+  '민간자격증':'민간자격증 · 30%','마이민간자격증':'마이에듀 민간자격증 · 28%','아뱅민간자격증':'아이티뱅크 민간자격증 · 25%','독학사':'퍼스트캠퍼스 독학사 · 22%'};
+function v2Base(rank){ return V2_B25[rank]||V2_B25['신입']; }
+// 학점당 수당 (학점 방식 코드가 아니면 null)
+function v2PerCredit(code,rank){
+  if(V2_A[code]!=null) return V2_A[code];
+  const m=/^([BCD])(\d+(?:\.5)?)$/.exec(code);
+  if(m&&V2_STEP[m[2]]!=null&&!(m[1]==='B'&&m[2]==='17.5')) return v2Base(rank)+(m[1]==='C'?400:m[1]==='D'?700:0)+V2_STEP[m[2]];
+  if(V2_FIXED[code]!=null) return V2_FIXED[code];
+  if(V2_BASE_OFF[code]!=null) return v2Base(rank)+V2_BASE_OFF[code];
+  return null;
+}
+// 실제 결제금액 (시트 R열): 보고서 반영금액을 적었으면 그 값, 아니면 학점×학점당 금액
+function v2Amount(l){ const r=parseInt(l.reportAmt)||0; return r>0?r:(parseInt(l.total)||0); }
+// 시트와 같은 계산: {reward, note, warn} — 시트에서 '확인'이 뜨는 경우 수당 0 + warn
+function v2Calc(l,rank){
+  const code=String(l.code||'').trim(), P=parseFloat(l.credit)||0, R=v2Amount(l), per=P>0?R/(P/3):0;
+  rank=rank||currentUserRank;
+  if(!code) return {reward:0,note:'',warn:'구분 누락'};
+  if(code==='하나패키지'){
+    if(P<36) return {reward:0,note:'',warn:'12과목(36학점) 미만'};
+    if(per<39000) return {reward:0,note:'',warn:'과목당 최저금액(3.9만원) 미만'};
+    const r=per>=49000?.3:per>=44000?.25:.2;
+    return {reward:Math.round(R*r),note:`결제금액 × ${Math.round(r*100)}%`,warn:''};
+  }
+  const pc=v2PerCredit(code,rank);
+  if(pc!=null) return P>0?{reward:Math.round(P*pc),note:`${P}학점 × ${pc.toLocaleString()}원`,warn:''}:{reward:0,note:'',warn:'학점 확인'};
+  if(V2_PRAC_FIXED[code]!=null) return {reward:V2_PRAC_FIXED[code],note:'실습 고정',warn:''};
+  if(V2_PRAC_AMT[code]){ const [amt,need]=V2_PRAC_AMT[code];
+    return R===need?{reward:amt,note:'실습 고정',warn:''}:{reward:0,note:'',warn:`실습 결제금액이 ${need.toLocaleString()}원이어야 해요`}; }
+  const rt=V2_RATE[code];
+  if(rt){ const [r,b,kind,min]=rt;
+    if(R<=0) return {reward:0,note:'',warn:'결제금액 확인'};
+    if(b){ if(!P) return {reward:0,note:'',warn:'과목수(학점) 확인'};
+      const ok=kind==='미만'?(per<b&&(!min||per>=min)):per>=b;
+      if(!ok) return {reward:0,note:'',warn:`금액 구간 확인 (과목당 ${Math.round(per).toLocaleString()}원)`}; }
+    return {reward:Math.round(R*r),note:`결제금액 × ${Math.round(r*100)}%`,warn:''}; }
+  return {reward:0,note:'',warn:'신버전에 없는 구분코드'};
+}
+// 구분코드 선택칸 채우기 (예전 코드는 지난 기록 수정용으로 맨 아래에 남김)
+function fillCodeSelect(sel,keep,withOld){
+  if(!sel) return;
+  const opt=c=>`<option value="${c}">${c}</option>`;
+  sel.innerHTML=V2_CODE_GROUPS.map(g=>`<optgroup label="${g.t}">${g.c.map(opt).join('')}</optgroup>`).join('')
+    +(withOld?`<optgroup label="예전 코드 (10월 입금분까지)">${V1_ONLY_CODES.map(opt).join('')}</optgroup>`:'');
+  if(keep&&![...sel.options].some(o=>o.value===keep)) sel.insertAdjacentHTML('beforeend',`<option value="${pmEsc(keep)}">${pmEsc(keep)}</option>`);
+  if(keep) sel.value=keep;
+}
 function calcRewardForLearner(l){
+  // 신버전: 직접 바꾼 개별 수당이 없으면 시트 기준으로 계산
+  if(isV2(l)&&!l.rewardManual) return v2Calc(l).reward;
   const code=l.code||'', credit=parseInt(l.credit)||0, total=parseInt(l.total)||0;
   const rType=l.rewardType||'', rVal=parseFloat(l.rewardValue)||0;
   if(rType==='per_credit'&&rVal>0) return Math.round(credit*rVal);
@@ -3801,6 +3896,7 @@ function rewardLabel(l){
 // 결제한 학습자: 결제금액(또는 신고금액)이 적힌 기록
 function learnerPaid(l){ return (parseInt(l.total)||0)>0||(parseInt(l.reportAmt)||0)>0; }
 function calcExportTotal(l){
+  if(isV2(l)) return v2Amount(l); // 신버전: 반액 없이 실제 결제금액 그대로
   const code=l.code||'', course=l.course||'', total=parseInt(l.total)||0;
   const isHalf=l.half||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문');
   if(l.reportAmt&&parseInt(l.reportAmt)>0){
@@ -3985,8 +4081,20 @@ function toggleRewardInput(){
   else if(t==='fixed'){lbl.textContent='건당 고정금액 (원)';inp.placeholder='50000';}
   autoCalcTotal();
 }
+function lModalYm(){ return {year:document.getElementById('l-year')?.value,month:document.getElementById('l-month')?.value}; }
 function applyDefaultReward(){
   const code=document.getElementById('l-code').value;
+  window._rewardManual=false;
+  if(isV2(lModalYm())){
+    const t=document.getElementById('l-reward-type'), v=document.getElementById('l-reward-value');
+    const pc=v2PerCredit(code,currentUserRank);
+    if(pc!=null){ t.value='per_credit'; v.value=pc; }
+    else if(V2_RATE[code]){ t.value='rate_full'; v.value=Math.round(V2_RATE[code][0]*100); }
+    else if(V2_PRAC_FIXED[code]!=null){ t.value='fixed'; v.value=V2_PRAC_FIXED[code]; }
+    else if(V2_PRAC_AMT[code]){ t.value='fixed'; v.value=V2_PRAC_AMT[code][0]; }
+    else { t.value='rate_full'; v.value=''; }
+    toggleRewardInput(); return;
+  }
   if(code==='뉴엠'){document.getElementById('l-reward-type').value='rate_half';document.getElementById('l-reward-value').value='34';}
   else if(code==='영어IT'){document.getElementById('l-reward-type').value='rate_half';document.getElementById('l-reward-value').value='60';}
   else if(code==='민간자격증'){document.getElementById('l-reward-type').value='rate_full';document.getElementById('l-reward-value').value='30';}
@@ -4004,16 +4112,18 @@ function autoCalcTotal(){
   const rType=document.getElementById('l-reward-type').value;
   const rVal=parseFloat(document.getElementById('l-reward-value').value)||0;
   const isHalfChk=document.getElementById('l-half')?.checked||false;
-  const tmpL={code,credit,total,course,rewardType:rType,rewardValue:rVal,half:isHalfChk,reportAmt:reportAmtVal};
+  const tmpL={code,credit,total,course,rewardType:rType,rewardValue:rVal,half:isHalfChk,reportAmt:reportAmtVal,...lModalYm(),rewardManual:!!window._rewardManual};
   const reward=calcRewardForLearner(tmpL);
   const exportTotal=calcExportTotal(tmpL);
+  const v2=isV2(tmpL);
   let desc='';
   if(rType==='per_credit') desc=`${credit}학점 × ${rVal.toLocaleString()}원`;
   else if(rType==='rate_half') desc=`${total.toLocaleString()}원 × 0.5 × ${rVal}%`;
   else if(rType==='rate_full') desc=`${total.toLocaleString()}원 × ${rVal}%`;
   else if(rType==='fixed') desc=`고정 ${rVal.toLocaleString()}원`;
-  document.getElementById('reward-preview').textContent=desc?`→ ${desc} = ${reward.toLocaleString()}원`:'';
-  const halfMark=(isHalfChk||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문'))?' <span style="font-size:11px;color:var(--amber);background:var(--amber-bg);border-radius:4px;padding:1px 6px">반액</span>':'';
+  if(v2&&!tmpL.rewardManual){ const c=v2Calc(tmpL); desc=c.warn?`⚠ ${c.warn}`:c.note; }
+  document.getElementById('reward-preview').textContent=desc?`→ ${desc}${v2&&!tmpL.rewardManual&&v2Calc(tmpL).warn?' (수당 0원 — 시트에서도 확인 필요로 나와요)':` = ${reward.toLocaleString()}원`}${v2?(tmpL.rewardManual?' · 직접 바꾼 수당':' · 신버전 기준'):''}`:'';
+  const halfMark=v2?' <span style="font-size:11px;color:var(--text2)">(신버전: 반액 없이 실제 결제금액)</span>':(isHalfChk||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문'))?' <span style="font-size:11px;color:var(--amber);background:var(--amber-bg);border-radius:4px;padding:1px 6px">반액</span>':'';
   const reportMark=reportAmtVal?' <span style="font-size:11px;color:#7048e8;background:#f3f0ff;border-radius:4px;padding:1px 6px">직접입력</span>':'';
   document.getElementById('modal-calc').innerHTML=`총매출: <strong>${total.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;예상수당: <strong style="color:var(--green)">${reward.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;보고서입력금액: <strong style="color:var(--blue)">${exportTotal.toLocaleString()}원</strong>${halfMark}${reportMark}`;
 }
@@ -4404,6 +4514,8 @@ function openLearnerModal(idx){
   if(schedWrap) schedWrap.innerHTML='';
   if(editIdx<0 && schedWrap) addLearnerSchedRow('개강일');
   populateLearnerKisuOptions();
+  fillCodeSelect(document.getElementById('l-code'),editIdx>=0?(learners[editIdx].code||''):'',true);
+  window._rewardManual=editIdx>=0&&!!learners[editIdx].rewardManual;
   if(editIdx>=0){
     const l=learners[editIdx];
     ['name','id','phone','email','kisu','start','year','month','paydate','code','approve','credit','unitprice','type','course','note']
@@ -4468,13 +4580,15 @@ async function saveLearner(){
     start:document.getElementById('l-start').value,year,month:document.getElementById('l-month').value,
     paydate:document.getElementById('l-paydate').value.trim(),
     code,approve:document.getElementById('l-approve').value.trim(),
-    credit,unitprice,total,reward,course,rewardType,rewardValue,
+    credit,unitprice,total,reward,course,rewardType,rewardValue,rewardManual:!!window._rewardManual,
     half:document.getElementById('l-half')?.checked||false,
     reportAmt:document.getElementById('l-report-amt')?.value.trim()||'',
     type:document.getElementById('l-type').value,
     note:document.getElementById('l-note').value.trim(),
     addedAt:new Date().toISOString()
   };
+  if(!l.rewardManual) delete l.rewardManual;
+  l.reward=calcRewardForLearner(l); // 입금 년월 기준 (신버전이면 시트 계산)
   // 이미지 업로드 후 저장
   await uploadPendingImgs(name);
   // 데이터베이스 이미지(fs:)는 학습자 기록엔 위치만 남김 (이미지 자체를 넣으면 내 데이터 문서가 너무 커짐)
@@ -6757,7 +6871,7 @@ function renderSales(){
       const reportBadge=hasReport?`<span style="font-size:10px;color:#7048e8;background:#f3f0ff;border-radius:3px;padding:1px 5px">직접입력</span>`:'';
       return `<strong>${exportTotal.toLocaleString()}원</strong> ${halfBadge}${reportBadge}`;
     })()}</td>
-    <td style="color:var(--green);font-weight:600">${calcRewardForLearner(l).toLocaleString()}원</td>
+    <td style="color:var(--green);font-weight:600">${calcRewardForLearner(l).toLocaleString()}원${isV2(l)&&!l.rewardManual&&v2Calc(l).warn?`<br><span style="font-size:10px;color:#c92a2a;font-weight:600" title="입금시트에서도 '확인 필요'로 나와 수당이 0원이에요">⚠ ${pmEsc(v2Calc(l).warn)}</span>`:''}</td>
     <td><span class="pill ${l.type==='신규'?'pill-blue':'pill-gray'}">${l.type}</span></td>
     <td style="white-space:nowrap">
       <button class="btn btn-icon btn-sm" onclick="openLearnerModal(${origIdx})" title="수정"><i class="ti ti-edit"></i></button>
@@ -6794,6 +6908,21 @@ function goToLearnerSearch(name){
 }
 
 function calcReward(){
+  const csel=document.getElementById('calc-code');
+  if(csel&&csel.dataset.v2==='1'&&!csel.dataset.filled){ const cur=csel.value; fillCodeSelect(csel,'',false); csel.dataset.filled='1'; if([...csel.options].some(o=>o.value===cur)) csel.value=cur; }
+  if(document.getElementById('calc-amount')){
+    const code=csel.value, P=parseFloat(document.getElementById('calc-credit').value)||0;
+    const unit=(parseFloat(String(code).replace(/^[A-D]/,''))||0)*1000;
+    const amt=parseInt(document.getElementById('calc-amount').value)||(/^[A-D]\d/.test(code)?Math.round(P*unit):0);
+    const c=v2Calc({code,credit:P,total:amt},currentUserRank);
+    document.getElementById('calc-output').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
+      <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px">실제 결제금액</div><div style="font-size:18px;font-weight:700;color:var(--navy)">${amt.toLocaleString()}<span style="font-size:12px;font-weight:400">원</span></div></div>
+      <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px">수당 기준 (신버전 · ${pmEsc(currentUserRank||'')})</div><div style="font-size:13px;font-weight:600;color:${c.warn?'#c92a2a':'var(--navy)'}">${pmEsc(c.warn?'⚠ '+c.warn:c.note)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2);margin-bottom:4px">예상 수당</div><div style="font-size:18px;font-weight:700;color:var(--green)">${c.reward.toLocaleString()}<span style="font-size:12px;font-weight:400">원</span></div></div>
+    </div>${V2_CODE_DESC[code]?`<div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">${pmEsc(V2_CODE_DESC[code])}</div>`:''}`;
+    return;
+  }
   const code=document.getElementById('calc-code').value;
   const val=parseInt(document.getElementById('calc-credit').value)||0;
   let totalAmount,reward,note='';
@@ -6990,7 +7119,7 @@ function renderExport(){
   empty.style.display='none';
 
   // 헤더 행
-  const headers=['★구분','기관이름','입금월/환불월','1코드 2코드','승인코드','입금일','기수','개강일','담당자','신규or기존','학생명','아이디','연락처','메일주소','이론/대면/보육실습 사회실습 평생실습','학점','학점당금액','총매출금액'];
+  const headers=['★구분','기관이름','입금월/환불월','1코드/2코드','승인코드','입금일','기수','개강일','담당자','신규/기존','학생명','아이디','연락처','메일주소','이론/대면/실습','학점','학점당 금액','실제 결제금액'];
 
   const rows=filtered.map(l=>{
     const exportTotal=calcExportTotal(l);
@@ -7055,7 +7184,16 @@ function renderRewardSettings(){
   if(rankSel) rankSel.value=currentUserRank||'주임';
 
   const c=document.getElementById('reward-settings-container');
-  c.innerHTML=REWARD_GROUPS.map(g=>`
+  const rk=currentUserRank||'주임';
+  const v2Html=`<div class="reward-group" style="border:2px solid var(--navy);background:#fff">
+      <div class="reward-group-title" style="font-size:13px"><i class="ti ti-sparkles" style="font-size:14px"></i>신버전 수당 — 26년 11월 입금분부터 · ${pmEsc(rk)} 기준 (입금시트와 같은 계산, 자동 적용)</div>
+      ${rk==='인턴'?'<div style="font-size:11px;color:#c92a2a;margin-bottom:6px">입금시트 수식에 인턴 B·C·D 단가가 없어서 신입 기준으로 보여드려요. 실제 기준을 확인해 주세요.</div>':''}
+      ${V2_CODE_GROUPS.map(g=>`<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:var(--text2)">${g.t}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px 14px">${g.c.map(code=>{ const pc=v2PerCredit(code,rk);
+          return `<span style="font-size:12px;white-space:nowrap" title="${pmEsc(V2_CODE_DESC[code]||'')}"><b>${code}</b> <span style="color:var(--text2)">${pc!=null?pc.toLocaleString()+'원/학점':pmEsc((V2_CODE_DESC[code]||'').split(' · ').slice(1).join(' · '))}</span></span>`; }).join('')}</div>`).join('')}
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text2);margin:14px 0 6px">예전 기준 — 10월 입금분까지 (지난 기록 계산용)</div>`;
+  c.innerHTML=v2Html+REWARD_GROUPS.map(g=>`
     <div class="reward-group">
       <div class="reward-group-title"><i class="ti ti-building-bank" style="font-size:14px"></i>${g.title}</div>
       ${g.codes.map(code=>`
@@ -10315,7 +10453,7 @@ function handleImportFiles(files){
               phone:ci(['연락처']), email:ci(['메일주소','메일']),
               course:ci(['이론/대면','과정유형','이론']),
               credit:ci(['학점']), unitprice:ci(['학점당금액','학점당']),
-              total:ci(['총매출금액','총매출']),
+              total:ci(['실제결제금액','총매출금액','총매출']),
               manager:ci(['담당자']),
             };
             if(C.name<0||C.edu<0) return;
@@ -10340,13 +10478,13 @@ function handleImportFiles(files){
               const unitprice=parseInt(String(row[C.unitprice]||'0').replace(/[^0-9]/g,''))||0;
               const totalRaw=parseInt(String(row[C.total]||'0').replace(/[^0-9]/g,''))||0;
               const total=totalRaw||credit*unitprice;
-              if(!name||credit===0) continue;
+              if(!name||(credit===0&&!totalRaw)) continue; // 실습처럼 학점 없이 금액만 있는 줄도 받음
 
               const code=String(row[C.code]||'').trim();
               const typeRaw=String(row[C.type]||'').trim();
               const ltype=typeRaw.includes('신규')?'신규':typeRaw.includes('기존')?'기존':'신규';
               const courseRaw=String(row[C.course]||'이론').trim();
-              const course=['대면','보육실습','사회실습','평생실습'].find(c=>courseRaw.includes(c))||'이론';
+              const course=['대면','보육실습','사회실습','평생실습','실습'].find(c=>courseRaw.includes(c))||'이론';
 
               let start='';
               const sr=row[C.start];
@@ -10361,8 +10499,9 @@ function handleImportFiles(files){
                 if(m) start=`${m[1]}-${m[2]}-${m[3]}`;
               }
 
-              const rewardPer=rewardTable[code]||0;
-              const reward=calcRewardForLearner({code,credit,total,course,rewardType:'per_credit',rewardValue:rewardPer});
+              const v2row=isV2({year,month});
+              const rewardPer=v2row?(v2PerCredit(code,currentUserRank)||0):(rewardTable[code]||0);
+              const reward=calcRewardForLearner(v2row?{code,credit,total,course,year,month}:{code,credit,total,course,rewardType:'per_credit',rewardValue:rewardPer});
 
               allParsed.push({
                 name, edu:String(row[C.edu]||'').trim(),
@@ -10374,7 +10513,7 @@ function handleImportFiles(files){
                 paydate:String(row[C.paydate]||'').trim(),
                 code, approve:String(row[C.approve]||'').trim(),
                 credit, unitprice, total, reward, course,
-                type:ltype, rewardType:'per_credit', rewardValue:rewardPer,
+                type:ltype, ...(v2row?{}:{rewardType:'per_credit', rewardValue:rewardPer}),
                 manager:C.manager>=0?String(row[C.manager]||'').trim():'',
                 note:'', addedAt:new Date().toISOString()
               });
