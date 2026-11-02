@@ -1786,7 +1786,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <button class="btn btn-icon" onclick="closeModal('modal-learner')"><i class="ti ti-x"></i></button>
   </div>
   <div class="fg2">
-    <div class="fg"><label>학생명 *</label><input type="text" id="l-name" placeholder="홍길동"></div>
+    <div class="fg"><label>학생명 *</label><input type="text" id="l-name" placeholder="홍길동" autocomplete="off" oninput="lmSuggest()"><div id="l-name-sugg" style="display:none;margin-top:5px"></div></div>
     <div class="fg"><label>아이디</label><input type="text" id="l-id" placeholder="hong123"></div>
     <div class="fg"><label>연락처</label><input type="text" id="l-phone" placeholder="010-0000-0000"></div>
     <div class="fg"><label>메일</label><input type="text" id="l-email"></div>
@@ -4554,7 +4554,41 @@ function openLearnerModal(idx){
     document.getElementById('reward-preview').textContent='';
   }
   renderImgPreviews();
+  lmSuggest();
   openModal('modal-learner');
+}
+// 학습자 추가 창: 이름을 치면 예전에 등록한 같은 학생을 보여주고, 누르면 아이디·연락처·메일·교육원·코드 등을 채움
+// (기존 학생 다음학기 결제 때 매번 다시 적지 않게. 기수·입금월·학점은 새로 적음)
+function lmSuggest(){
+  const box=document.getElementById('l-name-sugg'); if(!box) return;
+  const q=(document.getElementById('l-name').value||'').trim();
+  if(editIdx>=0||q.length<2){ box.style.display='none'; box.innerHTML=''; return; }
+  const seen=new Set(), hits=[];
+  learners.forEach((l,i)=>{
+    if(!l.name||!l.name.includes(q)) return;
+    const pk=(l.phone||'').replace(/\D/g,'')||('n:'+l.name);
+    if(seen.has(pk)) return; seen.add(pk); hits.push(i);
+  });
+  hits.sort((a,b)=>(learners[b].name===q)-(learners[a].name===q));
+  if(!hits.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.style.display='';
+  box.innerHTML=`<div style="font-size:11px;color:var(--text2);margin-bottom:3px">기존 학생이면 눌러서 정보 불러오기</div>`+hits.slice(0,4).map(i=>{ const l=learners[i];
+    const ph=(l.phone||'').replace(/\D/g,'');
+    return `<button type="button" class="btn btn-sm" onclick="lmFillFrom(${i})" style="font-size:11px;padding:2px 8px;margin:0 4px 4px 0;color:var(--navy)"><i class="ti ti-user-check"></i> ${pmEsc(l.name)} · ${ph?'…'+ph.slice(-4):'번호없음'} · ${pmEsc(l.edu||'')} ${l.year?String(l.year).slice(2)+'년 ':''}${l.month?l.month+'월':''}</button>`; }).join('');
+}
+function lmFillFrom(i){
+  const l=learners[i]; if(!l) return;
+  const set=(id,val)=>{const el=document.getElementById('l-'+id); if(el&&val!=null&&val!=='') el.value=val;};
+  set('name',l.name); set('phone',l.phone); set('email',l.email); set('id',l.id&&!/^L\d/.test(l.id)?l.id:'');
+  const eduSel=document.getElementById('l-edu');
+  if([...eduSel.options].some(o=>o.value===l.edu)) eduSel.value=l.edu; else if(l.edu){ eduSel.value='기타'; document.getElementById('l-edu-custom').value=l.edu; }
+  toggleEduCustom();
+  fillCodeSelect(document.getElementById('l-code'),l.code||'',true);
+  set('approve',l.approve); set('course',l.course); set('unitprice',l.unitprice); set('type','기존');
+  if(typeof applyDefaultReward==='function') applyDefaultReward();
+  if(typeof autoCalcTotal==='function') autoCalcTotal();
+  const box=document.getElementById('l-name-sugg');
+  if(box) box.innerHTML=`<div style="font-size:11px;color:var(--green);font-weight:700">✓ ${pmEsc(l.name)} 예전 정보를 불러왔어요 — 기수·입금월·학점·결제일만 새로 적어주세요</div>`;
 }
 
 async function saveLearner(){
