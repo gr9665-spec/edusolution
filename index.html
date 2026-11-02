@@ -3789,7 +3789,7 @@ function hasNonStartSchedule(l){
 const V2_FROM=202611;
 function isV2(l){ const y=parseInt(l&&l.year)||new Date().getFullYear(), m=parseInt(l&&l.month)||0; return y*100+m>=V2_FROM; }
 const V2_RANKS=['인턴','신입','경력','주임','대리','부팀장','팀장','과장','차장','부장'];
-// 시트 AB18(B25) 직급별 기준값. 인턴은 시트 수식에 값이 없어서 신입 기준으로 계산
+// 시트 AB18(B25) 직급별 기준값. 인턴은 신입과 같음
 const V2_B25={신입:8300,경력:8500,주임:8700,대리:8800,부팀장:8900,팀장:8900,과장:9100,차장:9300,부장:9300};
 const V2_A={'A20':4200,'A22.5':6200,'A25':7700,'A27.5':9200,'A30':11200,'A32.5':12400,'A35':13700,'A40':16700,'A50':21700,'A60':24800,'A70':28300};
 // B/C/D: 25 기준에서 더하고 빼는 값 (C25=B25+400, D25=C25+300)
@@ -7187,7 +7187,6 @@ function renderRewardSettings(){
   const rk=currentUserRank||'주임';
   const v2Html=`<div class="reward-group" style="border:2px solid var(--navy);background:#fff">
       <div class="reward-group-title" style="font-size:13px"><i class="ti ti-sparkles" style="font-size:14px"></i>신버전 수당 — 26년 11월 입금분부터 · ${pmEsc(rk)} 기준 (입금시트와 같은 계산, 자동 적용)</div>
-      ${rk==='인턴'?'<div style="font-size:11px;color:#c92a2a;margin-bottom:6px">입금시트 수식에 인턴 B·C·D 단가가 없어서 신입 기준으로 보여드려요. 실제 기준을 확인해 주세요.</div>':''}
       ${V2_CODE_GROUPS.map(g=>`<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:var(--text2)">${g.t}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px 14px">${g.c.map(code=>{ const pc=v2PerCredit(code,rk);
           return `<span style="font-size:12px;white-space:nowrap" title="${pmEsc(V2_CODE_DESC[code]||'')}"><b>${code}</b> <span style="color:var(--text2)">${pc!=null?pc.toLocaleString()+'원/학점':pmEsc((V2_CODE_DESC[code]||'').split(' · ').slice(1).join(' · '))}</span></span>`; }).join('')}</div>`).join('')}
