@@ -5957,15 +5957,17 @@ function renderAdminSeason(){
     const n=s=>ppl.filter(r=>r.v.status===s).length;
     return {name:m.name||m.email||'-',total:ppl.length,todo:n('미연락'),plan:n('등록예정'),paid:n('결제완료'),
       expect:ppl.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+r.v.sales,0),
-      paidSales:ppl.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+r.v.sales,0)};
+      paidSales:ppl.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+r.v.sales,0),
+      paidCr:ppl.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+(parseInt(r.v.credits)||0),0)};
   }).filter(r=>r.total).sort((a,b)=>b.paidSales-a.paidSales);
   const th='padding:7px 8px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center;font-size:12px';
   const td='padding:7px 8px;border-bottom:1px solid var(--border);text-align:center';
   const won=n=>`${Math.round(n/10000).toLocaleString()}만`;
   el.innerHTML=`<div style="font-size:14px;font-weight:700;margin-bottom:8px"><i class="ti ti-flame" style="color:#e8590c"></i> 팀 성수기 · ${seasonLabel(cur)} <span style="font-size:11px;color:var(--text2);font-weight:400">(직전 학기 등록자 기준)</span></div>
-    ${rows.length?`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:620px">
-      <thead><tr><th style="${th};text-align:left">직원</th><th style="${th}">대상</th><th style="${th};color:#c92a2a">미연락</th><th style="${th}">등록예정</th><th style="${th};color:#2f9e44">결제완료</th><th style="${th}">예상매출</th><th style="${th}">결제매출</th></tr></thead>
-      <tbody>${rows.map(r=>`<tr><td style="${td};text-align:left;font-weight:600">${pmEsc(r.name)}</td><td style="${td}">${r.total}</td><td style="${td};color:#c92a2a;font-weight:700">${r.todo||''}</td><td style="${td}">${r.plan||''}</td><td style="${td};color:#2f9e44;font-weight:700">${r.paid||''}</td><td style="${td}">${won(r.expect)}</td><td style="${td};font-weight:700">${won(r.paidSales)}</td></tr>`).join('')}</tbody></table></div>`
+    ${rows.length?`<div class="card" style="padding:0;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px">
+      <thead><tr><th style="${th};text-align:left">직원</th><th style="${th}">대상</th><th style="${th};color:#c92a2a">미연락</th><th style="${th}">등록예정</th><th style="${th};color:#2f9e44">결제완료</th><th style="${th}">예상매출</th><th style="${th}">결제매출</th><th style="${th}">결제학점</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td style="${td};text-align:left;font-weight:600">${pmEsc(r.name)}</td><td style="${td}">${r.total}</td><td style="${td};color:#c92a2a;font-weight:700">${r.todo||''}</td><td style="${td}">${r.plan||''}</td><td style="${td};color:#2f9e44;font-weight:700">${r.paid||''}</td><td style="${td}">${won(r.expect)}</td><td style="${td};font-weight:700">${won(r.paidSales)}</td><td style="${td};font-weight:700">${r.paidCr?r.paidCr.toLocaleString()+'학점':''}</td></tr>`).join('')}</tbody>
+      ${rows.length>1?`<tfoot><tr style="background:var(--bg2);font-weight:700"><td style="${td};text-align:left">합계</td><td style="${td}">${rows.reduce((a,r)=>a+r.total,0)}</td><td style="${td};color:#c92a2a">${rows.reduce((a,r)=>a+r.todo,0)||''}</td><td style="${td}">${rows.reduce((a,r)=>a+r.plan,0)||''}</td><td style="${td};color:#2f9e44">${rows.reduce((a,r)=>a+r.paid,0)||''}</td><td style="${td}">${won(rows.reduce((a,r)=>a+r.expect,0))}</td><td style="${td}">${won(rows.reduce((a,r)=>a+r.paidSales,0))}</td><td style="${td}">${rows.reduce((a,r)=>a+r.paidCr,0).toLocaleString()}학점</td></tr></tfoot>`:''}</table></div>`
       :'<div class="empty">성수기 대상 학생이 없어요</div>'}`;
 }
 
