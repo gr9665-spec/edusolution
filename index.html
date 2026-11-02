@@ -5595,12 +5595,13 @@ function renderSeason(){
   const salesRows=rows.filter(r=>!SS_NO_SALES.includes(r.v.status));
   const expect=salesRows.reduce((a,r)=>a+r.v.sales,0);
   const paid=rows.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+r.v.sales,0);
+  const paidCr=rows.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+(parseInt(r.v.credits)||0),0);
   const won=n=>n>=10000?`${Math.round(n/10000).toLocaleString()}만원`:`${n.toLocaleString()}원`;
   document.getElementById('ss-summary').innerHTML=`
     <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
       <div><div style="font-size:11px;color:var(--text2)">${window._ssShowExcl?'<b style="color:#e8590c">뺀 사람</b>':'대상'}</div><div style="font-size:22px;font-weight:800">${rows.length}<span style="font-size:12px;font-weight:600">명</span></div></div>
       <div><div style="font-size:11px;color:var(--text2)">예상매출</div><div style="font-size:22px;font-weight:800;color:var(--navy)">${won(expect)}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:22px;font-weight:800;color:var(--green)">${won(paid)}</div></div>
+      <div><div style="font-size:11px;color:var(--text2)">결제완료 매출</div><div style="font-size:22px;font-weight:800;color:var(--green)">${won(paid)} <span style="font-size:13px;font-weight:700">· ${paidCr.toLocaleString()}학점</span></div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
         ${(()=>{ const f=document.getElementById('ss-filter').value; return `<button type="button" onclick="ssShowAll()" title="필터 풀고 전체 보기" style="cursor:pointer;font-family:inherit;font-size:12px;border:1px solid ${f===''?'var(--navy)':'#adb5bd'};background:${f===''?'var(--navy)':'#fff'};color:${f===''?'#fff':'var(--text)'};border-radius:99px;padding:3px 12px;font-weight:700">전체 ${rows.length}</button>`; })()}
         ${SS_STATUS.map(v=>{ const fv=document.getElementById('ss-filter').value, on=fv==='st:'+v.k||(fv==='multi'&&(window._ssSt||new Set()).has(v.k));
@@ -5638,11 +5639,12 @@ function renderSeason(){
       const vCr=rows.reduce((a,r)=>a+(parseInt(r.v.credits)||0),0);
       const vExp=rows.filter(r=>!SS_NO_SALES.includes(r.v.status)).reduce((a,r)=>a+(r.v.sales||0),0);
       const vPaid=rows.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+(r.v.sales||0),0);
+      const vPaidCr=rows.filter(r=>r.v.status==='결제완료').reduce((a,r)=>a+(parseInt(r.v.credits)||0),0);
       const wonF=n=>n>=10000?`${Math.round(n/10000).toLocaleString()}만원`:`${n.toLocaleString()}원`;
       tot.innerHTML=`<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:12.5px">
         <b style="color:${filtered?'#e67700':'var(--text2)'}">${filtered?'🔎 지금 보이는 목록':'아래 목록 합계'}</b>
         <span>${rows.length}명</span><span>다음학기 ${vCr.toLocaleString()}학점</span>
-        <span>예상매출 <b style="color:var(--navy)">${wonF(vExp)}</b></span><span>결제완료 <b style="color:var(--green)">${wonF(vPaid)}</b></span>
+        <span>예상매출 <b style="color:var(--navy)">${wonF(vExp)}</b></span><span>결제완료 <b style="color:var(--green)">${wonF(vPaid)} · ${vPaidCr.toLocaleString()}학점</b></span>
         <span style="color:var(--text3);font-size:11px">과정끝·환불·신청오류는 예상매출에서 빠져요</span></div>`;
     }
   }
