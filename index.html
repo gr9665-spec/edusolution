@@ -8398,7 +8398,9 @@ function backupServerState(sv){
   }catch(e){ console.warn('백업 실패',e); }
 }
 const PLAN_CMP_KEYS=['clientName','phone','degree','degreeCustom','major','majorCustom','owned','semesters','specials','memo','note2','versions','curVersion'];
-function planSig(p){ const o={}; PLAN_CMP_KEYS.forEach(k=>o[k]=p?p[k]:undefined); return JSON.stringify(o); }
+// 비교용 서명: 안쪽 항목 순서(서버가 키 순서를 바꿔서 돌려줌)는 무시 — 예전엔 순서만 달라도 '다름'으로 잡혀 저장 안 된 플랜이 잔뜩 쌓였음
+function planSig(p){ const o={}; PLAN_CMP_KEYS.forEach(k=>o[k]=p?p[k]:undefined);
+  return JSON.stringify(o,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(kk=>[kk,v[kk]])):v); }
 function stashUnsyncedPlans(localPlans,serverPlans){
   try{
     const owner=localStorage.getItem('hk_owner_uid'); if(owner&&owner!==currentUser.uid) return; // 다른 사람이 쓰던 기기
@@ -8412,7 +8414,11 @@ function stashUnsyncedPlans(localPlans,serverPlans){
 }
 function renderUnsyncedBanner(){
   const box=document.getElementById('plan-unsynced-bar'); if(!box) return;
-  const u=LS.get('hk_plans_unsynced'), n=u&&u.plans?Object.keys(u.plans).length:0;
+  const u=LS.get('hk_plans_unsynced');
+  // 지금 플랜과 내용이 똑같은 보관본은 정리 (다른 것만 남김 — 실제로 다른 내용은 절대 안 지움)
+  if(u&&u.plans){ let cut=0; Object.keys(u.plans).forEach(id=>{ if(plans[id]&&planSig(plans[id])===planSig(u.plans[id])){ delete u.plans[id]; cut++; } });
+    if(cut){ if(Object.keys(u.plans).length) LS.set('hk_plans_unsynced',u); else localStorage.removeItem('hk_plans_unsynced'); } }
+  const n=u&&u.plans?Object.keys(u.plans).length:0;
   box.innerHTML=(n?`<button class="btn btn-sm" style="width:100%;margin-bottom:6px;font-size:12px;background:#fff4e6;border-color:#f08c00;color:#d9480f;font-weight:700" onclick="openPlanRecover()"><i class="ti ti-alert-triangle"></i> 저장 안 된 플랜 ${n}개 확인</button>`:'')
     +`<button class="btn btn-sm" style="width:100%;margin-bottom:6px;font-size:12px" onclick="openPlanRecover(true)"><i class="ti ti-history"></i> 플랜 백업에서 되살리기</button>`;
 }
