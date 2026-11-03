@@ -8837,6 +8837,11 @@ function buildPlanTableUI(p,t){
           <button type="button" onclick="toggleSemHighlight(${si})" title="이미지 저장·인쇄할 때 이 학기를 빨간 테두리로 강조 (학습자에게 '이번 학기' 표시)"
             style="margin-left:auto;font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;cursor:pointer;font-family:inherit;border:1.5px solid #e03131;${sem.highlight?'background:#e03131;color:#fff':'background:#fff;color:#e03131'}">${sem.highlight?'● 강조 중':'○ 이번 학기 강조'}</button>
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;font-weight:600;color:${sem.completed?'#2e7d32':'var(--text2)'}"><input type="checkbox" ${sem.completed?'checked':''} style="accent-color:#2e7d32;width:14px;height:14px" onchange="plans[curPid].semesters[${si}].completed=this.checked;LS.set('hk_plans',plans);saveToFirebase();renderPlanEditor(plans[curPid])"> 이수완료</label>
+          <span style="display:inline-flex;gap:2px">
+            <button type="button" class="btn btn-sm" style="padding:3px 6px;font-size:10px" title="이 학기를 위로" ${si===0?'disabled':''} onclick="moveSem(${si},-1)"><i class="ti ti-arrow-up"></i></button>
+            <button type="button" class="btn btn-sm" style="padding:3px 6px;font-size:10px" title="이 학기를 아래로" ${si===p.semesters.length-1?'disabled':''} onclick="moveSem(${si},1)"><i class="ti ti-arrow-down"></i></button>
+            <button type="button" class="btn btn-sm" style="padding:3px 8px;font-size:10px;color:var(--navy);font-weight:700" title="이 학기 바로 아래에 새 학기 끼워 넣기 (재수강 등)" onclick="insertSemAfter(${si})"><i class="ti ti-row-insert-bottom"></i> 아래에 학기</button>
+          </span>
           <button class="btn btn-sm" style="padding:3px 8px;font-size:10px;color:var(--red)" onclick="deleteSem(${si})"><i class="ti ti-trash"></i></button>
         </div>
       </td>
@@ -9481,6 +9486,20 @@ function saveSemInfo(si){
 }
 // editSemInfo는 더 이상 prompt 사용 안 함 — 인라인 편집으로 대체
 function editSemInfo(si){ /* 인라인 폼으로 대체됨 */ }
+// 학기 사이에 끼워 넣기 (재수강 등) — 뒤 학기들은 그대로 한 칸씩 밀림
+function insertSemAfter(si){
+  const p=plans[curPid]; if(!p) return;
+  const base=p.semesters[si]||{};
+  p.semesters.splice(si+1,0,{name:(base.name?base.name.replace(/학기$/,'')+' 추가학기':'추가학기'),edu:base.edu||'',kisu:'',date:'',req:[],elec:[],gen:[],lib:[]});
+  LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
+  setTimeout(()=>{ const el=document.getElementById(`sem-name-${si+1}`); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus(); el.select(); } },100);
+}
+function moveSem(si,dir){
+  const p=plans[curPid]; if(!p) return; const j=si+dir;
+  if(j<0||j>=p.semesters.length) return;
+  [p.semesters[si],p.semesters[j]]=[p.semesters[j],p.semesters[si]];
+  LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(p);
+}
 function deleteSem(si){
   showDeleteModal(`학기 <strong>${plans[curPid].semesters[si].name}</strong>을 삭제할까요?`,()=>{
     plans[curPid].semesters.splice(si,1); LS.set('hk_plans',plans); saveToFirebase(); renderPlanEditor(plans[curPid]);
