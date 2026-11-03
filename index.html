@@ -5547,7 +5547,12 @@ function seasonPeople(L,P,seasonKey,sd){
     if(!normPhone(last.phone)){ const wp=[...recs].reverse().find(l=>normPhone(l.phone)); if(wp) last=Object.assign({},last,{phone:wp.phone}); }
     const plan=findPlanIn(plansArr,last);
     const {autoCredits,planDone,nextName,noTerm}=planTermInfo(plan,term);
-    out.push({key,recs,last,plan,autoCredits,planDone,nextName,noTerm,payKey:learnerPayKey(last),recent:learnerYm(last)>=recentFrom});
+    // 이번 시즌(예: 11월~)에 이미 결제해서 학습자 등록한 기록은 '이번 시즌 결제'로 따로 보여주고,
+    // 결제월 칩·정렬은 그 전 결제 기준으로 (11월 칩을 빼도 이번 시즌 결제완료 학생이 같이 빠지지 않게)
+    const seasonRecs=recs.filter(l=>learnerYm(l)>=seasonKey);
+    const prevRecs=recs.filter(l=>learnerYm(l)<seasonKey);
+    const prev=prevRecs.length?prevRecs[prevRecs.length-1]:last;
+    out.push({key,recs,last,prev,seasonRecs:prevRecs.length?seasonRecs:[],plan,autoCredits,planDone,nextName,noTerm,payKey:learnerPayKey(prev),recent:learnerYm(last)>=recentFrom});
   });
   return out;
 }
@@ -5701,7 +5706,7 @@ function renderSeason(){
           ${window._ssShowExcl?`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 7px;color:var(--green)" onclick="ssSetExcl('${K}',false)" title="이번 시즌 대상에 다시 넣기"><i class="ti ti-arrow-back-up"></i> 넣기</button>`
             :`<button type="button" class="btn btn-sm" style="font-size:11px;padding:1px 6px;color:var(--text3)" onclick="ssSetExcl('${K}',true)" title="이번 시즌 대상에서 빼기 (다음 시즌 대상 등)"><i class="ti ti-eye-off"></i></button>`}
         </div></td>
-      <td style="padding:6px;font-size:12px">${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${l.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회 결제`:''}</div></td>
+      <td style="padding:6px;font-size:12px">${(()=>{ const p=r.prev||l, sr=r.seasonRecs||[]; return `${pmEsc(p.edu||'')} ${pmEsc(p.kisu||'')}<div style="font-size:11px;color:var(--text2)">${payKeyLabel(r.payKey)} 결제 · ${p.credit||0}학점${r.recs.length>1?` · 총 ${r.recs.length}회 결제`:''}</div>${sr.length?`<div style="font-size:11px;color:var(--green);font-weight:700" title="이번 시즌에 이미 학습자 등록된 결제">✓ 이번 시즌 ${sr.map(x=>payKeyLabel(learnerPayKey(x))+' '+pmEsc(x.edu||'')+' '+(x.credit||0)+'학점').join(', ')}</div>`:''}`; })()}</td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" value="${d.credits??''}" placeholder="${d.noAuto?'-':(r.autoCredits??'-')}" title="${r.nextName?'플랜표 '+pmEsc(r.nextName)+' 기준':r.noTerm?'플랜표에 이번 시즌 학기가 없어요 — 필요하면 직접 입력':'플랜표 없음 — 직접 입력'}" onchange="setSeasonField('${K}','credits',this.value)" style="width:62px;font-size:12px;padding:3px 5px;text-align:center"><div style="font-size:10px;color:var(--text3)">${d.credits!==undefined&&d.credits!==''?'직접입력':d.noAuto?`<a href="javascript:void 0" onclick="ssSetNoAuto('${K}',false)" style="color:var(--blue)" title="플랜표 자동 계산 다시 쓰기">자동 되돌리기</a>`:r.autoCredits?`${pmEsc(r.nextName||'')} <a href="javascript:void 0" onclick="ssSetNoAuto('${K}',true)" style="color:#c92a2a;text-decoration:none" title="자동 계산된 학점·예상매출 지우기">✕</a>`:r.nextName?pmEsc(r.nextName):r.noTerm?`플랜에 ${seasonTargetTerm(document.getElementById('ss-season').value)}학기 없음`:r.plan?'':'플랜 없음'}</div></td>
       <td style="padding:6px;text-align:center"><input type="number" min="0" step="500" value="${priceManual?d.price:''}" placeholder="${defPrice||'-'}" title="기본: 최근 결제 단가 ${defPrice?defPrice.toLocaleString()+'원':'없음'} — 비우면 기본값" onchange="setSeasonField('${K}','price',this.value)" style="width:76px;font-size:12px;padding:3px 5px;text-align:right"><div style="font-size:10px;color:var(--text3)">${priceManual?'직접입력':'최근 단가'}</div></td>
       <td style="padding:6px;text-align:right"><input type="number" min="0" step="1000" value="${salesManual?d.sales:''}" placeholder="${autoSales?autoSales:'-'}" title="기본: 학점 × 단가 ${autoSales?'= '+autoSales.toLocaleString()+'원':''} — 비우면 자동 계산" onchange="setSeasonField('${K}','sales',this.value)" style="width:92px;font-size:12px;padding:3px 5px;text-align:right;font-weight:700;${SS_NO_SALES.includes(status)?'color:var(--text3);text-decoration:line-through':''}"><div style="font-size:10px;color:var(--text3)">${salesManual?'직접입력':sales?sales.toLocaleString()+'원':'자동 계산'}</div></td>
