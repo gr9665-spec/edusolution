@@ -5694,7 +5694,8 @@ function renderSeason(){
   tb.innerHTML=rows.map(r=>{
     const {d,status,credits,price,sales,defPrice,autoSales,priceManual,salesManual,autoStatus}=r.v, l=r.last, K=ek(r.key);
     const c=(SS_STATUS.find(x=>x.k===status)||{}).c||'#868e96';
-    const paidL=d.paidLearnerId&&learners.some(x=>x.id===d.paidLearnerId);
+    // 이번 시즌 결제 기록이 학습자 관리에 이미 있으면(번호 공란이어도 이름으로 연결된 경우 포함) 등록 완료로
+    const paidL=(d.paidLearnerId&&learners.some(x=>x.id===d.paidLearnerId))||(r.seasonRecs||[]).length>0;
     return `<tr style="border-top:1px solid var(--border);${status==='과정끝'||status==='환불'?'opacity:.6':''}">
       <td style="padding:6px"><b>${pmEsc(l.name)}</b>${r.extra?' <span style="font-size:10px;font-weight:700;color:#2b8a3e;background:#ebfbee;border:1px solid #b2f2bb;border-radius:3px;padding:0 4px" title="엑셀에서 가져온 학생 (허브 학습자 관리에는 없음)">엑셀</span>':''}${(()=>{const n=_reviewNotes.filter(x=>x.seasonKey===k&&x.studentKey===r.key&&!x.resolved).length;return n?` <span onclick="toggleNotiPanel(true)" title="팀장 코멘트 ${n}건" style="cursor:pointer;font-size:10.5px;font-weight:700;color:#fff;background:#e03131;border-radius:99px;padding:1px 7px">💬 ${n}</span>`:'';})()}<div style="font-size:11px;color:var(--text2)">${pmEsc(l.phone||'')}</div>
         <div style="display:flex;gap:3px;margin-top:4px;align-items:center">
@@ -5715,7 +5716,7 @@ function renderSeason(){
       <td style="padding:6px;text-align:center"><input type="date" value="${d.kakao||''}" onchange="setSeasonField('${K}','kakao',this.value)" style="font-size:12px;padding:3px 4px;width:120px">${d.kakao?`<button type="button" class="ss-clr" onclick="setSeasonField('${K}','kakao','')" title="날짜 지우기">✕ 지우기</button>`:''}</td>
       <td class="ss-reg" style="padding:6px;text-align:center;white-space:nowrap"><input type="date" value="${d.regDate||''}" onchange="setSeasonField('${K}','regDate',this.value)" style="font-size:12px;padding:3px 4px;width:120px"> <input type="text" value="${pmEsc(d.regTime||'')}" placeholder="9시" onchange="setSeasonField('${K}','regTime',this.value)" style="font-size:12px;padding:3px 4px;width:52px">${d.regDate||d.regTime?`<button type="button" class="ss-clr" onclick="ssClearReg('${K}')" title="등록예정일·시간 지우기">✕ 지우기</button>`:''}${(()=>{ const on=ssRegNoticed(d); return `<div class="ss-rn" style="margin-top:4px"><button type="button" onclick="ssToggleRegNotice('${K}')" title="${on?(d.regNoticeAt?d.regNoticeAt+' 안내 완료 · ':'비고에 예약완 기록 · ')+'다시 누르면 취소':'등록 안내(예약)를 마쳤으면 눌러서 표시'}" style="cursor:pointer;font-family:inherit;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;border:1.5px solid #2f9e44;${on?'background:#2f9e44;color:#fff':'background:#fff;color:#2f9e44'}">${on?'✓ 등록안내 완료':'○ 등록안내'}</button></div>`; })()}</td>
       <td style="padding:6px"><input type="text" value="${pmEsc(d.note||'')}" placeholder="${r.extra&&r.extra.mayNote?'5월: '+pmEsc(r.extra.mayNote):'예: 자격증 대체 여부'}" title="${r.extra&&(r.extra.mayNote||r.extra.mayLeft)?pmEsc(`5월 기록 — 비고: ${r.extra.mayNote||'-'} / 26-2 남은학점: ${r.extra.mayLeft||'-'}`):''}" onchange="setSeasonField('${K}','note',this.value)" style="font-size:12px;padding:3px 6px;width:100%;min-width:140px"></td>
-      <td style="padding:6px;text-align:center">${paidL?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ 등록됨</span>'
+      <td style="padding:6px;text-align:center">${paidL?'<span style="font-size:11px;color:var(--green);font-weight:700">✓ 학습자 등록 완료</span>'
         :status==='결제완료'?`<button class="btn btn-sm" style="font-size:11px;color:var(--green)" onclick="seasonToLearner('${K}')"><i class="ti ti-user-plus"></i> 학습자 등록</button>`:'<span style="font-size:11px;color:var(--text3)">결제 후</span>'}</td>
     </tr>`;
   }).join('');
