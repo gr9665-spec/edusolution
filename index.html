@@ -1574,6 +1574,13 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <input type="file" id="plan-import-input" accept=".json" style="display:none" onchange="importPlanFile(this)">
       <input type="file" id="plan-xlsx-input" accept=".xlsx" style="display:none" onchange="importPlanFromXlsx(this)">
       <div id="plan-list"></div>
+      <!-- 이름·연락처 검색 -->
+      <div style="position:relative;margin-bottom:8px">
+        <i class="ti ti-search" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px"></i>
+        <input type="search" id="plan-search" placeholder="이름·연락처 검색" autocomplete="off" oninput="renderPlanList()"
+          onkeydown="if(event.key==='Enter'){const f=document.querySelector('#plan-list-content [data-pid]');if(f)selectPlan(f.dataset.pid);}"
+          style="width:100%;font-size:12px;padding:6px 8px 6px 28px;box-sizing:border-box">
+      </div>
       <!-- 폴더 필터 -->
       <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">
         <button id="plan-filter-all" class="btn btn-sm btn-primary" style="font-size:11px;padding:3px 8px" onclick="setPlanFilter('all')">전체</button>
@@ -7901,15 +7908,18 @@ function renderPlanList(){
     return tb-ta;
   });
   if(_planFilter!=='all') list=list.filter(p=>(p.status||'가망')===_planFilter);
+  // 이름·연락처 검색 (번호는 숫자만 비교)
+  const q=(document.getElementById('plan-search')?.value||'').trim().toLowerCase(), qd=q.replace(/\D/g,'');
+  if(q) list=list.filter(p=>String(p.clientName||'').toLowerCase().includes(q)||(qd.length>=3&&String(p.clientPhone||p.phone||'').replace(/\D/g,'').includes(qd)));
   if(!list.length){
-    el.innerHTML=`<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">${_planFilter==='all'?'작성된 플랜이 없어요':_planFilter+' 플랜이 없어요'}</div>`;
+    el.innerHTML=`<div style="font-size:12px;color:var(--text2);text-align:center;padding:20px 0">${q?`'${pmEsc(q)}' 검색 결과가 없어요`:_planFilter==='all'?'작성된 플랜이 없어요':_planFilter+' 플랜이 없어요'}</div>`;
     return;
   }
-  el.innerHTML=list.map(p=>{
+  el.innerHTML=(q?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">검색 결과 ${list.length}개${list.length>1?' · Enter 누르면 첫 번째 열기':''}</div>`:'')+list.map(p=>{
     const cur=p.id===curPid;
     const status=p.status||'가망';
     const statusColor=status==='결제완료'?'var(--green)':'var(--amber)';
-    return `<div onclick="selectPlan('${p.id}')" style="padding:10px 12px;border-radius:var(--r);border:1px solid ${cur?'var(--navy)':'var(--border)'};background:${cur?'var(--navy)':'var(--bg)'};cursor:pointer;margin-bottom:6px">
+    return `<div data-pid="${p.id}" onclick="selectPlan('${p.id}')" style="padding:10px 12px;border-radius:var(--r);border:1px solid ${cur?'var(--navy)':'var(--border)'};background:${cur?'var(--navy)':'var(--bg)'};cursor:pointer;margin-bottom:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
         <div style="font-size:13px;font-weight:600;color:${cur?'#fff':'var(--text)'};;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.clientName||'(이름 미입력)'}</div>
         <span style="font-size:10px;background:${cur?'rgba(255,255,255,.15)':'var(--bg2)'};color:${cur?'#fff':statusColor};border-radius:99px;padding:1px 6px;flex-shrink:0;font-weight:600">${status}</span>
