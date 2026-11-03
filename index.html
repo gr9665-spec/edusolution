@@ -2386,6 +2386,8 @@ async function loadUserData(){
       _loadedLastUpdated = d.lastUpdated || null;
       const _hadImgData=(learners||[]).some(l=>(l.images||[]).some(i=>'_src' in i));
       if(_hadImgData){ stripLearnerImgData(); setTimeout(()=>saveToFirebase(),1200); }
+      const _ph=fillMissingPhones();
+      if(_ph) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast(`번호가 비어 있던 학습자 기록 ${_ph}건에 같은 학생 번호를 채웠어요`); },1300);
       const _auto=autoLinkPlans()+(autoLinkProspects(),syncProspectPlans()), _paid=autoPaidPlans();
       if(_auto||_paid) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast([_auto?`플랜표 ${_auto}개를 이름·연락처가 같은 학습자와 자동 연결`:'',_paid?`학습자와 연결된 플랜표 ${_paid}개를 결제완료로 변경`:''].filter(Boolean).join(' · ')+'했어요'); },1500);
     } else {
@@ -4556,6 +4558,19 @@ function openLearnerModal(idx){
   renderImgPreviews();
   lmSuggest();
   openModal('modal-learner');
+}
+// 번호가 빈 학습자 기록에 같은 학생 번호 채우기 (성수기와 같은 기준: 같은 이름에 번호 있는 학생이 딱 1명일 때만)
+// 빈 칸만 채우고 이미 적힌 번호는 절대 안 바꿈. 같은 이름이 2명 이상이거나 번호 있는 기록이 없으면 그대로 둠
+function fillMissingPhones(){
+  const byName={};
+  (learners||[]).forEach(l=>{ const p=normPhone(l.phone); if(!p) return; const n=(l.name||'').trim(); if(!n) return;
+    const g=byName[n]=byName[n]||{set:new Set(),rec:null}; g.set.add(p);
+    if(!g.rec||learnerPayKey(l)>learnerPayKey(g.rec)) g.rec=l; });
+  let n=0;
+  (learners||[]).forEach(l=>{ if(normPhone(l.phone)) return; const g=byName[(l.name||'').trim()];
+    if(g&&g.set.size===1){ l.phone=g.rec.phone; n++; } });
+  if(n) console.log(`[보정] 번호 빈 학습자 기록 ${n}건 채움`);
+  return n;
 }
 // 학습자 추가 창: 이름을 치면 예전에 등록한 같은 학생을 보여주고, 누르면 아이디·연락처·메일·교육원·코드 등을 채움
 // (기존 학생 다음학기 결제 때 매번 다시 적지 않게. 기수·입금월·학점은 새로 적음)
