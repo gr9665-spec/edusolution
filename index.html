@@ -1910,12 +1910,16 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <button type="button" class="btn btn-sm" onclick="addLearnerSchedRow()"><i class="ti ti-plus"></i> 일정 직접 추가</button>
     </div>
     <!-- 기존 기수 일정 불러오기 -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r)">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r)">
       <i class="ti ti-copy" style="font-size:14px;color:var(--navy)"></i>
       <span style="font-size:12px;color:var(--text2);flex-shrink:0">기존 기수 일정 불러오기:</span>
-      <select id="learner-copy-kisu-sel" style="flex:1;font-size:12px">
+      <select id="learner-copy-kisu-edu" style="flex:0 0 auto;width:110px;font-size:12px" onchange="filterLearnerKisuOptions()">
+        <option value="">전체 교육원</option>
+      </select>
+      <select id="learner-copy-kisu-sel" style="flex:1;min-width:160px;font-size:12px">
         <option value="">-- 기수 선택 --</option>
       </select>
+      <label style="font-size:11px;color:var(--text2);flex-shrink:0;display:flex;align-items:center;gap:3px;cursor:pointer" title="마지막 일정이 지난 기수도 목록에 보이기"><input type="checkbox" id="learner-copy-kisu-ended" onchange="filterLearnerKisuOptions()">끝난 기수</label>
       <button type="button" class="btn btn-sm btn-primary" style="font-size:11px;flex-shrink:0" onclick="applyLearnerCopyKisu()"><i class="ti ti-check"></i> 불러오기</button>
     </div>
     <div id="learner-copy-kisu-preview" style="font-size:11px;color:var(--text2);margin-bottom:8px"></div>
@@ -4360,21 +4364,65 @@ function toggleEduCustom(){
   custom.style.display=sel.value==='기타'?'block':'none';
   if(sel.value!=='기타') custom.value='';
 }
+// 기수 이름 정렬: "올에듀 26년도 2-1" → 교육원, 26, 2, 1 순 (건수 아님)
+function kisuSortKey(k){
+  const m=k.match(/(\d{2,4})\s*년?\s*도?\s*(\d+)\s*-\s*(\d+)/)||k.match(/()(\d+)\s*-\s*(\d+)/);
+  const edu=k.split(' ')[0];
+  if(!m) return [edu,0,0,0,k];
+  const y=+(m[1]||0)%100;
+  return [edu,y,+m[2],+m[3],k];
+}
+function kisuCompare(a,b){
+  const x=kisuSortKey(a), y=kisuSortKey(b);
+  for(let i=0;i<5;i++){
+    if(x[i]===y[i]) continue;
+    return typeof x[i]==='number'?x[i]-y[i]:String(x[i]).localeCompare(String(y[i]));
+  }
+  return 0;
+}
 function populateLearnerKisuOptions(){
   const sel=document.getElementById('learner-copy-kisu-sel');
   if(!sel) return;
-  const kisuGroups={};
+  // 기수별 묶음 (노트 앞부분 = "교육원 기수")
+  const groups={};
   schedules.forEach(s=>{
-    const note=s.note||'';
-    const key=note.split('|')[0].trim();
+    const key=(s.note||'').split('|')[0].trim();
     if(!key) return;
-    if(!kisuGroups[key]) kisuGroups[key]=[];
-    kisuGroups[key].push(s);
+    (groups[key]=groups[key]||[]).push(s);
   });
-  const opts=Object.entries(kisuGroups)
-    .sort((a,b)=>b[1].length-a[1].length)
-    .map(([k,v])=>`<option value="${k}">${k} (${v.length}건)</option>`).join('');
-  sel.innerHTML='<option value="">-- 기수 선택 --</option>'+opts;
+  window._lKisuGroups=groups;
+  const eduSel=document.getElementById('learner-copy-kisu-edu');
+  if(eduSel){
+    const edus=[...new Set(Object.keys(groups).map(k=>k.split(' ')[0]).filter(Boolean))].sort();
+    eduSel.innerHTML='<option value="">전체 교육원</option>'+edus.map(e=>`<option value="${e}">${e}</option>`).join('');
+  }
+  const ended=document.getElementById('learner-copy-kisu-ended');
+  if(ended) ended.checked=false;
+  filterLearnerKisuOptions();
+}
+// 교육원으로 거르고, 마지막 일정이 지난 기수는 기본으로 숨김. 년도·기수 순
+function filterLearnerKisuOptions(){
+  const sel=document.getElementById('learner-copy-kisu-sel');
+  const groups=window._lKisuGroups||{};
+  if(!sel) return;
+  const edu=document.getElementById('learner-copy-kisu-edu')?.value||'';
+  const showEnded=!!document.getElementById('learner-copy-kisu-ended')?.checked;
+  const today=pmToday();
+  const cut120=new Date(Date.now()+9*3600e3-120*864e5).toISOString().slice(0,10);
+  const rows=Object.entries(groups).map(([k,v])=>{
+    const dates=v.flatMap(s=>[s.date,s.endDate]).filter(Boolean).sort();
+    const first=dates[0]||'', last=dates[dates.length-1]||'';
+    // 기말·종강이 있으면 마지막 일정으로, 개강일만 있으면 개강 120일 뒤를 끝으로 본다
+    const hasEnd=v.some(s=>/기말|종강/.test(s.type||''));
+    const ended=!!last && last<today && (hasEnd || first<cut120);
+    return {k,n:v.length,first,ended};
+  }).filter(r=>{
+    if(edu && r.k.split(' ')[0]!==edu) return false;
+    if(!showEnded && r.ended) return false;
+    return true;
+  }).sort((a,b)=>kisuCompare(a.k,b.k));
+  sel.innerHTML=`<option value="">-- 기수 선택 (${rows.length}개) --</option>`+
+    rows.map(r=>`<option value="${r.k}">${r.k} (${r.n}건)${r.ended?' · 끝남':''}</option>`).join('');
   const prev=document.getElementById('learner-copy-kisu-preview');
   if(prev) prev.textContent='';
 }
@@ -7493,7 +7541,7 @@ function filterCopyKisuSel(){
     if(edu && !k.startsWith(edu)) return false;
     if(q && !k.toLowerCase().includes(q)) return false;
     return true;
-  }).sort((a,b)=>b[1].length-a[1].length);
+  }).sort((a,b)=>kisuCompare(a[0],b[0]));
   sel.innerHTML = '<option value="">-- 기수 선택 (' + filtered.length + '개) --</option>' +
     filtered.map(([k,v])=>`<option value="${k}">${k} (${v.length}건)</option>`).join('');
   document.getElementById('copy-kisu-preview').textContent = '';
