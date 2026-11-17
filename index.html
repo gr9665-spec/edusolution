@@ -5647,9 +5647,26 @@ function seasonAllRowsBase(k,L,P,sd){
   const hub=(L||[]);
   extra.forEach((x,i)=>{
     const xp=normPhone(x.phone);
-    if(hub.some(l=>l.name===x.name&&(!xp||!normPhone(l.phone)||normPhone(l.phone)===xp))) return;
     const last={name:x.name,phone:x.phone||'',edu:x.edu||'',kisu:x.kisu||'',credit:x.credit||'',unitprice:x.price||0,
       year:x.y,month:x.m,paydate:x.d?`${x.m}월 ${x.d}일`:'',id:x.eid||'',addedAt:'x'+String(i).padStart(5,'0')};
+    if(hub.some(l=>l.name===x.name&&(!xp||!normPhone(l.phone)||normPhone(l.phone)===xp))){
+      // 엑셀 학생이 허브 학습자로 등록됨 → 엑셀 줄은 숨기고, 엑셀 줄에 적어둔 상태·학점·카톡·비고를 허브 줄로 한 번 옮김 (엑셀 쪽 기록은 지우지 않음)
+      const r=rows.find(r=>!r.extra&&r.last.name===x.name&&(!xp||!normPhone(r.last.phone)||normPhone(r.last.phone)===xp));
+      if(!r) return;
+      const pp=sd&&sd.people, xd=pp&&pp[x.key];
+      if(xd&&!xd.movedTo&&r.key!==x.key){
+        const note=ssMergeNotes(xd.note,(pp[r.key]||{}).note);
+        const {movedTo,...rest}=xd;
+        pp[r.key]=Object.assign({},rest,pp[r.key]||{}); if(note) pp[r.key].note=note;
+        xd.movedTo=r.key;
+      }
+      // 허브엔 이번 시즌 기록만 있으면, 엑셀의 예전 결제를 '그 전 결제'로 보여줌 (결제월 칩·정렬도 그 기준)
+      if(!(r.seasonRecs||[]).length&&learnerYm(last)<k&&r.recs.every(l=>learnerYm(l)>=k)){
+        r.prev=last; r.seasonRecs=r.recs.slice(); r.payKey=learnerPayKey(last);
+        if(!normPhone(r.last.phone)&&xp) r.last=Object.assign({},r.last,{phone:x.phone});
+      }
+      return;
+    }
     const plan=findPlanIn(plansArr,last);
     const {autoCredits,planDone,nextName,noTerm}=planTermInfo(plan,seasonTargetTerm(k));
     rows.push({key:x.key,recs:[last],last,plan,autoCredits,planDone,nextName,noTerm,payKey:learnerPayKey(last),recent:true,extra:x});
