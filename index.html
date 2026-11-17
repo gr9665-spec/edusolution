@@ -5548,7 +5548,7 @@ function planTermInfo(plan,term){
   if(sems.length&&sems.every(x=>x.completed)) return {autoCredits:0,planDone:true,nextName:''};
   const nx=sems.find(x=>!x.completed&&semIsTerm(x.name,term));
   if(!nx) return {autoCredits:null,planDone:false,nextName:'',noTerm:true};
-  return {autoCredits:sumC(nx.req)+sumC(nx.elec)+sumC(nx.gen)+sumC(nx.lib),planDone:false,nextName:nx.name||''};
+  return {autoCredits:sumC(nx.req)+sumC(nx.elec)+sumC(nx.gen)+sumC(nx.lib),planDone:false,nextName:nx.name||'',nextEdu:(nx.edu||'').trim()};
 }
 function learnerYm(l){ return `${l.year||0}-${String(l.month||0).padStart(2,'0')}`; }
 // 결제(입금)일 정렬 키: 입금년·월 + 입금일 칸("4월 14일", "14일", "2026-04-14")
@@ -6049,8 +6049,10 @@ function seasonToLearner(K){
   _pendingSeason={k,key};
   const set=(id,val)=>{const el=document.getElementById('l-'+id); if(el&&val!=null&&val!=='') el.value=val;};
   set('name',l.name); set('phone',l.phone); set('email',l.email); set('id',l.id&&!/^L\d/.test(l.id)?l.id:'');
+  // 교육원: 연결된 플랜표의 이번 시즌 학기 교육원 우선 (없으면 예전 교육원)
+  const edu=(planTermInfo(row.plan,seasonTargetTerm(k)).nextEdu)||l.edu;
   const eduSel=document.getElementById('l-edu');
-  if([...eduSel.options].some(o=>o.value===l.edu)) eduSel.value=l.edu; else if(l.edu){ eduSel.value='기타'; document.getElementById('l-edu-custom').value=l.edu; }
+  if([...eduSel.options].some(o=>o.value===edu)) eduSel.value=edu; else if(edu){ eduSel.value='기타'; document.getElementById('l-edu-custom').value=edu; }
   toggleEduCustom();
   set('code',l.code); set('approve',l.approve); set('course',l.course);
   set('unitprice',v.price||l.unitprice); set('credit',v.credits||'');
