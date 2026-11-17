@@ -1803,7 +1803,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <option>라인</option><option>아이티뱅크</option><option>마이에듀</option><option>사이에듀</option>
         <option>서사평</option><option>이젠에듀</option><option>에이스</option><option>숭실</option>
         <option>서원평</option><option>에듀업</option><option>국민사이버</option>
-        <option>케이스원격</option><option>케이스터디</option>
+        <option>케이스원격</option><option>케이스터디</option><option>올패스</option>
         <option>기타</option>
       </select>
       <input type="text" id="l-edu-custom" placeholder="교육원명 직접 입력" style="display:none;margin-top:5px">
@@ -3775,7 +3775,7 @@ function findSchedulesForLearnerThisTerm(l){
 }
 function getLearnerStartDate(l){
   const cands=findSchedulesForLearnerThisTerm(l).filter(s=>s.type==='개강일');
-  if(!cands.length) return '';
+  if(!cands.length) return /^\d{4}-\d{2}-\d{2}/.test(l.start||'')?l.start:''; // 개강일 일정이 없으면 학습자 창에 적은 개강일
   if(cands.length===1) return cands[0].date||'';
 
   // 입금일(paydate)과 가장 가까운 개강일
