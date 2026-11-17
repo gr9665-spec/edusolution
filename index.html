@@ -5034,7 +5034,7 @@ function renderDashboard(){
     for(const [k,v] of Object.entries(TYPE_ORDER_DASH)){if(t.startsWith(k.replace(/ \d차$/,'')))return v;}
     return 9;
   };
-  const tomorrowSchedules=schedules.filter(s=>s.date===tomorrowStr).sort((a,b)=>typeOrderDash(a.type)-typeOrderDash(b.type)||a.learnerName.localeCompare(b.learnerName));
+  const tomorrowSchedules=schedules.filter(s=>s.date===tomorrowStr&&!schedOutdated(s)).sort((a,b)=>typeOrderDash(a.type)-typeOrderDash(b.type)||a.learnerName.localeCompare(b.learnerName));
   document.getElementById('today-schedule').innerHTML=tomorrowSchedules.length
     ?tomorrowSchedules.map(s=>`
       <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[s.type]||'#999'}">
@@ -6825,21 +6825,31 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
     </div>`;
   }).join('');
 }
+// 지난 기수 일정: 메모의 'NN년도' 기수보다 날짜가 너무 뒤(다음 해 4월 이후)면 연도가 잘못 들어간 옛 일정 → 다가오는 일정·대시보드에서 숨김 (지우진 않음)
+// 예) '25년도 2-6' 과제가 2026-12-03으로 들어간 경우. 25년도 기수는 늦어도 26년 3월엔 끝남
+function schedOutdated(s){
+  const m=String((s&&s.note)||'').split('|')[0].match(/(\d{2})년도/); if(!m||!s.date) return false;
+  return s.date>`${2000+parseInt(m[1])+1}-03-31`;
+}
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
 
-  // 다가오는 일정 — 마감 제외, 당일 이후
+  // 다가오는 일정 — 마감 제외, 당일 이후, 지난 기수 일정 제외
+  let hiddenOld=0;
   const upcoming=schedules.filter(s=>{
     if(s.type.includes('마감')) return false;
-    return s.date>=todayStr;
+    if(s.date<todayStr) return false;
+    if(schedOutdated(s)){ hiddenOld++; return false; }
+    return true;
   }).sort((a,b)=>a.date.localeCompare(b.date)||typeOrder(a.type)-typeOrder(b.type)||a.learnerName.localeCompare(b.learnerName));
 
   const byDate={};
   upcoming.forEach(s=>{ if(!byDate[s.date]) byDate[s.date]=[]; byDate[s.date].push(s); });
 
-  document.getElementById('upcoming-schedule').innerHTML = upcoming.length
+  document.getElementById('upcoming-schedule').innerHTML = (upcoming.length
     ? renderScheduleGroupHtml(byDate, todayStr, now, false)
-    : '<div class="empty"><i class="ti ti-calendar"></i>다가오는 일정 없음</div>';
+    : '<div class="empty"><i class="ti ti-calendar"></i>다가오는 일정 없음</div>')
+    +(hiddenOld?`<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px">지난 기수(예: 25년도) 일정 ${hiddenOld}건은 날짜가 맞지 않아 숨겼어요 (지워지진 않았어요)</div>`:'');
 
   // 지난 일정 모달이 열려 있는 동안 변경사항 생기면 같이 갱신
   const pastModal=document.getElementById('modal-past-schedule');
