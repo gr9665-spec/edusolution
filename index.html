@@ -2359,8 +2359,9 @@ async function loadUserData(){
         schedules=d.schedules;
         // learnerId 없는 구 데이터 → 학습자 이름으로 learnerId 자동 보완
         if(d.learners){
-          const nameToId={};
-          d.learners.forEach(l=>{ if(l.id&&l.name) nameToId[l.name]=l.id; });
+          const nameToId={}, multiId=new Set();
+          d.learners.forEach(l=>{ if(l.id&&l.name){ if(nameToId[l.name]&&nameToId[l.name]!==l.id) multiId.add(l.name); nameToId[l.name]=l.id; } });
+          multiId.forEach(n=>delete nameToId[n]); // 동명이인(아이디 여러 개)은 누구 일정인지 모르니 건드리지 않음
           let migrated=false;
           schedules=schedules.map(s=>{
             if(!s.learnerId && s.learnerName && nameToId[s.learnerName]){
@@ -3753,8 +3754,12 @@ function findSchedulesForLearner(l){
     const byId=schedules.filter(s=>s.learnerId&&s.learnerId===l.id);
     if(byId.length) return byId;
   }
-  return schedules.filter(s=>s.learnerName===l.name);
+  const lp=normPhone(l.phone);
+  const otherIds=new Set(lp?learners.filter(x=>x.name===l.name&&x.id&&x.id!==l.id&&normPhone(x.phone)&&normPhone(x.phone)!==lp).map(x=>x.id):[]);
+  return schedules.filter(s=>s.learnerName===l.name&&!(s.learnerId&&otherIds.has(s.learnerId)));
 }
+// 같은 학습자의 일정인지 (아이디가 둘 다 있으면 아이디로, 아니면 이름으로) — 동명이인 구분용
+function schedSameLearner(ex,name,id){ return ex.learnerName===name&&(!(ex.learnerId&&id)||ex.learnerId===id); }
 // 학습자의 "이번 학기(kisu)"에 해당하는 일정만 좁혀서 반환
 function findSchedulesForLearnerThisTerm(l){
   const all=findSchedulesForLearner(l);
@@ -6770,7 +6775,10 @@ function deleteScheduleByName(){
   if(!name){alert('이름을 입력해주세요');return;}
   const count=schedules.filter(s=>s.learnerName===name).length;
   if(!count){alert(`"${name}" 학습자의 일정이 없어요`);return;}
-  if(!confirm(`"${name}" 학습자의 학사일정 ${count}건을 삭제할까요?`)) return;
+  const _ph=new Set(learners.filter(l=>l.name===name).map(l=>normPhone(l.phone)).filter(Boolean));
+  if(!confirm(`"${name}" 학습자의 학사일정 ${count}건을 삭제할까요?`+(_ph.size>1?`
+
+⚠️ "${name}" 이름의 학습자가 ${_ph.size}명(번호가 달라요)이에요. 동명이인 일정까지 모두 지워져요!`:''))) return;
   schedules=schedules.filter(s=>s.learnerName!==name);
   save();renderSchedule();renderDashboard();
   document.getElementById('schedule-del-input').value='';
@@ -7787,7 +7795,7 @@ function saveBulkSchedule(){
       const note = dateRange ? `${noteBase} | ${dateRange}` : noteBase;
 
       // 시작 일정 등록 (중복: 같은 학습자+유형+날짜+note 모두 같을 때만 skip)
-      const dup = s.date && schedules.some(ex=>ex.learnerName===learner.name&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
+      const dup = s.date && schedules.some(ex=>schedSameLearner(ex,learner.name,learner.id)&&ex.type===s.type&&ex.date===s.date&&ex.note===note);
       if(s.date && !dup){
         schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2),learnerName:learner.name,learnerId:learner.id||'',type:s.type,label:s.type==='기타'?(s.label||''):'',date:s.date,endDate:s.endDate||'',time:s.time||'',sent:'false',note});
         count++;
@@ -7795,7 +7803,7 @@ function saveBulkSchedule(){
       // 마감일 자동 등록 — endDate/time이 있으면 시작 레코드에 이미 포함됐으므로 별도 마감 레코드 생략
       if(HAS_END.includes(s.type)&&s.endDate){
         const endType=s.type+'마감';
-        const dupEnd=s.endDate && schedules.some(ex=>ex.learnerName===learner.name&&ex.type===endType&&ex.date===s.endDate&&ex.note===note);
+        const dupEnd=s.endDate && schedules.some(ex=>schedSameLearner(ex,learner.name,learner.id)&&ex.type===endType&&ex.date===s.endDate&&ex.note===note);
         if(s.endDate && !dupEnd){
           schedules.push({id:Date.now()+'-'+count+'-'+Math.random().toString(36).slice(2)+'-e',learnerName:learner.name,learnerId:learner.id||'',type:endType,...(s.type==='기타'?{label:s.label||''}:{}),date:s.endDate,sent:'false',note});
           count++;
@@ -7868,7 +7876,7 @@ function fixMissingEndDates(){
     const ny=String((parseInt(s.endDate.slice(0,4))||0)+1)+s.endDate.slice(4);
     const span=(new Date(ny)-new Date(s.date))/864e5;
     if(!(span>=0&&span<=120)) return;
-    schedules.forEach(x=>{ if(x!==s&&x.learnerName===s.learnerName&&x.type===s.type+'마감'&&x.date===s.endDate&&(x.note||'')===(s.note||'')) x.date=ny; });
+    schedules.forEach(x=>{ if(x!==s&&schedSameLearner(x,s.learnerName,s.learnerId)&&x.type===s.type+'마감'&&x.date===s.endDate&&(x.note||'')===(s.note||'')) x.date=ny; });
     s.endDate=ny; fixed++;
   });
   if(fixed>0){ save(); console.log(`[보정] 마감일 ${fixed}건 복구`); }
