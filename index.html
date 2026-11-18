@@ -594,7 +594,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div style="font-size:13px;color:var(--text2)">아래 데이터를 복사해서 기존 매출파일에 바로 붙여넣으세요. 열 순서가 회사 보고 양식과 동일합니다.</div>
   </div>
 
-  <div class="notice"><i class="ti ti-info-circle"></i> 뉴엠/영어IT/대면/문헌정보는 <strong>총매출금액이 반액으로 자동 계산</strong>되어 표시됩니다 (회사 입력 규칙 반영)</div>
+  <div class="notice"><i class="ti ti-info-circle"></i> 뉴엠/영어IT/대면/문헌정보는 <strong>10월 입금분까지만</strong> 총매출금액이 반액으로 자동 계산되어 표시됩니다. 11월 입금분부터는 반액 없이 실제 결제금액 그대로예요.</div>
 
   <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
     <div class="fg" style="width:auto">
@@ -1827,7 +1827,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         <optgroup label="특수"><option>아뱅40</option><option>아뱅50</option><option>뉴엠</option><option>영어IT</option><option>민간자격증</option><option>독학사</option><option>숭전재50</option><option>서대12</option><option>기타</option></optgroup>
       </select>
     </div>
-    <div class="fg" style="display:flex;align-items:center;gap:10px;padding-top:4px">
+    <div class="fg" id="l-half-wrap" style="display:flex;align-items:center;gap:10px;padding-top:4px">
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600;color:var(--amber)">
         <input type="checkbox" id="l-half" onchange="autoCalcTotal()" style="width:16px;height:16px;accent-color:var(--amber)">
         반액 입력 대상 <span style="font-size:11px;font-weight:400;color:var(--text2)">(영어영문·기계·전기·소방 등)</span>
@@ -4286,7 +4286,10 @@ function autoCalcTotal(){
   const reportAmtVal=(document.getElementById('l-report-amt')?.value||'').trim();
   const rType=document.getElementById('l-reward-type').value;
   const rVal=parseFloat(document.getElementById('l-reward-value').value)||0;
-  const isHalfChk=document.getElementById('l-half')?.checked||false;
+  // 11월 입금분부터(신버전)는 반액 없음 → 반액 체크칸·'×0.5' 수당방식 숨김
+  { const _v2=isV2(lModalYm()); const hw=document.getElementById('l-half-wrap'); if(hw) hw.style.visibility=_v2?'hidden':'';
+    const ho=document.querySelector('#l-reward-type option[value="rate_half"]'); if(ho) ho.hidden=_v2&&rType!=='rate_half'; }
+  const isHalfChk=(document.getElementById('l-half')?.checked||false)&&!isV2(lModalYm());
   const tmpL={code,credit,total,course,rewardType:rType,rewardValue:rVal,half:isHalfChk,reportAmt:reportAmtVal,...lModalYm(),rewardManual:!!window._rewardManual};
   const reward=calcRewardForLearner(tmpL);
   const exportTotal=calcExportTotal(tmpL);
@@ -4298,7 +4301,7 @@ function autoCalcTotal(){
   else if(rType==='fixed') desc=`고정 ${rVal.toLocaleString()}원`;
   if(v2&&!tmpL.rewardManual){ const c=v2Calc(tmpL); desc=c.warn?`⚠ ${c.warn}`:c.note; }
   document.getElementById('reward-preview').textContent=desc?`→ ${desc}${v2&&!tmpL.rewardManual&&v2Calc(tmpL).warn?' (수당 0원 — 시트에서도 확인 필요로 나와요)':` = ${reward.toLocaleString()}원`}${v2?(tmpL.rewardManual?' · 직접 바꾼 수당':' · 신버전 기준'):''}`:'';
-  const halfMark=v2?' <span style="font-size:11px;color:var(--text2)">(신버전: 반액 없이 실제 결제금액)</span>':(isHalfChk||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문'))?' <span style="font-size:11px;color:var(--amber);background:var(--amber-bg);border-radius:4px;padding:1px 6px">반액</span>':'';
+  const halfMark=v2?'':(isHalfChk||HALF_PRICE_CODES.includes(code)||HALF_PRICE_COURSES.includes(course)||code.startsWith('이문')||code.startsWith('에문'))?' <span style="font-size:11px;color:var(--amber);background:var(--amber-bg);border-radius:4px;padding:1px 6px">반액</span>':'';
   const reportMark=reportAmtVal?' <span style="font-size:11px;color:#7048e8;background:#f3f0ff;border-radius:4px;padding:1px 6px">직접입력</span>':'';
   document.getElementById('modal-calc').innerHTML=`총매출: <strong>${total.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;예상수당: <strong style="color:var(--green)">${reward.toLocaleString()}원</strong>&nbsp;&nbsp;|&nbsp;&nbsp;보고서입력금액: <strong style="color:var(--blue)">${exportTotal.toLocaleString()}원</strong>${halfMark}${reportMark}`;
 }
@@ -4859,7 +4862,7 @@ async function saveLearnerInner(){
     paydate:document.getElementById('l-paydate').value.trim(),
     code,approve:document.getElementById('l-approve').value.trim(),
     credit,unitprice,total,reward,course,rewardType,rewardValue,rewardManual:!!window._rewardManual,
-    half:document.getElementById('l-half')?.checked||false,
+    half:(document.getElementById('l-half')?.checked||false)&&!isV2(lModalYm()), // 11월 입금분부터는 반액 없음
     reportAmt:document.getElementById('l-report-amt')?.value.trim()||'',
     type:document.getElementById('l-type').value,
     note:document.getElementById('l-note').value.trim(),
@@ -7181,7 +7184,7 @@ function renderSales(){
     <td>${l.credit||0}학점</td>
     <td>${(()=>{
       const exportTotal=calcExportTotal(l);
-      const isHalf=l.half||HALF_PRICE_CODES.includes(l.code||'')||HALF_PRICE_COURSES.includes(l.course||'')||(l.code||'').startsWith('이문')||(l.code||'').startsWith('에문');
+      const isHalf=!isV2(l)&&(l.half||HALF_PRICE_CODES.includes(l.code||'')||HALF_PRICE_COURSES.includes(l.course||'')||(l.code||'').startsWith('이문')||(l.code||'').startsWith('에문')); // 11월 입금분부터 반액 표기 없음
       const hasReport=l.reportAmt&&parseInt(l.reportAmt)>0;
       const halfBadge=isHalf?`<span style="font-size:10px;color:var(--amber);background:var(--amber-bg);border-radius:3px;padding:1px 5px">반액</span>`:'';
       const reportBadge=hasReport?`<span style="font-size:10px;color:#7048e8;background:#f3f0ff;border-radius:3px;padding:1px 5px">직접입력</span>`:'';
