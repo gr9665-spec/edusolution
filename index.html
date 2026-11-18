@@ -1813,7 +1813,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>입금 년도/월</label>
       <div style="display:flex;gap:6px">
         <select id="l-year" style="flex:1" onchange="applyDefaultReward()">
-          <option value="2024">2024년</option><option value="2025">2025년</option><option value="2026" selected>2026년</option><option value="2027">2027년</option>
+          <option value="2024">2024년</option><option value="2025">2025년</option><option value="2026" selected>2026년</option><option value="2027">2027년</option><option value="2028">2028년</option>
         </select>
         <select id="l-month" style="flex:1" onchange="applyDefaultReward()">
           <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
@@ -1823,7 +1823,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
         </select>
       </div>
     </div>
-    <div class="fg"><label>입금일 (예: 4월14일)</label><input type="text" id="l-paydate" placeholder="4월 14일"></div>
+    <div class="fg"><label>입금일 (예: 4월14일)</label><input type="text" id="l-paydate" placeholder="4월 14일" oninput="lPaydateSyncMonth()"></div>
     <div class="fg"><label>구분코드 *</label>
       <select id="l-code" onchange="autoFillUnitPrice()">
         <optgroup label="A그룹 — 글로벌이노·에듀업·서사에·이젠에듀·영산대·서사평"><option>A20</option><option>A22.5</option><option>A25</option><option>A27.5</option><option>A30</option><option>A32.5</option><option>A35</option><option>A40</option><option>A50</option><option>A60</option><option>A70</option></optgroup>
@@ -4100,6 +4100,16 @@ function toggleRewardInput(){
   else if(t==='fixed'){lbl.textContent='건당 고정금액 (원)';inp.placeholder='50000';}
   autoCalcTotal();
 }
+// 입금일을 고치면 입금 월도 같이 맞춤 (예: '10월30일' → 10월). 12월↔1월처럼 해가 바뀌면 년도도 맞춤
+function lPaydateSyncMonth(){
+  const m=String(document.getElementById('l-paydate').value||'').match(/^\s*(\d{1,2})\s*월/);
+  if(!m) return; const mo=parseInt(m[1]); if(mo<1||mo>12) return;
+  const mSel=document.getElementById('l-month'), ySel=document.getElementById('l-year');
+  if(String(mo)===mSel.value) return;
+  if(editIdx<0){ const now=new Date(), cm=now.getMonth()+1; let y=now.getFullYear(); if(mo-cm>6) y--; else if(cm-mo>6) y++; if([...ySel.options].some(o=>o.value===String(y))) ySel.value=String(y); }
+  mSel.value=String(mo);
+  if(typeof applyDefaultReward==='function') applyDefaultReward();
+}
 function lModalYm(){ return {year:document.getElementById('l-year')?.value,month:document.getElementById('l-month')?.value}; }
 function applyDefaultReward(){
   const code=document.getElementById('l-code').value;
@@ -4606,6 +4616,11 @@ function openLearnerModal(idx){
   } else {
     ['name','id','phone','email','kisu','start','paydate','approve','credit','unitprice','note']
       .forEach(f=>{const el=document.getElementById('l-'+f);if(el)el.value='';});
+    // 입금 년도/월·입금일은 오늘 날짜로 자동 (직접 고칠 수 있음)
+    const _td=new Date();
+    document.getElementById('l-year').value=String(_td.getFullYear());
+    document.getElementById('l-month').value=String(_td.getMonth()+1);
+    document.getElementById('l-paydate').value=`${_td.getMonth()+1}월${_td.getDate()}일`;
     document.getElementById('l-edu').value='올에듀';
     document.getElementById('l-edu-custom').value='';
     toggleEduCustom();
