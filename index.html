@@ -4682,7 +4682,14 @@ function lmFillFrom(i){
   if(box) box.innerHTML=`<div style="font-size:11px;color:var(--green);font-weight:700">✓ ${pmEsc(l.name)} 예전 정보를 불러왔어요 — 기수·입금월·학점·결제일만 새로 적어주세요</div>`;
 }
 
+// 저장 버튼 두 번 눌림 방지: 저장 중이면 다시 눌러도 무시
+let _savingLearner=false;
 async function saveLearner(){
+  if(_savingLearner) return;
+  _savingLearner=true;
+  try{ await saveLearnerInner(); } finally { _savingLearner=false; }
+}
+async function saveLearnerInner(){
   const name=document.getElementById('l-name').value.trim();
   if(!name){alert('학생명을 입력해주세요');return;}
   const credit=parseInt(document.getElementById('l-credit').value)||0;
@@ -4714,6 +4721,22 @@ async function saveLearner(){
   };
   if(!l.rewardManual) delete l.rewardManual;
   l.reward=calcRewardForLearner(l); // 입금 년월 기준 (신버전이면 시트 계산)
+  // 중복 저장 경고: 같은 학생(번호·아이디)+교육원+기수+학점+금액이 이미 있으면 한 번 더 확인
+  {
+    const _np=normPhone(l.phone), _id=document.getElementById('l-id').value.trim();
+    const _dups=learners.filter((x,i)=>i!==editIdx&&x.name===l.name&&(x.edu||'')===l.edu&&(x.kisu||'')===l.kisu&&(+x.credit||0)===l.credit&&(+x.total||0)===l.total
+      &&((_np&&normPhone(x.phone)===_np)||(_id&&x.id===_id)||(!_np&&!_id)));
+    if(_dups.length){
+      const _lst=_dups.slice(0,3).map(x=>`· ${x.year||''}년 ${x.month||''}월 매출 / 입금일 ${x.paydate||'-'} / ${x.type||''}`).join(String.fromCharCode(10));
+      if(!confirm(`⚠️ 같은 내용의 기록이 이미 ${_dups.length}건 있어요.
+
+${l.name} · ${l.edu} ${l.kisu} · ${l.credit}학점 · ${l.total.toLocaleString()}원
+${_lst}
+
+중복 등록일 수 있어요. 그래도 저장할까요?
+(분납·추가 결제처럼 따로 저장해야 하면 '확인')`)) return;
+    }
+  }
   // 이미지 업로드 후 저장
   await uploadPendingImgs(name);
   // 데이터베이스 이미지(fs:)는 학습자 기록엔 위치만 남김 (이미지 자체를 넣으면 내 데이터 문서가 너무 커짐)
