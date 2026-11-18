@@ -7683,16 +7683,20 @@ function deleteMktActivity(i){
 }
 
 // 창 바깥 클릭으로 닫기: 누르기·떼기 둘 다 바깥일 때만 (입력칸에서 드래그하다 바깥에서 떼도 안 닫힘)
-// 학습자 추가/수정 창은 바깥 클릭으로 안 닫힘 → X·취소·저장·ESC로만
+// 입력이 많은 창(학습자·가망·마케팅·블로그키워드·멘트·학사일정·일괄일정)은 바깥 클릭으로 안 닫힘 → X·취소·저장·ESC로만
+const STICKY_MODALS=new Set(['modal-learner','modal-prospect','modal-mkt','modal-blog','modal-memo-edit','modal-schedule','modal-bulk-schedule']);
 document.querySelectorAll('.overlay').forEach(m=>{
   let downOut=false;
   m.addEventListener('mousedown',e=>{ downOut=(e.target===m); });
-  m.addEventListener('click',e=>{ if(e.target===m&&downOut&&m.id!=='modal-learner') m.classList.remove('open'); downOut=false; });
+  m.addEventListener('click',e=>{ if(e.target===m&&downOut&&!STICKY_MODALS.has(m.id)) m.classList.remove('open'); downOut=false; });
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  const ml=document.getElementById('modal-learner');
-  if(ml&&ml.classList.contains('open')){ const sg=document.getElementById('l-name-sugg'); if(sg&&sg.style.display!=='none'){ sg.style.display='none'; return; } closeModal('modal-learner'); }
+  // 맨 위에 떠 있는 창이 입력 창일 때만 닫기 (삭제 확인 등 다른 창이 위에 있으면 무시)
+  const top=[...document.querySelectorAll('.overlay.open')].pop();
+  if(!top||!STICKY_MODALS.has(top.id)) return;
+  if(top.id==='modal-learner'){ const sg=document.getElementById('l-name-sugg'); if(sg&&sg.style.display!=='none'){ sg.style.display='none'; return; } }
+  closeModal(top.id);
 });
 populateYearSelects();
 // Firebase가 인증 완료 후 renderDashboard()를 호출합니다
