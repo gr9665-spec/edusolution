@@ -477,14 +477,6 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
       <button class="btn btn-primary" onclick="openScheduleModal()"><i class="ti ti-plus"></i>1명 추가</button>
     </div>
   </div>
-  <!-- 학습자별 삭제 -->
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;padding:10px 12px;background:var(--bg2);border-radius:var(--r)">
-    <i class="ti ti-user-x" style="color:var(--red);font-size:14px"></i>
-    <span style="font-size:12px;color:var(--text2);flex-shrink:0">학습자 일정 삭제:</span>
-    <input type="text" id="schedule-del-input" placeholder="이름 입력 후 삭제" style="flex:1;padding:6px 10px;font-size:13px" oninput="previewScheduleDel()">
-    <span id="schedule-del-count" style="font-size:12px;color:var(--text2);flex-shrink:0"></span>
-    <button class="btn btn-sm" style="color:var(--red);flex-shrink:0" onclick="deleteScheduleByName()"><i class="ti ti-trash"></i> 삭제</button>
-  </div>
   <div class="card">
     <div class="card-head" style="display:flex;align-items:center;justify-content:space-between">
       <h3><i class="ti ti-calendar-event"></i>다가오는 일정</h3>
@@ -1746,6 +1738,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
   <!-- 팀원 관리 -->
   <div id="admin-tab-members">
     <div class="metrics" id="admin-member-metrics"></div>
+    <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px"><button class="btn btn-sm" onclick="openDataAudit()"><i class="ti ti-stethoscope"></i> 데이터 점검</button></div>
     <div class="card" style="padding:0;overflow:hidden">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr>
@@ -1753,6 +1746,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
           <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:left">이메일</th>
           <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">직급</th>
           <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">학습자</th>
+          <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">저장공간</th>
           <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">가입일</th>
           <th style="padding:9px 12px;background:var(--bg2);border-bottom:1px solid var(--border);text-align:center">관리</th>
         </tr></thead>
@@ -2325,13 +2319,6 @@ async function showApp(){
     }
   }
 
-  fixMissingScheduleNotes();
-  const dateFix=fixMissingScheduleDates();
-  const endFix=fixMissingEndDates();
-  const totalFix=(dateFix.fixed||0)+endFix;
-  if(totalFix>0){
-    setTimeout(()=>showToast(`누락된 일정 정보 ${totalFix}건을 자동 복구했어요`),800);
-  }
   renderDashboard();
   restoreLastTab();
 }
@@ -2357,21 +2344,6 @@ async function loadUserData(){
       if(d.learners)    learners=d.learners;
       if(d.schedules){
         schedules=d.schedules;
-        // learnerId 없는 구 데이터 → 학습자 이름으로 learnerId 자동 보완
-        if(d.learners){
-          const nameToId={}, multiId=new Set();
-          d.learners.forEach(l=>{ if(l.id&&l.name){ if(nameToId[l.name]&&nameToId[l.name]!==l.id) multiId.add(l.name); nameToId[l.name]=l.id; } });
-          multiId.forEach(n=>delete nameToId[n]); // 동명이인(아이디 여러 개)은 누구 일정인지 모르니 건드리지 않음
-          let migrated=false;
-          schedules=schedules.map(s=>{
-            if(!s.learnerId && s.learnerName && nameToId[s.learnerName]){
-              migrated=true;
-              return {...s, learnerId:nameToId[s.learnerName]};
-            }
-            return s;
-          });
-          if(migrated) saveToFirebase(); // 보완된 데이터 즉시 저장
-        }
       }
       if(d.mktActivities) mktActivities=d.mktActivities;
       if(d.mktGoals)    mktGoals=d.mktGoals;
@@ -2396,12 +2368,9 @@ async function loadUserData(){
       try{ localStorage.setItem('hk_owner_uid',currentUser.uid); }catch(e){}
       setTimeout(renderUnsyncedBanner,800);
       _loadedLastUpdated = d.lastUpdated || null;
-      const _hadImgData=(learners||[]).some(l=>(l.images||[]).some(i=>'_src' in i));
-      if(_hadImgData){ stripLearnerImgData(); setTimeout(()=>saveToFirebase(),1200); }
-      const _ph=fillMissingPhones();
-      if(_ph) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast(`번호가 비어 있던 학습자 기록 ${_ph}건에 같은 학생 번호를 채웠어요`); },1300);
-      const _auto=autoLinkPlans()+(autoLinkProspects(),syncProspectPlans()), _paid=autoPaidPlans();
-      if(_auto||_paid) setTimeout(()=>{ saveToFirebase(); if(typeof showToast==='function') showToast([_auto?`플랜표 ${_auto}개를 이름·연락처가 같은 학습자와 자동 연결`:'',_paid?`학습자와 연결된 플랜표 ${_paid}개를 결제완료로 변경`:''].filter(Boolean).join(' · ')+'했어요'); },1500);
+      setSaveBase(d); // 저장 충돌 자동 합치기 기준점
+      // ※ 열 때마다 자동으로 고치고 바로 저장하던 보정들은 뺐음(다른 기기 '먼저 저장' 창의 원인).
+      //   플랜 자동 연결·결제완료 표시는 다음에 저장할 때 같이 반영됨.
     } else {
       // 첫 로그인 — 직급 기본값 적용
       rewardTable = Object.assign({}, DEFAULT_REWARDS_CURRENT||DEFAULT_REWARDS);
@@ -2894,6 +2863,101 @@ function savePlansStorage(){
   saveToFirebase();
 }
 
+// ── 저장 충돌 자동 합치기 ─────────────────────────────
+// 마지막으로 서버와 맞췄던 내용(_saveBase)을 기준으로
+//  · 다른 곳에서만 바뀐 항목 → 서버 것 가져오기
+//  · 여기서만 바뀐 항목 → 내 것 유지
+//  · 같은 항목을 양쪽에서 다르게 고친 경우만 → 예전처럼 '먼저 저장한 변경사항' 창
+const SYNC_FIELDS=['learners','schedules','mktActivities','mktGoals','prospects','userTemplates','seasons','contentLogs','dailyNotes','rewardTable','todos','plans','memos','memoCategories','blogKeywords'];
+const _SF={
+  learners:[()=>learners,v=>{learners=v;}], schedules:[()=>schedules,v=>{schedules=v;}],
+  mktActivities:[()=>mktActivities,v=>{mktActivities=v;}], mktGoals:[()=>mktGoals,v=>{mktGoals=v;}],
+  prospects:[()=>prospects,v=>{prospects=v;}], userTemplates:[()=>userTemplates,v=>{userTemplates=v;}],
+  seasons:[()=>seasons,v=>{seasons=v;}], contentLogs:[()=>contentLogs,v=>{contentLogs=v;}],
+  dailyNotes:[()=>dailyNotes,v=>{dailyNotes=v;}], rewardTable:[()=>rewardTable,v=>{rewardTable=v;}],
+  todos:[()=>todos,v=>{todos=v;}], plans:[()=>plans,v=>{plans=v;}], memos:[()=>memos,v=>{memos=v;}],
+  memoCategories:[()=>memoCategories,v=>{memoCategories=v;}], blogKeywords:[()=>blogKeywords,v=>{blogKeywords=v;}]
+};
+function cjson(v){ if(v===undefined) return undefined; return JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.keys(x).sort().map(kk=>[kk,x[kk]])):x); }
+function cjsonHash(v){ const t=cjson(v)||''; let h=0; for(let i=0;i<t.length;i++){ h=(h*31+t.charCodeAt(i))|0; } return (h>>>0).toString(36); }
+let _saveBase=null;
+function setSaveBase(obj){ _saveBase={}; SYNC_FIELDS.forEach(f=>{ _saveBase[f]=obj&&obj[f]!==undefined?cjson(obj[f]):undefined; }); }
+function setSaveBaseFromLocal(){ const o={}; SYNC_FIELDS.forEach(f=>{ o[f]=_SF[f][0](); }); setSaveBase(o); }
+const _isPlainObj=v=>v&&typeof v==='object'&&!Array.isArray(v);
+// 세 갈래 합치기: 실패(같은 곳을 양쪽에서 고침)면 null
+function merge3(b,l,r){
+  const bs=cjson(b), ls=cjson(l), rs=cjson(r);
+  if(ls===rs) return {v:l,n:0};
+  if(rs===bs) return {v:l,n:0};          // 다른 곳에선 안 바뀜
+  if(ls===bs) return {v:r,n:1};          // 여기선 안 바뀜 → 서버 것
+  if(_isPlainObj(l)&&_isPlainObj(r)&&(b===undefined||_isPlainObj(b))) return mergeObj(b||{},l,r);
+  if(Array.isArray(l)&&Array.isArray(r)&&(b===undefined||Array.isArray(b))) return mergeArr(b||[],l,r);
+  return null;
+}
+function mergeObj(b,l,r){
+  const out={}; let n=0;
+  const keys=new Set([...Object.keys(l),...Object.keys(r),...Object.keys(b)]);
+  for(const k of keys){
+    const m=merge3(b[k],l[k],r[k]); if(!m) return null;
+    if(m.v!==undefined) out[k]=m.v; n+=m.n;
+  }
+  return {v:out,n};
+}
+function mergeArr(b,l,r){
+  // 모든 항목에 서로 다른 id가 있으면 id로 맞춰서, 아니면 항목 내용 그대로 비교
+  const idOk=a=>a.every(x=>_isPlainObj(x)&&x.id!=null&&x.id!=='')&&new Set(a.map(x=>String(x.id))).size===a.length;
+  let n=0;
+  if(idOk(b)&&idOk(l)&&idOk(r)){
+    const B=new Map(b.map(x=>[String(x.id),x])), R=new Map(r.map(x=>[String(x.id),x])), L=new Map(l.map(x=>[String(x.id),x]));
+    const out=[];
+    for(const x of l){ const id=String(x.id); const m=merge3(B.get(id),x,R.get(id)); if(!m) return null; if(m.v!==undefined) out.push(m.v); n+=m.n; }
+    for(const x of r){ const id=String(x.id); if(L.has(id)) continue; const m=merge3(B.get(id),undefined,x); if(!m) return null; if(m.v!==undefined){ out.push(m.v); } n+=m.n; }
+    return {v:out,n};
+  }
+  // 내용 비교(여러 개 같은 항목도 개수로)
+  const cnt=a=>{ const m=new Map(); a.forEach(x=>{ const k=cjson(x); m.set(k,(m.get(k)||0)+1); }); return m; };
+  const Bc=cnt(b), Lc=cnt(l), Rc=cnt(r);
+  const diff=(A,C)=>{ const m=new Map(); A.forEach((c,k)=>{ const d=c-(C.get(k)||0); if(d>0) m.set(k,d); }); return m; };
+  const rAdd=diff(Rc,Bc), rDel=diff(Bc,Rc), lAdd=diff(Lc,Bc), lDel=diff(Bc,Lc);
+  // 같은 항목을 양쪽에서 고친(지우고 새로 넣은) 경우는 판단 불가
+  let both=false; rDel.forEach((c,k)=>{ if(lDel.has(k)) both=true; });
+  if(both&&rAdd.size&&lAdd.size) return null;
+  const out=[]; const delLeft=new Map(rDel);
+  for(const x of l){ const k=cjson(x); const d=delLeft.get(k)||0; if(d>0){ delLeft.set(k,d-1); n++; continue; } out.push(x); }
+  const have=cnt(out);
+  rAdd.forEach((c,k)=>{ const need=c-Math.max(0,(have.get(k)||0)-(Bc.get(k)||0)); for(let i=0;i<need;i++){ out.push(JSON.parse(k)); n++; } });
+  return {v:out,n};
+}
+function mergeRemoteChanges(srv){
+  if(!_saveBase) return {ok:false};
+  const upd={}; let n=0;
+  for(const f of SYNC_FIELDS){
+    if(!(f in srv)) continue;
+    const bs=_saveBase[f], rs=cjson(srv[f]);
+    if(rs===bs) continue;
+    const loc=_SF[f][0]();
+    const m=merge3(bs===undefined?undefined:JSON.parse(bs),loc,srv[f]);
+    if(!m) return {ok:false,field:f};
+    if(m.n){ upd[f]=m.v; n+=m.n; }
+  }
+  // 학습자 수정 창이 열려 있으면 그 줄 순서가 바뀌면 안 됨
+  if(upd.learners&&typeof editIdx!=='undefined'&&editIdx>=0&&document.getElementById('modal-learner')?.classList.contains('open')){
+    if(cjson(upd.learners[editIdx])!==cjson(learners[editIdx])) return {ok:false,field:'learners'};
+  }
+  return {ok:true,upd,n};
+}
+function applyMergedChanges(mg){
+  if(!mg||!mg.n) return;
+  Object.entries(mg.upd).forEach(([f,v])=>_SF[f][1](v));
+  try{ LS.set('hk_learners',learners);LS.set('hk_schedules',schedules);LS.set('hk_mkt',mktActivities);LS.set('hk_goals',mktGoals);LS.set('hk_prospects',prospects);LS.set('hk_tpl',userTemplates);LS.set('hk_seasons',seasons);LS.set('hk_clogs',contentLogs);LS.set('hk_dnotes',dailyNotes);LS.set('hk_rewards',rewardTable);LS.set('hk_plans',plans); }catch(e){}
+  if(typeof showToast==='function') showToast(`다른 기기(탭)에서 저장한 내용 ${mg.n}건을 합쳐서 저장했어요`);
+  setTimeout(()=>{ try{
+    if(document.querySelector('.overlay.open')) { renderDashboard(); return; } // 창이 열려 있으면 화면 전환 안 함
+    const t=localStorage.getItem('hubLastTab');
+    if(t&&t!=='dashboard'&&tabElOf(t)) switchTab(t,tabElOf(t)); else renderDashboard();
+  }catch(e){} },50);
+}
+
 let _saveTimer = null;
 // 이 탭이 직접 저장한 lastUpdated 기록 — 내 저장을 '다른 탭 저장'으로 오인하지 않도록
 const _myWrites = new Set();
@@ -2918,8 +2982,13 @@ async function runSaveToFirebase(){
       if(snap && snap.exists){
         const serverLastUpdated=snap.data().lastUpdated||null;
         if(_loadedLastUpdated && serverLastUpdated && serverLastUpdated!==_loadedLastUpdated && !_myWrites.has(serverLastUpdated)){
+          // 다른 곳에서 바뀐 항목과 여기서 바꾼 항목이 다르면 조용히 합쳐서 저장 (같은 항목을 양쪽에서 고쳤을 때만 물어봄)
+          const _mg=mergeRemoteChanges(snap.data());
+          if(_mg.ok){ applyMergedChanges(_mg); _loadedLastUpdated=serverLastUpdated; }
+          else {
           const ok=confirm('다른 기기(또는 탭)에서 먼저 저장한 변경사항이 있어요.\n지금 저장하면 그 변경사항이 덮어써질 수 있어요.\n\n계속 저장할까요?\n(취소 후 새로고침하면 최신 데이터를 먼저 확인할 수 있어요)');
           if(!ok) return;
+          }
         }
       }
       autoLinkPlans(); autoLinkProspects(); syncProspectPlans(); autoPaidPlans(); stripLearnerImgData();
@@ -2947,6 +3016,7 @@ async function runSaveToFirebase(){
       await docRef.set(_payload, {mergeFields:Object.keys(_payload)});
       if(_saveReq===_reqAtStart) try{ localStorage.removeItem('hk_unsaved'); }catch(e){} // 그 사이 새 수정이 없을 때만
       _loadedLastUpdated=newLastUpdated;
+      setSaveBase(Object.assign({},_sv,_payload));
       syncLearnerPortals();
     } catch(e){
       console.warn('Firebase 저장 실패:', e);
@@ -3357,7 +3427,9 @@ async function loadAllMembersData(){
     dataSnap.forEach(doc=>{
       const uid=doc.id;
       const data=doc.data();
+      let _kb=0; try{ _kb=Math.round(new Blob([JSON.stringify(data)]).size/1024); }catch(e){}
       allMembersData[uid]={
+        _kb,
         uid,
         name: data.name || (usersMap[uid]?.name) || '(이름없음)',
         email: data.email || (usersMap[uid]?.email) || '',
@@ -3419,6 +3491,7 @@ function renderAdminMembers(){
     <div class="metric"><div class="metric-label">주임</div><div class="metric-val">${members.filter(m=>m.rank==='주임').length}</div><div class="metric-sub">명</div></div>
     <div class="metric"><div class="metric-label">대리 이상</div><div class="metric-val">${members.filter(m=>['대리','부팀장','팀장'].includes(m.rank)).length}</div><div class="metric-sub">명</div></div>
   `;
+  { const hot=members.filter(m=>(m._kb||0)>=820); if(hot.length) document.getElementById('admin-member-metrics').insertAdjacentHTML('beforeend',`<div class="metric" style="border-color:var(--red)"><div class="metric-label" style="color:var(--red)">저장공간 80% 넘음</div><div class="metric-val" style="color:var(--red)">${hot.length}</div><div class="metric-sub">${hot.map(m=>pmEsc(m.name||'')).join(', ')}</div></div>`); }
 
   if(!members.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
@@ -3442,6 +3515,7 @@ function renderAdminMembers(){
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center">
         <span class="pill pill-blue">${learnerCount}명</span>
       </td>
+      <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;min-width:110px">${storageCell(m._kb)}</td>
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;font-size:12px;color:var(--text2)">${(m.createdAt||'').split('T')[0]||'-'}</td>
       <td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:center;display:flex;gap:4px;justify-content:center">
         ${isPending
@@ -3452,6 +3526,78 @@ function renderAdminMembers(){
       </td>
     </tr>`;
   }).join('');
+}
+
+// ── 팀관리: 저장공간 표시 (한 사람 데이터 1MB=1,024KB 한도) ──
+function storageCell(kb){
+  if(!kb&&kb!==0) return '-';
+  const pct=Math.min(100,Math.round(kb/1024*100));
+  const col=pct>=80?'var(--red)':pct>=60?'#d97706':'var(--green)';
+  return `<div style="font-size:12px;font-weight:600;color:${col}">${kb.toLocaleString()}KB <span style="font-weight:400;color:var(--text3)">(${pct}%)</span></div>
+    <div style="height:5px;background:var(--bg2);border-radius:3px;margin-top:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${col}"></div></div>`;
+}
+// ── 팀관리: 데이터 점검 (보기 전용 — 아무것도 고치지 않음) ──
+function auditMember(d){
+  const L=d.learners||[], S=d.schedules||[];
+  const np=x=>String(x||'').replace(/\D/g,'');
+  const ym=l=>`${l.year||''}년 ${l.month||''}월`;
+  const out={dup:[],month:[],idPhone:[],idName:[],dongmyeong:[],dmSched:[]};
+  // 1) 중복 의심: 같은 학생(번호·아이디)+교육원+기수+학점+금액
+  const g={};
+  L.forEach(l=>{ const who=np(l.phone)||l.id||''; if(!who||!l.kisu) return;
+    const k=[l.name,who,l.edu||'',l.kisu,+l.credit||0,+l.total||0].join('|'); (g[k]=g[k]||[]).push(l); });
+  Object.values(g).filter(v=>v.length>1).forEach(v=>{ const l=v[0];
+    out.dup.push(`<b>${pmEsc(l.name)}</b> ${pmEsc(l.edu||'')} ${pmEsc(l.kisu)} · ${l.credit||0}학점 · ${(+l.total||0).toLocaleString()}원 — `+v.map(x=>`${ym(x)} 매출(입금 ${pmEsc(x.paydate||'-')}, ${pmEsc(x.type||'')})`).join(' / ')); });
+  // 2) 매출월과 입금일 월이 다름
+  L.forEach(l=>{ const m=String(l.paydate||'').match(/^\s*(\d{1,2})\s*월/)||String(l.paydate||'').match(/^\d{4}-(\d{2})/);
+    if(m&&l.month&&parseInt(m[1])!==parseInt(l.month)) out.month.push(`<b>${pmEsc(l.name)}</b> ${pmEsc(l.edu||'')} ${pmEsc(l.kisu||'')} — ${ym(l)} 매출인데 입금일은 ${pmEsc(l.paydate)}${(+l.total||0)?'':' (0원)'}`); });
+  // 3) 같은 아이디인데 번호가 다름 / 이름이 다름
+  const byId={};
+  L.forEach(l=>{ if(!l.id||/^L\d{10,}/.test(l.id)) return; const x=byId[l.id]=byId[l.id]||{names:new Set(),phones:new Set()}; x.names.add(l.name); if(np(l.phone)) x.phones.add(np(l.phone)); });
+  Object.entries(byId).forEach(([id,x])=>{
+    if(x.names.size>1) out.idName.push(`아이디 <b>${pmEsc(id)}</b> — 이름 ${[...x.names].map(pmEsc).join(', ')} (개명·가족 공유인지 확인)`);
+    else if(x.phones.size>1) out.idPhone.push(`<b>${pmEsc([...x.names][0])}</b> (아이디 ${pmEsc(id)}) — 번호 끝자리 ${[...x.phones].map(p=>p.slice(-4)).join(', ')}`);
+  });
+  // 4) 동명이인(번호 다른 같은 이름)과 일정 엇갈림
+  const byName={}; L.forEach(l=>{ const p=np(l.phone); if(p) (byName[l.name]=byName[l.name]||new Set()).add(p); });
+  Object.keys(byName).filter(n=>byName[n].size>1).forEach(n=>{
+    const ls=L.filter(l=>l.name===n);
+    const ids=new Set(ls.map(l=>l.id).filter(Boolean));
+    // 같은 아이디를 두 번호가 같이 쓰면 위 3)에서 이미 나옴 → 여기선 진짜 동명이인만
+    const idsByPhone={}; ls.forEach(l=>{ const p=np(l.phone); if(p&&l.id) (idsByPhone[p]=idsByPhone[p]||new Set()).add(l.id); });
+    const ph=Object.keys(idsByPhone); const sharedId=ph.length>1&&[...idsByPhone[ph[0]]].some(id=>ph.slice(1).some(p=>idsByPhone[p].has(id)));
+    if(sharedId) return;
+    out.dongmyeong.push(`<b>${pmEsc(n)}</b> — 번호 끝자리 ${[...byName[n]].map(p=>p.slice(-4)).join(', ')}`);
+    const ss=S.filter(s=>s.learnerName===n);
+    const noId=ss.filter(s=>!s.learnerId).length;
+    if(noId) out.dmSched.push(`<b>${pmEsc(n)}</b> — 누구 건지 모르는 일정(아이디 없음) ${noId}건`);
+    let wrong=0; ss.forEach(s=>{ if(!s.learnerId) return; const own=ls.filter(l=>l.id===s.learnerId); const kisu=(s.note||'').split('|')[0];
+      if(own.length&&!own.some(l=>l.kisu&&kisu.includes(l.kisu))&&ls.some(l=>l.id!==s.learnerId&&l.kisu&&kisu.includes(l.kisu))) wrong++; });
+    if(wrong) out.dmSched.push(`<b>${pmEsc(n)}</b> — 다른 동명이인 기수의 일정이 붙어 있음 ${wrong}건`);
+  });
+  return out;
+}
+function openDataAudit(){
+  const members=Object.values(allMembersData||{}).filter(m=>m.approved!==false);
+  let ov=document.getElementById('data-audit-ov');
+  if(!ov){ ov=document.createElement('div'); ov.id='data-audit-ov'; ov.className='overlay'; document.body.appendChild(ov); }
+  const SEC=[['dup','중복 등록 의심','같은 학생·교육원·기수·학점·금액 기록이 2개 이상 (분납·추가결제면 정상)'],
+    ['month','매출월 ≠ 입금일','매출관리 월과 입금일의 월이 달라요'],
+    ['idPhone','같은 아이디인데 번호가 다름','번호 오타일 가능성 — 성수기에서 두 사람으로 나뉘어 보일 수 있어요'],
+    ['idName','같은 아이디인데 이름이 다름',''],
+    ['dmSched','동명이인 일정 확인 필요',''],
+    ['dongmyeong','동명이인 (참고)','번호가 다른 같은 이름 — 일정·성수기에서 헷갈리지 않게 참고']];
+  const body=members.map(m=>{
+    const a=auditMember(m); const total=SEC.filter(([k])=>k!=='dongmyeong').reduce((s,[k])=>s+a[k].length,0);
+    return `<details ${total?'open':''} style="border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:8px">
+      <summary style="cursor:pointer;font-weight:700">${pmEsc(m.name||'')} <span style="font-weight:400;font-size:12px;color:${total?'var(--red)':'var(--green)'}">${total?`확인할 것 ${total}건`:'✓ 이상 없음'}</span> <span style="font-weight:400;font-size:11px;color:var(--text3)">· 저장공간 ${(m._kb||0).toLocaleString()}KB</span></summary>
+      ${SEC.filter(([k])=>a[k].length).map(([k,t,sub])=>`<div style="margin-top:8px"><div style="font-size:12.5px;font-weight:700;color:${k==='dongmyeong'?'var(--text2)':'var(--navy)'}">${t} ${a[k].length}건</div>${sub?`<div style="font-size:11px;color:var(--text3)">${sub}</div>`:''}
+        <ul style="margin:4px 0 0 18px;padding:0;font-size:12.5px;line-height:1.7">${a[k].map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('')}
+    </details>`;
+  }).join('')||'<div class="empty">팀원 데이터가 없어요 — 새로고침 후 다시 눌러주세요</div>';
+  ov.innerHTML=`<div class="modal" style="max-width:760px;width:760px;max-height:90vh;overflow:auto"><div class="modal-head"><h2><i class="ti ti-stethoscope"></i> 데이터 점검</h2><button class="btn btn-icon" onclick="closeModal('data-audit-ov')"><i class="ti ti-x"></i></button></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px">보기 전용이에요. 아무것도 고치지 않아요 — 고칠 건 해당 직원이 직접 수정하면 돼요. (마지막으로 불러온 팀원 데이터 기준)</div>${body}</div>`;
+  openModal('data-audit-ov');
 }
 
 async function approveMember(uid){
@@ -3567,7 +3713,7 @@ async function transferAndRetire(uid,name,src,tuid){
     if(tuid===currentUser?.uid) _myWrites.add(lastUpdated);
     await tRef.set({learners:newLearners,schedules:newSchedules,plans:newPlans,lastUpdated},{merge:true});
     if(tuid===currentUser?.uid){
-      learners=newLearners; schedules=newSchedules; plans=newPlans; _loadedLastUpdated=lastUpdated;
+      learners=newLearners; schedules=newSchedules; plans=newPlans; _loadedLastUpdated=lastUpdated; setSaveBaseFromLocal();
       LS.set('hk_learners',learners); LS.set('hk_schedules',schedules); LS.set('hk_plans',plans);
       try{ renderLearners(); renderSchedule(); renderDashboard(); }catch(e){}
     }
@@ -6800,30 +6946,6 @@ function importScheduleFile(input){
     reader.readAsArrayBuffer(file);
   }).catch(()=>alert('라이브러리 로드 실패'));
 }
-function previewScheduleDel(){
-  const name=document.getElementById('schedule-del-input').value.trim();
-  const cnt=document.getElementById('schedule-del-count');
-  if(!name){cnt.textContent='';return;}
-  const count=schedules.filter(s=>s.learnerName===name).length;
-  cnt.textContent=count?`${count}건`:'없음';
-  cnt.style.color=count?'var(--red)':'var(--text3)';
-}
-function deleteScheduleByName(){
-  const name=document.getElementById('schedule-del-input').value.trim();
-  if(!name){alert('이름을 입력해주세요');return;}
-  const count=schedules.filter(s=>s.learnerName===name).length;
-  if(!count){alert(`"${name}" 학습자의 일정이 없어요`);return;}
-  const _ph=new Set(learners.filter(l=>l.name===name).map(l=>normPhone(l.phone)).filter(Boolean));
-  if(!confirm(`"${name}" 학습자의 학사일정 ${count}건을 삭제할까요?`+(_ph.size>1?`
-
-⚠️ "${name}" 이름의 학습자가 ${_ph.size}명(번호가 달라요)이에요. 동명이인 일정까지 모두 지워져요!`:''))) return;
-  schedules=schedules.filter(s=>s.learnerName!==name);
-  save();renderSchedule();renderDashboard();
-  document.getElementById('schedule-del-input').value='';
-  document.getElementById('schedule-del-count').textContent='';
-  alert(`✓ "${name}" 학습자 일정 ${count}건이 삭제됐어요`);
-}
-
 function clearAllSchedules(){
   if(!confirm(`학사일정 전체 ${schedules.length}건을 삭제할까요?\n되돌릴 수 없어요!`)) return;
   schedules=[];
@@ -6972,8 +7094,12 @@ async function openScheduleArchives(){
   try{
     const q=await fbDb.collection('userBackups').where('ownerUid','==',currentUser.uid).get();
     const docs=q.docs.filter(d=>d.data().kind==='schedules').sort((a,b)=>b.id.localeCompare(a.id));
-    if(!docs.length){ body.innerHTML='보관한 일정이 없어요.'; return; }
-    body.innerHTML=docs.map(d=>{ const x=d.data(); return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="flex:1">${pmEsc(new Date(x.at).toLocaleString('ko-KR'))} 보관<div style="font-size:11px;color:var(--text3)">${pmEsc(x.cutoff||'')} 이전 일정 ${x.count}건</div></div><button class="btn btn-sm btn-primary" onclick="restoreScheduleArchive('${d.id}')">되돌리기</button></div>`; }).join('');
+    const bks=q.docs.filter(d=>d.data().kind==='schedBackup').sort((a,b)=>b.id.localeCompare(a.id));
+    const row=(d,t,sub)=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="flex:1">${t}<div style="font-size:11px;color:var(--text3)">${sub}</div></div><button class="btn btn-sm btn-primary" onclick="restoreScheduleArchive('${d.id}')">되돌리기</button></div>`;
+    body.innerHTML=`<div style="font-weight:700;margin:2px 0 4px">보관함 (한 달 지난 일정)</div>`
+      +(docs.length?docs.map(d=>{ const x=d.data(); return row(d,`${pmEsc(new Date(x.at).toLocaleString('ko-KR'))} 보관`,`${pmEsc(x.cutoff||'')} 이전 일정 ${x.count}건`); }).join(''):'<div style="color:var(--text3);padding:6px 0">보관한 일정이 없어요.</div>')
+      +`<div style="font-weight:700;margin:14px 0 4px">시간별 자동 백업 (7일)</div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">실수로 지운 일정이 있으면 지우기 전 시간의 백업에서 '되돌리기' → 지금 없는 일정만 다시 들어가요</div>`
+      +(bks.length?bks.map(d=>{ const x=d.data(); return row(d,`${pmEsc(new Date(x.at).toLocaleString('ko-KR'))} 백업`,`그때 일정 ${x.count}건`); }).join(''):'<div style="color:var(--text3);padding:6px 0">아직 백업이 없어요. (저장할 때 1시간에 1번씩 쌓여요)</div>');
   }catch(e){ body.innerHTML='불러오지 못했어요: '+pmEsc(e.code||e.message); }
 }
 async function restoreScheduleArchive(id){
@@ -7171,7 +7297,7 @@ function importDataJson(event){
       // Firebase + 로컬 저장
       save();
       if(currentUser && fbDb){
-        const _impLU=new Date().toISOString(); _myWrites.add(_impLU); _loadedLastUpdated=_impLU;
+        const _impLU=new Date().toISOString(); _myWrites.add(_impLU); _loadedLastUpdated=_impLU; setSaveBaseFromLocal();
         fbDb.collection('userData').doc(currentUser.uid).set({
           learners, schedules, plans, memos, memoCategories,
           blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates, seasons, contentLogs, dailyNotes,
@@ -8513,6 +8639,14 @@ function backupServerState(sv){
       plans:sv.plans||{},learners:L,prospects:sv.prospects||[],seasons:sv.seasons||{}})
       .then(()=>{ try{ localStorage.setItem('hk_bk_hour',uid+hk); }catch(e){} }) // 성공했을 때만 '이번 시간 백업 끝' 표시
       .catch(e=>console.warn('백업 실패',e)).finally(()=>{ _bkBusy=false; });
+    // 학사일정도 따로 백업 (지난번 백업과 같으면 건너뜀)
+    try{
+      const S=sv.schedules||[], sig=S.length+'|'+cjsonHash(S);
+      if(S.length&&localStorage.getItem('hk_bk_sched_sig')!==uid+sig){
+        fbDb.collection('userBackups').doc(uid+'_sched_'+hk).set({ownerUid:uid,kind:'schedBackup',at:new Date().toISOString(),serverLastUpdated:sv.lastUpdated||'',count:S.length,schedules:S})
+          .then(()=>{ try{ localStorage.setItem('hk_bk_sched_sig',uid+sig); }catch(e){} }).catch(e=>console.warn('일정 백업 실패',e));
+      }
+    }catch(e){ console.warn('일정 백업 실패',e); }
     // 7일 지난 백업은 하루 1번 정리
     if(localStorage.getItem('hk_bk_clean')!==uid+hk.slice(0,8)){
       localStorage.setItem('hk_bk_clean',uid+hk.slice(0,8));
@@ -8566,7 +8700,7 @@ async function openPlanRecover(fromServer){
   }
   try{
     const q=await fbDb.collection('userBackups').where('ownerUid','==',currentUser.uid).get();
-    const docs=q.docs.sort((a,b)=>b.id.localeCompare(a.id));
+    const docs=q.docs.filter(d=>!d.data().kind).sort((a,b)=>b.id.localeCompare(a.id));
     if(!docs.length){ body.innerHTML='아직 백업이 없어요. (저장할 때 1시간에 1번씩 쌓여요)'; return; }
     window._bkDocs={}; docs.forEach(d=>window._bkDocs[d.id]=d.data());
     body.innerHTML=`<p style="color:var(--text2);margin:0 0 8px">시간을 고르면 그때와 지금 내용이 다른 플랜이 나와요.</p><select id="bk-sel" onchange="showBackupDiff(this.value)" style="width:100%;margin-bottom:10px">${docs.map(d=>{ const k=d.id.split('_').pop(); return `<option value="${d.id}">${k.slice(4,6)}/${k.slice(6,8)} ${k.slice(8,10)}시 백업</option>`; }).join('')}</select><div id="bk-diff"></div>`;
