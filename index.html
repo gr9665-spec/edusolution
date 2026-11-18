@@ -7682,7 +7682,18 @@ function deleteMktActivity(i){
   });
 }
 
-document.querySelectorAll('.overlay').forEach(m=>{m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');});});
+// 창 바깥 클릭으로 닫기: 누르기·떼기 둘 다 바깥일 때만 (입력칸에서 드래그하다 바깥에서 떼도 안 닫힘)
+// 학습자 추가/수정 창은 바깥 클릭으로 안 닫힘 → X·취소·저장·ESC로만
+document.querySelectorAll('.overlay').forEach(m=>{
+  let downOut=false;
+  m.addEventListener('mousedown',e=>{ downOut=(e.target===m); });
+  m.addEventListener('click',e=>{ if(e.target===m&&downOut&&m.id!=='modal-learner') m.classList.remove('open'); downOut=false; });
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  const ml=document.getElementById('modal-learner');
+  if(ml&&ml.classList.contains('open')){ const sg=document.getElementById('l-name-sugg'); if(sg&&sg.style.display!=='none'){ sg.style.display='none'; return; } closeModal('modal-learner'); }
+});
 populateYearSelects();
 // Firebase가 인증 완료 후 renderDashboard()를 호출합니다
 // (initFirebase → showApp → renderDashboard)
