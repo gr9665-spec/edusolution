@@ -4597,11 +4597,20 @@ function filterLearnerKisuOptions(){
   const prev=document.getElementById('learner-copy-kisu-preview');
   if(prev) prev.textContent='';
 }
+// 기수 일정 불러오기: 개강일이 여러 날짜면 하나만 남김 (기수가 잘못 적힌 학생의 개강일이 섞여 들어오지 않게)
+// 학습자 개강일(start)과 같은 날짜가 있으면 그 날짜, 없으면 가장 많은 학생이 쓰는 날짜(같으면 빠른 날짜)
+function onlyMainOpenDate(items,start){
+  const by={};
+  items.forEach(s=>{ if(s.type==='개강일'&&s.date) (by[s.date]=by[s.date]||new Set()).add(s.learnerId||s.learnerName); });
+  const ds=Object.keys(by); if(ds.length<2) return items;
+  const keep=by[start]?start:ds.sort((a,b)=>by[b].size-by[a].size||a.localeCompare(b))[0];
+  return items.filter(s=>s.type!=='개강일'||s.date===keep);
+}
 function applyLearnerCopyKisu(){
   const key=document.getElementById('learner-copy-kisu-sel').value;
   const prev=document.getElementById('learner-copy-kisu-preview');
   if(!key){ if(prev){prev.textContent='기수를 선택해주세요';prev.style.color='var(--red)';} return; }
-  const items=schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
+  const items=onlyMainOpenDate(schedules.filter(s=>(s.note||'').split('|')[0].trim()===key),document.getElementById('l-start')?.value||'');
 
   // 마감 제외한 시작 일정만 (endDate/time 포함)
   const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
@@ -7793,7 +7802,7 @@ function previewCopyKisu(){
 function applyCopyKisu(){
   const key = document.getElementById('copy-kisu-sel').value;
   if(!key){ alert('기수를 선택해주세요'); return; }
-  const items = schedules.filter(s=>(s.note||'').split('|')[0].trim()===key);
+  const items = onlyMainOpenDate(schedules.filter(s=>(s.note||'').split('|')[0].trim()===key),'');
   const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
 
   // 마감 제외한 시작 일정만 — 같은 유형+날짜가 여러 명이면 마감일·마감시간이 적힌 기록을 우선
