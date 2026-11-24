@@ -3184,7 +3184,7 @@ function buildPortalData(l){
     .filter(s=>(s.learnerId?ids.has(s.learnerId):s.learnerName===l.name)&&s.date>=from&&s.date<=to)
     .map(s=>{
       const m=PORTAL_SCHED[s.type]||[(s.label?s.label+(s.type==='기타마감'?' 마감':''):'')||s.type||'일정','기타 일정','etc'];
-      const g=group.find(x=>x.id===s.learnerId);
+      const g=group.find(x=>schedNoteIs(s,x))||group.find(x=>x.id===s.learnerId);
       let sub=m[1];
       if(s.endDate&&s.endDate!==s.date) sub+=` · ~${+s.endDate.slice(5,7)}.${+s.endDate.slice(8,10)}`;
       if(s.time) sub+=` · ${s.time}`;
@@ -3911,6 +3911,8 @@ function findSchedulesForLearner(l){
 }
 // 기수·교육원 비교용: 띄어쓰기 무시 ('27년도1-1' = '27년도 1-1')
 function nk(x){ return String(x||'').replace(/\s+/g,''); }
+// 일정 메모('교육원 기수')가 이 등록 기록의 것인지 — 같은 기수에 교육원이 여러 개인 학생 구분용
+function schedNoteIs(s,l){ const n=nk(String((s&&s.note)||'').split('|')[0]); return !!(n&&l&&l.edu&&l.kisu&&n===nk(l.edu+l.kisu)); }
 // 같은 학습자의 일정인지 (아이디가 둘 다 있으면 아이디로, 아니면 이름으로) — 동명이인 구분용
 function schedSameLearner(ex,name,id){ return ex.learnerName===name&&(!(ex.learnerId&&id)||ex.learnerId===id); }
 // 학습자의 "이번 학기(kisu)"에 해당하는 일정만 좁혀서 반환
@@ -3925,6 +3927,11 @@ function findSchedulesForLearnerThisTerm(l){
     if(kisuMatches.length && eduTrim){
       const eduKisuMatches=kisuMatches.filter(s=>nk(s.note).includes(nk(eduTrim)));
       if(eduKisuMatches.length) kisuMatches=eduKisuMatches;
+      else {
+        // 같은 학생이 같은 기수에 다른 교육원도 듣고 있으면 그 교육원 일정은 이 기록 것이 아님
+        const others=[...new Set(learners.filter(x=>x.name===l.name&&(!(x.id&&l.id)||x.id===l.id)&&x.edu&&nk(x.edu)!==nk(eduTrim)&&nk(x.kisu)===nk(kisu)).map(x=>nk(x.edu)))];
+        if(others.length) kisuMatches=kisuMatches.filter(s=>!others.some(e=>nk(s.note).includes(e)));
+      }
     }
     return kisuMatches;
   }
@@ -5253,7 +5260,7 @@ function renderDashboard(){
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
           <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
           ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
-          ${s.type==='개강일'?(()=>{const _byId=s.learnerId?learners.filter(x=>x.id===s.learnerId):[];const _learner=_byId.find(x=>(x.start||'')===(s.date||''))||_byId.find(x=>x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+          ${s.type==='개강일'?(()=>{const _byId=s.learnerId?learners.filter(x=>x.id===s.learnerId):[];const _learner=_byId.find(x=>schedNoteIs(s,x))||_byId.find(x=>(x.start||'')===(s.date||''))||_byId.find(x=>x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
         ${s.sent==='true'
           ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
@@ -7020,7 +7027,7 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
               <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
               ${(!s.endDate&&!s.time&&s.type!=='개강일'&&s.type!=='기타'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
-              ${s.type==='개강일'?(()=>{const _byId=s.learnerId?learners.filter(x=>x.id===s.learnerId):[];const _learner=_byId.find(x=>(x.start||'')===(s.date||''))||_byId.find(x=>x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
+              ${s.type==='개강일'?(()=>{const _byId=s.learnerId?learners.filter(x=>x.id===s.learnerId):[];const _learner=_byId.find(x=>schedNoteIs(s,x))||_byId.find(x=>(x.start||'')===(s.date||''))||_byId.find(x=>x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note.split('|')[0].trim()}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
