@@ -3181,7 +3181,7 @@ function buildPortalData(l){
   const multiEdu=new Set(group.map(g=>g.edu||'')).size>1;
 
   const sched=schedules
-    .filter(s=>(s.learnerId?ids.has(s.learnerId):s.learnerName===l.name)&&s.date>=from&&s.date<=to)
+    .filter(s=>(s.learnerId?ids.has(s.learnerId):s.learnerName===l.name)&&s.date>=from&&s.date<=to&&!schedOutdated(s))
     .map(s=>{
       const m=PORTAL_SCHED[s.type]||[(s.label?s.label+(s.type==='기타마감'?' 마감':''):'')||s.type||'일정','기타 일정','etc'];
       const g=group.find(x=>schedNoteIs(s,x))||group.find(x=>x.id===s.learnerId);
@@ -6911,6 +6911,14 @@ function importScheduleFile(input){
             extractedTime=`${hh}:${mm2}`;
           }
           seg=seg.replace(/\s*\d{1,2}[시:]\d{0,2}[분]?\S*/g,'').replace(/\s*\d{1,2}시/g,'').trim();
+          // 끝나는 날에만 연도가 있는 경우 "12/24~26년1/13" → 2025-12-24 ~ 2026-01-13 (예전엔 시작일까지 2026년으로 읽었음)
+          const ey=seg.match(/[~\-]\s*(\d{4}|\d{2})년도?\s*(?=\d{1,2}\s*[\/월])/);
+          if(ey&&!/년/.test(seg.slice(0,ey.index))){
+            const r=parseSingleRange(seg.replace(/\d{2,4}년도?\s*/g,''),2000);
+            if(!r||!r.start) return null;
+            const y=ey[1].length===2?2000+parseInt(ey[1]):parseInt(ey[1]), sm=r.start.slice(5), em=(r.end||r.start).slice(5);
+            return {start:`${sm>em?y-1:y}-${sm}`,end:`${y}-${em}`,time:extractedTime};
+          }
           // 한글 날짜 "5월20일~5월26일", "26년5월20일~5월26일23시" 등
           if(/월.*일/.test(seg)){
             const segYear=guessYear(seg,year);
@@ -6931,7 +6939,7 @@ function importScheduleFile(input){
         };
         const parseRanges=(raw,fb=2026,startMonth=null)=>{
           if(isInv(raw))return[];
-          let s=String(raw).trim(); const year=guessYear(s,fb);
+          let s=String(raw).trim(); const year=/^[^년]*[~\-]\s*\d{2,4}년/.test(s)?fb:guessYear(s,fb);
           const results=[];
           if(/[12]차/.test(s)){
             const rounds=s.split(/(?=[12]차)/).filter(x=>x.trim());
@@ -6942,7 +6950,7 @@ function importScheduleFile(input){
             segs.forEach((seg,i)=>{
               const segYear=guessYear(seg,year);
               const clean=seg.replace(/\d{2,4}년도?\s*/g,'').trim();
-              const r=parseSingleRange(clean,segYear);
+              const r=parseSingleRange(/^[^년]*[~\-]\s*\d{2,4}년/.test(seg)?seg:clean,segYear);
               if(r&&r.start) results.push({...fixRollover(r,hasExplicitYear(seg),startMonth),round:i+1});
             });
             if(!results.length){
@@ -7141,8 +7149,11 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
 // 지난 기수 일정: 메모의 'NN년도' 기수보다 날짜가 너무 뒤(다음 해 4월 이후)면 연도가 잘못 들어간 옛 일정 → 다가오는 일정·대시보드에서 숨김 (지우진 않음)
 // 예) '25년도 2-6' 과제가 2026-12-03으로 들어간 경우. 25년도 기수는 늦어도 26년 3월엔 끝남
 function schedOutdated(s){
-  const m=String((s&&s.note)||'').split('|')[0].match(/(\d{2})년도/); if(!m||!s.date) return false;
-  return s.date>`${2000+parseInt(m[1])+1}-03-31`;
+  const m=String((s&&s.note)||'').split('|')[0].match(/(\d{2})년도\s*([12]?)/); if(!m||!s.date) return false;
+  const y=2000+parseInt(m[1]);
+  // 1학기(NN년도 1-x)는 그해 여름이면 끝남 → 11월 이후 수업 일정은 연도가 잘못 들어간 것 (예: '26년도 1-2' 토론이 2026-12-24). '기타'는 수업 뒤 행정 일정일 수 있어 제외
+  if(m[2]==='1'&&!String(s.type||'').startsWith('기타')&&s.date>`${y}-10-31`) return true;
+  return s.date>`${y+1}-03-31`;
 }
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
@@ -7165,7 +7176,7 @@ function renderSchedule(){
   document.getElementById('upcoming-schedule').innerHTML = (upcoming.length
     ? renderScheduleGroupHtml(byDate, todayStr, now, false)
     : `<div class="empty"><i class="ti ti-calendar"></i>${_q?'검색한 일정이 없어요':'다가오는 일정 없음'}</div>`)
-    +(hiddenOld?`<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px">지난 기수(예: 25년도) 일정 ${hiddenOld}건은 날짜가 맞지 않아 숨겼어요 (지워지진 않았어요)</div>`:'');
+    +(hiddenOld?`<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px">지난 기수(예: 25년도, 26년도 1학기) 일정 ${hiddenOld}건은 날짜가 맞지 않아 숨겼어요 (지워지진 않았어요)</div>`:'');
 
   // 지난 일정 모달이 열려 있는 동안 변경사항 생기면 같이 갱신
   const pastModal=document.getElementById('modal-past-schedule');
