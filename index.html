@@ -5262,6 +5262,7 @@ function renderDashboard(){
           ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
           ${s.type==='개강일'?(()=>{const _byId=s.learnerId?learners.filter(x=>x.id===s.learnerId):[];const _learner=_byId.find(x=>schedNoteIs(s,x))||_byId.find(x=>(x.start||'')===(s.date||''))||_byId.find(x=>x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
+        ${mentBtnHtml(s)}
         ${s.sent==='true'
           ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
           :`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="markSent('${s.id}')">연락완료</button>`}
@@ -6981,6 +6982,63 @@ function clearAllSchedules(){
   save(); renderSchedule(); renderDashboard();
   alert('✓ 학사일정이 모두 삭제됐어요');
 }
+// ── 학사일정 안내 멘트 복사: 메모 '학사일정 안내' 멘트를 찾아 기간·시점만 그 일정에 맞게 바꿔 복사 (메모 원본·일정은 그대로) ──
+const MENT_KEYS=['개강','쪽지시험','토론','과제','중간고사','기말고사'];
+function mentKey(type){ return String(type||'').includes('마감')?'':MENT_KEYS.find(k=>String(type||'').startsWith(k))||''; }
+function mentGroup(s){ // 같은 학습자·같은 교육원 기수에서 같은 날 시작하는 일정
+  return schedules.filter(x=>x.date===s.date&&!x.type.includes('마감')&&nk(String(x.note||'').split('|')[0])===nk(String(s.note||'').split('|')[0])
+    &&x.learnerName===s.learnerName&&(!x.learnerId||!s.learnerId||x.learnerId===s.learnerId));
+}
+function findMent(s){
+  const key=mentKey(s.type); if(!key) return null;
+  const m0=String(s.note||'').split('|')[0].match(/^(.*?)\s*\d{2}년도/), edu=nk(m0?m0[1]:'');
+  const has=new Set(mentGroup(s).map(x=>mentKey(x.type)));
+  let best=null, score=0;
+  memos.forEach(m=>{
+    if(!/학사\s*일정/.test(m.cat||'')) return;
+    const name=nk(m.name), keys=MENT_KEYS.filter(k=>name.includes(k));
+    if(!keys.includes(key)||!keys.every(k=>has.has(k))) return; // '과제 토론' 묶음 멘트는 둘 다 같은 날 시작할 때만
+    let rest=name; keys.forEach(k=>{ rest=rest.replace(k,''); });
+    rest=rest.replace(/안내|멘트|문자|카톡|기간|[0-9차·,\/()+&-]/g,'');
+    const eduHit=rest&&edu&&(rest.includes(edu)||edu.includes(rest));
+    if(rest&&!eduHit&&!(keys.length===1&&rest.length<=1)) return; // 다른 교육원 전용 멘트는 제외
+    const sc=(eduHit?10:1)+(keys.length===1?1:0);
+    if(sc>score){ score=sc; best=m; }
+  });
+  return best;
+}
+const MENT_RANGE=/(?:\d{1,2}\s*[\/.월]\s*\d{1,2}일?(?:\s*\([월화수목금토일]\))?|일정\s*입력)(\s*[-~–]\s*)(?:\d{1,2}\s*[\/.월]\s*\d{1,2}일?(?:\s*\([월화수목금토일]\))?|종료일)(\s*\d{1,2}:\d{2})?/g;
+function mentText(s,m){
+  const md=d=>{ const [,a,b]=String(d).split('-'); return `${+a}/${+b}`; };
+  const warn=[], group=mentGroup(s), today=pmToday();
+  const lines=String(m.content||'').split('\n').map(line=>line.replace(MENT_RANGE,(all,sep,tm)=>{
+    const ks=MENT_KEYS.filter(k=>nk(line).includes(k));
+    const x=(ks.length===1&&group.find(g=>mentKey(g.type)===ks[0]))||s;
+    if(!x.endDate) warn.push('마감일이 일정에 없어요');
+    else if(tm&&!x.time) warn.push('마감 시간이 일정에 없어서 뺐어요');
+    return `${md(x.date)}${sep}${x.endDate?md(x.endDate):'(마감일 확인)'}${x.time?' '+x.time:''}`;
+  }));
+  const diff=Math.round((new Date(s.date+'T00:00:00')-new Date(today+'T00:00:00'))/864e5);
+  const dow='일월화수목금토'[new Date(s.date+'T00:00:00').getDay()];
+  const when=diff===1?'내일부터':diff===0?'오늘부터':diff>1?`${md(s.date)}(${dow})부터`:'현재';
+  return {text:lines.join('\n').replace(/(?:내일|오늘)부터/,when), warn:[...new Set(warn)]};
+}
+function mentBtnHtml(s){
+  if(!mentKey(s.type)) return '';
+  if((s.endDate||s.date)<pmToday()) return ''; // 이미 끝난 일정
+  const m=findMent(s);
+  return `<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;white-space:nowrap;${m?'color:#8a6d00;background:#fff8d6;border-color:#f0dc82':'opacity:.5'}" onclick="copySchedMent('${s.id}',this)" title="${m?pmEsc(m.name)+' 멘트 복사 (기간 자동 입력)':'메모 학사일정 안내에 멘트가 없어요'}"><i class="ti ti-copy" style="font-size:11px"></i> 멘트</button>`;
+}
+function copySchedMent(id,btn){
+  const s=schedules.find(x=>x.id===id); if(!s) return;
+  const m=findMent(s);
+  if(!m){ alert(`메모의 '학사일정 안내'에서 '${mentKey(s.type)} 안내' 멘트를 찾지 못했어요.\n메모에 추가하면 바로 복사할 수 있어요.`); return; }
+  const r=mentText(s,m);
+  const done=()=>{ showToast(`✓ ${s.learnerName}님 '${m.name}' 멘트 복사${r.warn.length?' · ⚠ '+r.warn.join(', '):''}`);
+    if(btn){ const h=btn.innerHTML; btn.innerHTML='✓ 복사됨'; setTimeout(()=>{ btn.innerHTML=h; },1500); } };
+  if(navigator.clipboard) navigator.clipboard.writeText(r.text).then(done).catch(()=>{ prompt('복사하세요 (Ctrl+A → Ctrl+C)', r.text); });
+  else prompt('복사하세요 (Ctrl+A → Ctrl+C)', r.text);
+}
 function markSent(id){
   const s=schedules.find(x=>x.id===id);
   if(s){
@@ -7031,6 +7089,7 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
               ${s.note?`<div style="font-size:12px;color:#666;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note.split('|')[0].trim()}</div>`:''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
+              ${mentBtnHtml(s)}
               ${s.sent==='true'
                 ?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--green);color:#fff;border-color:var(--green)" onclick="markSent('${s.id}')" title="클릭하면 취소">✓ 완료</button>`
                 :`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="markSent('${s.id}')">발송</button>`}
@@ -9769,12 +9828,25 @@ function appendMemoPreset(text){
 }
 
 
+// 새로 시작하는 플랜의 첫 학기: 11월~4월 → 1학기, 5월~10월 → 2학기 (성수기 기준과 같음. 2026-11부터 27-1)
+function startSemTerm(){
+  const [y,m]=pmToday().split('-').map(Number), yy=y%100;
+  return m>=11?[yy+1,1]:m<=4?[yy,1]:[yy,2];
+}
+// 다음 학기 이름: 앞에 적힌 마지막 학기의 다음 학기. 적힌 학기가 없으면 첫 학기부터
+function nextSemName(sems){
+  let cur=null, after=0;
+  for(let i=sems.length-1;i>=0;i--){
+    const m=String(sems[i].name||'').match(/(\d{2,4})\s*[-년.]\s*([12])(?!\d)/);
+    if(m){ cur=[(+m[1])%100,+m[2]]; after=sems.length-i; break; }
+  }
+  if(!cur){ cur=startSemTerm(); after=sems.length; }
+  for(let i=0;i<after;i++) cur=cur[1]===1?[cur[0],2]:[cur[0]+1,1];
+  return `${cur[0]}-${cur[1]}학기`;
+}
 function addSemester(){
   const p=plans[curPid]; if(!p) return;
-  // 학기 순서: 26-2 → 27-1 → 27-2 → 28-1 → 28-2 → ...
-  const semSeq=['26-2','27-1','27-2','28-1','28-2','29-1','29-2','30-1','30-2'];
-  const n=p.semesters.length; // 0-based index
-  const semName=semSeq[n]?semSeq[n]+'학기':`${26+Math.floor((n+2)/2)}-${(n%2===0)?2:1}학기`;
+  const semName=nextSemName(p.semesters);
   p.semesters.push({name:semName,edu:'',kisu:'',date:'',req:[],elec:[],gen:[],lib:[]});
   LS.set('hk_plans',plans);
   saveToFirebase();
