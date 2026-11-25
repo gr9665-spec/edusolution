@@ -1795,7 +1795,7 @@ pre.copy-data{background:var(--bg);border:1px solid var(--border2);border-radius
     <div class="fg"><label>학생명 *</label><input type="text" id="l-name" placeholder="홍길동" autocomplete="off" oninput="lmSuggest()"><div id="l-name-sugg" style="display:none;margin-top:5px"></div></div>
     <div class="fg"><label>아이디</label><input type="text" id="l-id" placeholder="hong123"></div>
     <div class="fg"><label>연락처</label><input type="text" id="l-phone" placeholder="010-0000-0000"></div>
-    <div class="fg"><label>메일</label><input type="text" id="l-email"></div>
+    <div class="fg" style="position:relative"><label>메일</label><input type="text" id="l-email" placeholder="아이디만 적으면 주소를 고를 수 있어요" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="email" oninput="mailSuggest()" onfocus="mailSuggest()" onblur="mailHide()" onkeydown="mailKey(event)"><div id="l-email-sugg" style="display:none;position:absolute;left:0;right:0;top:100%;margin-top:3px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 6px 18px rgba(0,0,0,.14);z-index:30;overflow:hidden"></div></div>
     <div class="fg"><label>교육원 *</label>
       <select id="l-edu" onchange="toggleEduCustom()">
         <option>올에듀</option><option>하나원격</option><option>글로벌</option><option>국사평</option>
@@ -4291,6 +4291,11 @@ function applyDefaultReward(){
   else{document.getElementById('l-reward-type').value='per_credit';document.getElementById('l-reward-value').value=rewardTable[code]||'';}
   toggleRewardInput();
 }
+function syncHalfUI(){
+  const _v2=isV2(lModalYm()), rt=document.getElementById('l-reward-type').value;
+  const hw=document.getElementById('l-half-wrap'); if(hw) hw.style.visibility=_v2?'hidden':'';
+  const ho=document.querySelector('#l-reward-type option[value="rate_half"]'); if(ho) ho.hidden=_v2&&rt!=='rate_half';
+}
 function autoCalcTotal(){
   const credit=parseInt(document.getElementById('l-credit').value)||0;
   const unit=parseInt(document.getElementById('l-unitprice').value)||0;
@@ -4301,8 +4306,7 @@ function autoCalcTotal(){
   const rType=document.getElementById('l-reward-type').value;
   const rVal=parseFloat(document.getElementById('l-reward-value').value)||0;
   // 11월 입금분부터(신버전)는 반액 없음 → 반액 체크칸·'×0.5' 수당방식 숨김
-  { const _v2=isV2(lModalYm()); const hw=document.getElementById('l-half-wrap'); if(hw) hw.style.visibility=_v2?'hidden':'';
-    const ho=document.querySelector('#l-reward-type option[value="rate_half"]'); if(ho) ho.hidden=_v2&&rType!=='rate_half'; }
+  syncHalfUI();
   const isHalfChk=(document.getElementById('l-half')?.checked||false)&&!isV2(lModalYm());
   const tmpL={code,credit,total,course,rewardType:rType,rewardValue:rVal,half:isHalfChk,reportAmt:reportAmtVal,...lModalYm(),rewardManual:!!window._rewardManual};
   const reward=calcRewardForLearner(tmpL);
@@ -4804,7 +4808,8 @@ function openLearnerModal(idx){
     document.getElementById('reward-preview').textContent='';
   }
   renderImgPreviews();
-  lmSuggest();
+  syncHalfUI();
+  lmSuggest(); mailHide();
   openModal('modal-learner');
 }
 // 번호가 빈 학습자 기록에 같은 학생 번호 채우기 (성수기와 같은 기준: 같은 이름에 번호 있는 학생이 딱 1명일 때만)
@@ -4820,6 +4825,39 @@ function fillMissingPhones(){
   if(n) console.log(`[보정] 번호 빈 학습자 기록 ${n}건 채움`);
   return n;
 }
+// 메일 칸: 아이디를 치면 네이버·다음·지메일·기타(직접입력) 중에서 골라 완성. 이미 완성된 주소는 그대로 둠
+const MAIL_DOMAINS=[['네이버','naver.com'],['다음','daum.net'],['지메일','gmail.com']];
+let _mailSel=-1;
+function mailOptions(){
+  const v=(document.getElementById('l-email')?.value||'').trim(), at=v.indexOf('@');
+  const id=at<0?v:v.slice(0,at), dom=at<0?'':v.slice(at+1).toLowerCase();
+  if(!id||/\s/.test(id)) return [];
+  const o=MAIL_DOMAINS.filter(([,d])=>d.startsWith(dom)&&d!==dom).map(([n,d])=>({n,v:id+'@'+d}));
+  if(at<0) o.push({n:'기타',v:id+'@',etc:true});
+  return MAIL_DOMAINS.some(([,d])=>d===dom)?[]:o;
+}
+function mailHide(){ const b=document.getElementById('l-email-sugg'); if(b){ b.style.display='none'; b.innerHTML=''; } _mailSel=-1; }
+function mailSuggest(keep){
+  const b=document.getElementById('l-email-sugg'); if(!b) return;
+  const o=mailOptions(); if(!o.length){ mailHide(); return; }
+  if(!keep) _mailSel=-1;
+  b.style.display='';
+  b.innerHTML=o.map((x,i)=>`<div onmousedown="event.preventDefault();mailPick(${i})" style="display:flex;gap:8px;align-items:center;padding:8px 10px;font-size:13px;cursor:pointer;background:${i===_mailSel?'var(--bg2)':'transparent'}" onmouseenter="this.style.background='var(--bg2)'" onmouseleave="this.style.background='${i===_mailSel?'var(--bg2)':'transparent'}'"><span style="flex-shrink:0;width:40px;font-size:11px;color:var(--text2)">${x.n}</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pmEsc(x.v)}${x.etc?' <span style="color:var(--text3)">직접입력</span>':''}</span></div>`).join('');
+}
+function mailPick(i){
+  const x=mailOptions()[i], el=document.getElementById('l-email'); if(!x||!el) return;
+  el.value=x.v; mailHide(); el.focus();
+  try{ el.setSelectionRange(x.v.length,x.v.length); }catch(e){}
+  if(x.etc) mailHide();
+}
+function mailKey(e){
+  if(e.isComposing) return;
+  const o=mailOptions(), b=document.getElementById('l-email-sugg');
+  if(!o.length||!b||b.style.display==='none') return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){ e.preventDefault(); _mailSel=(_mailSel+(e.key==='ArrowDown'?1:_mailSel<0?0:-1)+o.length)%o.length; mailSuggest(true); }
+  else if((e.key==='Enter'||e.key==='Tab')&&_mailSel>=0){ e.preventDefault(); mailPick(_mailSel); }
+}
+
 // 학습자 추가 창: 이름을 치면 예전에 등록한 같은 학생을 보여주고, 누르면 아이디·연락처·메일·교육원·코드 등을 채움
 // (기존 학생 다음학기 결제 때 매번 다시 적지 않게. 기수·입금월·학점은 새로 적음)
 function lmSuggest(){
@@ -7786,6 +7824,7 @@ document.addEventListener('keydown',e=>{
   // 맨 위에 떠 있는 창이 입력 창일 때만 닫기 (삭제 확인 등 다른 창이 위에 있으면 무시)
   const top=[...document.querySelectorAll('.overlay.open')].pop();
   if(!top||!STICKY_MODALS.has(top.id)) return;
+  if(top.id==='modal-learner'){ const ms=document.getElementById('l-email-sugg'); if(ms&&ms.style.display!=='none'){ mailHide(); return; } }
   if(top.id==='modal-learner'){ const sg=document.getElementById('l-name-sugg'); if(sg&&sg.style.display!=='none'){ sg.style.display='none'; return; } }
   closeModal(top.id);
 });
