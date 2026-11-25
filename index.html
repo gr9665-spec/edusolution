@@ -7152,8 +7152,10 @@ function schedOutdated(s){
   const m=String((s&&s.note)||'').split('|')[0].match(/(\d{2})년도\s*([12]?)/); if(!m||!s.date) return false;
   const y=2000+parseInt(m[1]);
   // 1학기(NN년도 1-x)는 그해 여름이면 끝남 → 11월 이후 수업 일정은 연도가 잘못 들어간 것 (예: '26년도 1-2' 토론이 2026-12-24). '기타'는 수업 뒤 행정 일정일 수 있어 제외
-  if(m[2]==='1'&&!String(s.type||'').startsWith('기타')&&s.date>`${y}-10-31`) return true;
-  return s.date>`${y+1}-03-31`;
+  // 이미 끝난 기수만 숨김 (진행 중·예정 기수는 날짜가 이상해도 보여줘야 고칠 수 있음)
+  const now=pmToday(), over=c=>s.date>c&&now>c;
+  if(m[2]==='1'&&!String(s.type||'').startsWith('기타')&&over(`${y}-10-31`)) return true;
+  return over(`${y+1}-03-31`);
 }
 function renderSchedule(){
   const now=new Date(); const todayStr=now.toISOString().split('T')[0];
