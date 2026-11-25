@@ -3183,7 +3183,7 @@ function buildPortalData(l){
   const sched=schedules
     .filter(s=>(s.learnerId?ids.has(s.learnerId):s.learnerName===l.name)&&s.date>=from&&s.date<=to&&!schedOutdated(s))
     .map(s=>{
-      const m=PORTAL_SCHED[s.type]||[(s.label?s.label+(s.type==='기타마감'?' 마감':''):'')||s.type||'일정','기타 일정','etc'];
+      const m=PORTAL_SCHED[schedBaseType(s.type)]||[(s.label?s.label+(s.type==='기타마감'?' 마감':''):'')||s.type||'일정','기타 일정','etc'];
       const g=group.find(x=>schedNoteIs(s,x))||group.find(x=>x.id===s.learnerId);
       let sub=m[1];
       if(s.endDate&&s.endDate!==s.date) sub+=` · ~${+s.endDate.slice(5,7)}.${+s.endDate.slice(8,10)}`;
@@ -4621,7 +4621,7 @@ function applyLearnerCopyKisu(){
   const key=document.getElementById('learner-copy-kisu-sel').value;
   const prev=document.getElementById('learner-copy-kisu-preview');
   if(!key){ if(prev){prev.textContent='기수를 선택해주세요';prev.style.color='var(--red)';} return; }
-  const items=onlyMainOpenDate(schedules.filter(s=>(s.note||'').split('|')[0].trim()===key),document.getElementById('l-start')?.value||'');
+  const items=onlyMainOpenDate(schedules.filter(s=>(s.note||'').split('|')[0].trim()===key),document.getElementById('l-start')?.value||'').map(s=>({...s,type:schedBaseType(s.type)}));
 
   // 마감 제외한 시작 일정만 (endDate/time 포함)
   const HAS_END=['쪽지시험','토론','과제','중간고사','기말고사'];
@@ -5278,7 +5278,7 @@ function renderDashboard(){
 
 
   // 내일 학사일정 — 전날 안내용
-  const tomorrowStr=new Date(now.getTime()+86400000).toISOString().split('T')[0];
+  const tomorrowStr=new Date(new Date(pmToday()+'T00:00:00Z').getTime()+86400000).toISOString().split('T')[0]; // 한국 날짜 기준 (예전엔 오전 9시 전엔 오늘 일정이 떴음)
   const typeColor={
     '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
     '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
@@ -5293,10 +5293,10 @@ function renderDashboard(){
   const tomorrowSchedules=schedules.filter(s=>s.date===tomorrowStr&&!schedOutdated(s)).sort((a,b)=>typeOrderDash(a.type)-typeOrderDash(b.type)||a.learnerName.localeCompare(b.learnerName));
   document.getElementById('today-schedule').innerHTML=tomorrowSchedules.length
     ?tomorrowSchedules.map(s=>`
-      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[s.type]||'#999'}">
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg2);border-radius:var(--r);margin-bottom:5px;border-left:3px solid ${typeColor[schedBaseType(s.type)]||'#999'}">
         <div style="flex:1;min-width:0">
           <span style="font-size:13px;font-weight:600">${s.learnerName}</span>
-          <span style="font-size:11px;color:${typeColor[s.type]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
+          <span style="font-size:11px;color:${typeColor[schedBaseType(s.type)]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
           ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
           ${s.type==='개강일'?(()=>{const _byId=s.learnerId?learners.filter(x=>x.id===s.learnerId):[];const _learner=_byId.find(x=>schedNoteIs(s,x))||_byId.find(x=>(x.start||'')===(s.date||''))||_byId.find(x=>x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
         </div>
@@ -7099,6 +7099,8 @@ function typeOrder(t){
   for(const [k,v] of Object.entries(TYPE_ORDER)){if(t.startsWith(k.replace(/ \d차$/,'')))return v;}
   return 9;
 }
+// '쪽지시험 1차'·'토론 2차'처럼 차수가 붙은 유형 → 기본 유형 (입력칸 목록엔 차수가 없어 그대로 넣으면 '개강일'로 바뀌었음)
+function schedBaseType(t){ return String(t||'').replace(/\s*\d차(?=마감|$)/,''); }
 const SCHED_TYPE_COLOR={
   '개강일':'#1a5fa8','쪽지시험':'#b45309','쪽지시험마감':'#c0392b',
   '토론':'#2e6e10','토론마감':'#1a6e4a','과제':'#6d28d9','과제마감':'#7c3aed',
@@ -7109,7 +7111,7 @@ function formatScheduleDate(d, todayStr, now){
   const dt=new Date(d); const days=['일','월','화','수','목','금','토'];
   const m=dt.getMonth()+1, dd=dt.getDate(), dw=days[dt.getDay()];
   const isToday=d===todayStr;
-  const diff=Math.round((new Date(d)-now)/(1000*60*60*24));
+  const diff=Math.round((new Date(d)-new Date(todayStr))/(1000*60*60*24));
   const badge=isToday?'<span style="background:#c0392b;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">오늘</span>'
     :diff===1?'<span style="background:#b45309;color:#fff;font-size:10px;padding:1px 5px;border-radius:99px;margin-left:4px">내일</span>':'';
   return `${m}/${dd}(${dw})${badge}`;
@@ -7125,10 +7127,10 @@ function renderScheduleGroupHtml(byDate, todayStr, now, isPast){
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;padding-left:8px">
         ${items.map(s=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${SCHED_TYPE_COLOR[s.type]||'#999'};${isPast?'opacity:.65':''}">
+          <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);border-left:3px solid ${SCHED_TYPE_COLOR[schedBaseType(s.type)]||'#999'};${isPast?'opacity:.65':''}">
             <div style="flex:1;min-width:0">
               <span style="font-size:12px;font-weight:600">${s.learnerName}</span>
-              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[s.type]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
+              <span style="font-size:11px;color:${SCHED_TYPE_COLOR[schedBaseType(s.type)]||'#999'};margin-left:6px;font-weight:600">${schedTypeLabel(s)}</span>
               ${(s.endDate||s.time)?`<span style="font-size:11px;color:var(--text2);margin-left:4px">~ ${s.endDate?s.endDate.slice(5).replace('-','/'):''} ${s.time||''}</span>`:''}
               ${(!s.endDate&&!s.time&&s.type!=='개강일'&&s.type!=='기타'&&!s.type.includes('마감'))?`<span style="font-size:10px;background:#fdeaea;color:#c0392b;border-radius:3px;padding:0 5px;margin-left:4px;cursor:pointer" onclick="openEndDateModal('${s.id}')" title="클릭해서 마감일 입력">⚠ 마감일없음</span>`:''}
               ${s.type==='개강일'?(()=>{const _byId=s.learnerId?learners.filter(x=>x.id===s.learnerId):[];const _learner=_byId.find(x=>schedNoteIs(s,x))||_byId.find(x=>(x.start||'')===(s.date||''))||_byId.find(x=>x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&(x.start||'')===(s.date||''))||learners.find(x=>x.name===s.learnerName&&(!s.learnerId||!x.id||x.id===s.learnerId)&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)))||learners.find(x=>(x.name===s.learnerName&&(x.start||'')===(s.date||'')))||learners.find(x=>x.name===s.learnerName&&x.kisu&&s.note&&nk(s.note).includes(nk(x.kisu)));const _t=(_learner?.type)||'신규';return `<span style="font-size:10px;background:${_t==='신규'?'var(--blue)':'var(--bg2)'};color:${_t==='신규'?'#fff':'var(--text2)'};border-radius:3px;padding:1px 5px;margin-left:4px">${_t}</span>`;})():''}
@@ -7158,26 +7160,33 @@ function schedOutdated(s){
   return over(`${y+1}-03-31`);
 }
 function renderSchedule(){
-  const now=new Date(); const todayStr=now.toISOString().split('T')[0];
+  const now=new Date(); const todayStr=pmToday();
 
   // 다가오는 일정 — 마감 제외, 당일 이후, 지난 기수 일정 제외
   let hiddenOld=0;
   const _q=nk(document.getElementById('schedule-search')?.value).toLowerCase();
+  const ongoing=[];
   const upcoming=schedules.filter(s=>{
     if(s.type.includes('마감')) return false;
-    if(s.date<todayStr) return false;
+    if(s.date<todayStr&&!((s.endDate||'')>=todayStr)) return false;
     if(_q&&!nk((s.learnerName||'')+' '+(s.note||'')+' '+s.type+' '+(s.label||'')).toLowerCase().includes(_q)) return false;
     if(schedOutdated(s)){ hiddenOld++; return false; }
+    if(s.date<todayStr){ ongoing.push(s); return false; } // 이미 시작했지만 마감 전 → '진행 중'으로 따로
     return true;
   }).sort((a,b)=>a.date.localeCompare(b.date)||typeOrder(a.type)-typeOrder(b.type)||a.learnerName.localeCompare(b.learnerName));
 
   const byDate={};
   upcoming.forEach(s=>{ if(!byDate[s.date]) byDate[s.date]=[]; byDate[s.date].push(s); });
 
-  { const c=document.getElementById('schedule-search-count'); if(c) c.textContent=_q?`${upcoming.length}건`:''; }
-  document.getElementById('upcoming-schedule').innerHTML = (upcoming.length
+  { const c=document.getElementById('schedule-search-count'); if(c) c.textContent=_q?`${upcoming.length+ongoing.length}건`:''; }
+  // 진행 중인 일정 (시작일은 지났고 마감 전) — 예전엔 시작일이 지나면 목록에서 빠져 안 보였음. 평소엔 접어 두고 검색하면 펼침
+  const ongDate={};
+  ongoing.sort((a,b)=>a.date.localeCompare(b.date)||typeOrder(a.type)-typeOrder(b.type)||a.learnerName.localeCompare(b.learnerName)).forEach(s=>{ (ongDate[s.date]=ongDate[s.date]||[]).push(s); });
+  const ongOpen=_q||document.getElementById('sched-ongoing')?.dataset.user==='1';
+  const ongHtml=ongoing.length?`<details id="sched-ongoing" ${ongOpen?'open':''} data-user="${document.getElementById('sched-ongoing')?.dataset.user||''}" style="margin-bottom:12px;border:1px solid var(--border);border-radius:var(--r);padding:8px 10px"><summary onclick="this.parentNode.dataset.user=this.parentNode.open?'':'1'" style="cursor:pointer;font-size:13px;font-weight:700">진행 중인 일정 ${ongoing.length}건 <span style="font-size:11px;font-weight:400;color:var(--text3)">시작했지만 아직 마감 전인 일정 (날짜는 시작일)</span></summary><div style="margin-top:10px">${renderScheduleGroupHtml(ongDate,todayStr,now,false)}</div></details>`:'';
+  document.getElementById('upcoming-schedule').innerHTML = ongHtml+(upcoming.length
     ? renderScheduleGroupHtml(byDate, todayStr, now, false)
-    : `<div class="empty"><i class="ti ti-calendar"></i>${_q?'검색한 일정이 없어요':'다가오는 일정 없음'}</div>`)
+    : `<div class="empty"><i class="ti ti-calendar"></i>${_q&&!ongoing.length?'검색한 일정이 없어요':'다가오는 일정 없음'}</div>`)
     +(hiddenOld?`<div style="font-size:11px;color:var(--text3);text-align:center;margin-top:6px">지난 기수(예: 25년도, 26년도 1학기) 일정 ${hiddenOld}건은 날짜가 맞지 않아 숨겼어요 (지워지진 않았어요)</div>`:'');
 
   // 지난 일정 모달이 열려 있는 동안 변경사항 생기면 같이 갱신
@@ -7185,7 +7194,7 @@ function renderSchedule(){
   if(pastModal && pastModal.classList.contains('open')) renderPastSchedule(todayStr, now);
 }
 function renderPastSchedule(todayStr, now){
-  todayStr=todayStr||new Date().toISOString().split('T')[0];
+  todayStr=todayStr||pmToday();
   now=now||new Date();
   const cutoff=new Date(now.getTime()-30*86400000).toISOString().split('T')[0];
   const past=schedules.filter(s=>s.date<todayStr && s.date>=cutoff)
@@ -7920,7 +7929,7 @@ function previewCopyKisu(){
 function applyCopyKisu(){
   const key = document.getElementById('copy-kisu-sel').value;
   if(!key){ alert('기수를 선택해주세요'); return; }
-  const items = onlyMainOpenDate(schedules.filter(s=>(s.note||'').split('|')[0].trim()===key),'');
+  const items = onlyMainOpenDate(schedules.filter(s=>(s.note||'').split('|')[0].trim()===key),'').map(s=>({...s,type:schedBaseType(s.type)}));
   const HAS_END_TYPES=['쪽지시험','토론','과제','중간고사','기말고사'];
 
   // 마감 제외한 시작 일정만 — 같은 유형+날짜가 여러 명이면 마감일·마감시간이 적힌 기록을 우선
