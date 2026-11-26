@@ -2374,6 +2374,7 @@ async function loadUserData(){
       setTimeout(renderUnsyncedBanner,800);
       _loadedLastUpdated = d.lastUpdated || null;
       setSaveBase(d); // 저장 충돌 자동 합치기 기준점
+      setTimeout(planSplitCheck,15000); // 플랜 나눠 저장 2단계: 하루 1번 두 문서 대조
       // ※ 열 때마다 자동으로 고치고 바로 저장하던 보정들은 뺐음(다른 기기 '먼저 저장' 창의 원인).
       //   플랜 자동 연결·결제완료 표시는 다음에 저장할 때 같이 반영됨.
     } else {
@@ -3019,6 +3020,7 @@ async function runSaveToFirebase(){
       try{ const kb=Math.round(new Blob([JSON.stringify(_payload)]).size/1024);
         if(kb>900&&!window._sizeWarned){ window._sizeWarned=true; showToast(`⚠️ 내 데이터가 ${kb}KB예요. 1,000KB를 넘으면 저장이 안 돼요 — 팀장님께 알려주세요`); } }catch(e){}
       await docRef.set(_payload, {mergeFields:Object.keys(_payload)});
+      if(_payload.plans) mirrorPlans(currentUser.uid,_payload.plans,newLastUpdated);
       if(_saveReq===_reqAtStart) try{ localStorage.removeItem('hk_unsaved'); }catch(e){} // 그 사이 새 수정이 없을 때만
       _loadedLastUpdated=newLastUpdated;
       setSaveBase(Object.assign({},_sv,_payload));
@@ -3717,6 +3719,7 @@ async function transferAndRetire(uid,name,src,tuid){
     const lastUpdated=new Date().toISOString();
     if(tuid===currentUser?.uid) _myWrites.add(lastUpdated);
     await tRef.set({learners:newLearners,schedules:newSchedules,plans:newPlans,lastUpdated},{merge:true});
+    mirrorPlans(tuid,newPlans,lastUpdated);
     if(tuid===currentUser?.uid){
       learners=newLearners; schedules=newSchedules; plans=newPlans; _loadedLastUpdated=lastUpdated; setSaveBaseFromLocal();
       LS.set('hk_learners',learners); LS.set('hk_schedules',schedules); LS.set('hk_plans',plans);
@@ -7454,6 +7457,7 @@ function importDataJson(event){
           blogKeywords, todos, rewardTable, mktActivities, mktGoals, prospects, userTemplates, seasons, contentLogs, dailyNotes,
           lastUpdated: _impLU
         }, {merge:false}).then(()=>{
+          mirrorPlans(currentUser.uid,plans,_impLU);
           showToast('✅ 데이터 가져오기 완료! Firebase에 저장됐어요.');
           renderLearners(); renderSchedule(); renderSales(); renderDashboard();
           const result = document.getElementById('diag-result');
@@ -8773,7 +8777,7 @@ function deleteCurPlan(){
     delete plans[deletedPid]; curPid=null; LS.set('hk_plans',plans);
     if(currentUser&&fbDb){
       const upd={}; upd[`plans.${deletedPid}`]=firebase.firestore.FieldValue.delete();
-      fbDb.collection('userData').doc(currentUser.uid).update(upd).catch(()=>saveToFirebase());
+      fbDb.collection('userData').doc(currentUser.uid).update(upd).then(()=>mirrorPlans(currentUser.uid,plans,new Date().toISOString())).catch(()=>saveToFirebase());
     }
     renderPlanList();
     document.getElementById('plan-body').innerHTML='<div class="empty" style="margin-top:80px"><i class="ti ti-clipboard-list" style="font-size:40px;display:block;margin-bottom:12px;opacity:.25"></i>플랜을 선택하거나 새로 작성해주세요</div>';
@@ -8784,6 +8788,43 @@ function deleteCurPlan(){
 // 2) 서버 백업: 저장 직전 서버 상태를 1시간에 1번 userBackups에 보관(7일)
 // 3) 저장 안 된 플랜: 새로고침 때 이 기기에만 있던 플랜 내용을 따로 보관 → 플랜표 탭에서 복구
 const _delPlanIds=new Set(), _delLearnerIds=new Set();
+// ── 플랜표 나눠 저장 (2단계: 기존 문서에 저장 + userPlans/{uid}에 같은 플랜을 한 번 더 저장) ──
+// 읽기는 아직 기존 문서(userData)에서만 함. userPlans 저장이 실패해도 기본 저장에는 영향 없음(기록만 남김).
+// 대상: 아래 네 분만. userPlans 규칙: 지우기 금지, 한 번에 10개 넘게 줄면 거절.
+const PLAN_SPLIT_UIDS=['esOGUkmQ4Ob084oySUcfm36BZ7u1','g3fHw9xnm3ctmkvK3CZl3Eiiz1n2','SnPn4igNEDV2Ko9bSiSOYA1ee163','uEKCtobcZMWDRDSfUKViDzfhxSr2'];
+const PLAN_SPLIT_VER=2;
+const _psSig={};
+function mirrorPlans(uid,P,lu){
+  try{
+    if(!fbDb||!uid||!PLAN_SPLIT_UIDS.includes(uid)||!P||typeof P!=='object') return;
+    const sig=cjsonHash(P); if(_psSig[uid]===sig) return; // 바뀐 게 없으면 건너뜀
+    fbDb.collection('userPlans').doc(uid).set({plans:P,ownerUid:uid,lastUpdated:lu||new Date().toISOString(),ver:PLAN_SPLIT_VER,count:Object.keys(P).length})
+      .then(()=>{ _psSig[uid]=sig; })
+      .catch(e=>{ console.warn('플랜 사본 저장 실패(기본 저장은 정상):',e);
+        try{ const f=LS.get('hk_ps_fail')||[]; f.push({at:new Date().toISOString(),uid:uid.slice(0,4),n:Object.keys(P).length,e:String(e&&e.code||e&&e.message||e)}); LS.set('hk_ps_fail',f.slice(-20)); }catch(x){} });
+  }catch(e){ console.warn('mirrorPlans',e); }
+}
+// 하루 1번(기기별) 기존 문서 플랜 ↔ userPlans 플랜을 플랜별로 대조해서 userBackups/{uid}_psc_YYYYMMDD 에 기록
+// 다른 점이 있어도 아무것도 덮어쓰지 않음. userPlans가 아직 없으면 기존 문서 플랜으로 처음 만들어 둠.
+async function planSplitCheck(){
+  try{
+    if(!currentUser||!fbDb||!PLAN_SPLIT_UIDS.includes(currentUser.uid)) return;
+    const uid=currentUser.uid, day=new Date().toLocaleDateString('sv-SE').replace(/-/g,'');
+    if(localStorage.getItem('hk_psc_day')===day) return;
+    const [m,u]=await Promise.all([fbDb.collection('userData').doc(uid).get({source:'server'}),fbDb.collection('userPlans').doc(uid).get({source:'server'})]);
+    const M=(m.exists&&m.data().plans)||{};
+    if(!u.exists){ if(Object.keys(M).length) mirrorPlans(uid,M,m.data().lastUpdated); localStorage.setItem('hk_psc_day',day); return; }
+    const U=u.data().plans||{};
+    const onlyMain=Object.keys(M).filter(k=>!(k in U)), onlyUp=Object.keys(U).filter(k=>!(k in M));
+    const diff=Object.keys(M).filter(k=>(k in U)&&cjson(M[k])!==cjson(U[k]));
+    const nm=id=>((M[id]||U[id]||{}).clientName||'')+'|'+id;
+    await fbDb.collection('userBackups').doc(uid+'_psc_'+day).set({ownerUid:uid,kind:'planSplitCheck',at:new Date().toISOString(),
+      mainCount:Object.keys(M).length,upCount:Object.keys(U).length,mainLU:(m.data()||{}).lastUpdated||'',upLU:u.data().lastUpdated||'',
+      onlyMain:onlyMain.slice(0,50).map(nm),onlyUp:onlyUp.slice(0,50).map(nm),diff:diff.slice(0,50).map(nm),
+      fails:LS.get('hk_ps_fail')||[],ok:!onlyMain.length&&!onlyUp.length&&!diff.length},{merge:true});
+    localStorage.setItem('hk_psc_day',day);
+  }catch(e){ console.warn('planSplitCheck',e); }
+}
 function keepServerOnlyItems(sv){
   const back=[];
   Object.entries(sv.plans||{}).forEach(([id,p])=>{ if(!plans[id]&&!_delPlanIds.has(id)){ plans[id]=p; back.push(p.clientName||'(이름없음)'); } });
