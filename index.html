@@ -2999,7 +2999,9 @@ async function runSaveToFirebase(){
       }
       autoLinkPlans(); autoLinkProspects(); syncProspectPlans(); autoPaidPlans(); stripLearnerImgData();
       if(snap&&snap.exists){ backupServerState(snap.data()); keepServerOnlyItems(snap.data()); }
-      const newLastUpdated=new Date().toISOString();
+      // 저장 시각은 항상 서버 기록보다 뒤로(기기 시계가 늦어도) — 서버 규칙이 '더 옛날 시각' 저장을 거절함
+      let newLastUpdated=new Date().toISOString();
+      { const _sl=snap&&snap.exists&&snap.data().lastUpdated; if(_sl&&_sl>=newLastUpdated) newLastUpdated=new Date(Date.parse(_sl)+1).toISOString(); }
       _myWrites.add(newLastUpdated);
       // mergeFields: 아래 항목은 통째로 덮어씀 (merge:true는 칸을 지운 게 서버에 반영되지 않아 새로고침하면 되살아났음)
       //            나머지 문서 항목(승인·퇴사 정보 등)은 그대로 둠
